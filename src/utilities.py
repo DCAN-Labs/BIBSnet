@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2021-11-12
+Updated: 2021-11-18
 """
 
 # Import standard libraries
@@ -387,7 +387,7 @@ def valid_readable_json(path):
     :param path: Parameter to check if it represents a valid .json file path
     :return: String representing a valid .json file path
     """
-    return validate(path, lambda x: os.path.splitext(path)[-1] == '.json',
+    return validate(path, lambda _: os.path.splitext(path)[-1] == '.json',
                     valid_readable_file, '{} is not a readable .json filepath')
 
 
