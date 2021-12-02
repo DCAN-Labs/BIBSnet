@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2021-11-18
+Updated: 2021-12-02
 """
 
 # Import standard libraries
@@ -14,6 +14,7 @@ from datetime import datetime  # for seeing how long scripts take to run
 from glob import glob
 import json
 import multiprocessing as mp
+import nibabel as nib
 import os
 import pandas as pd 
 import random  # only used by rand_string
@@ -120,6 +121,26 @@ def copy_and_rename_file(old_file, new_file):
     :param new_file: String, valid path to what will be a copy of old_file
     """
     os.rename(shutil.copy2(old_file, os.path.dirname(new_file)), new_file)
+
+
+def crop_images(image_dir, output_dir, z_min=80, z_max=320):
+    """
+    Resize Images.
+    Usage:
+    crop_images <input_folder> <output_folder>
+    crop_images -h | --help
+    Options:
+    -h --help     Show this screen.
+    """
+    image_files = sorted([f for f in os.listdir(image_dir) if os.path.isfile(os.path.join(image_dir, f))])
+    for eachfile in image_files:
+        # fslroi sub-CENSORED_ses-20210412_T1w sub-CENSORED_ses-20210412_T1w_cropped 0 144 0 300 103 320
+        input_file = os.path.join(image_dir, eachfile)
+        img = nib.load(input_file)
+        cropped_img = img.slicer[:208, :300, z_min:z_max, ...]
+        print(cropped_img.shape)
+        output_file = os.path.join(output_dir, eachfile)
+        nib.save(cropped_img, output_file)
 
 
 def dict_has(a_dict, a_key):
@@ -342,6 +363,31 @@ def rand_string(L):
     """
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=L))
 
+
+def resize_images(input_folder, output_folder):
+    """
+    Resize Images.
+    Usage:
+    resize_images <input_folder> <output_folder>
+    resize_images -h | --help
+    Options:
+    -h --help     Show this screen.
+    """
+    only_files = [f for f in os.path.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+
+    os.system('module load fsl')
+    resolution = 1
+    for eachfile in only_files:
+        input_image = os.path.join(input_folder, eachfile)
+        print(eachfile)
+        command = 'flirt -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
+        reference_image = \
+            '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
+        output_image = os.path.join(output_folder, eachfile)
+        filled_in_command = command.format(input_image, reference_image, resolution, output_image)
+        os.system(filled_in_command)
+
+
 def valid_float_0_to_1(val):
     """
     :param val: Object to check, then throw an error if it is invalid
@@ -475,3 +521,5 @@ def validate_cli_args(cli_args, parser, arg_names=set()):
                          'ri-pipeline', cli_args['subject'], cli_args['ses'])
         )
     return cli_args
+
+    
