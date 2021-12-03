@@ -62,7 +62,7 @@ def main():
         segmentation = ensure_chirality_flipped(segmentation)  # Paul(?) already writing this
 
     # Put just the mask and the segmentation (and nothing else) into a directory to run nibabies
-        mask = make_mask(json_args, segmentation)  # Luci has a script for this, but it's clunky so we'll just use it as a blueprint
+        mask = make_mask(json_args, segmentation)  # Luci has a script for this - we'll just use it as a blueprint
         run_nibabies(json_args, mask, segmentation)
     else:
         run_nibabies(json_args)
