@@ -91,6 +91,7 @@ def fill_in_holes(nifti_output_file_path):
     maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add recombined_mask_LR.nii.gz',
                            out_file='recombined_mask.nii.gz')
     maths.run()
+    os.replace('recombined_mask.nii.gz', nifti_output_file_path)
 
 
 def create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table):
