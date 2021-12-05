@@ -55,19 +55,21 @@ def fill_in_holes(nifti_output_file_path):
     if not os.path.exists('wd'):
         os.mkdir('wd')
 
-    # separate mask into L (1), R (2), and middle (3) files
+    # separate mask into L (1), R (2), and middle (3) files.
+    # The label value assigned to each will be 1 in order to perform binary operations, and reassigned during the
+    #last stage
 
     anatfile = nifti_output_file_path
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
                            out_file='wd/Lmask.nii.gz')
     maths.run()
 
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
                            out_file='wd/Rmask.nii.gz')
     maths.run()
 
     maths.run()
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
                            out_file='wd/Mmask.nii.gz')
     maths.run()
 
@@ -84,6 +86,17 @@ def fill_in_holes(nifti_output_file_path):
 
     anatfile = 'wd/Mmask.nii.gz'
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -fillh -ero',
+                           out_file='wd/M_mask_holes_filled.nii.gz')
+    maths.run()
+
+    # Reassign values of 2 and 3 to R and middle masks
+    anatfile = 'wd/R_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mult 2',
+                           out_file='wd/R_mask_holes_filled.nii.gz')
+    maths.run()
+
+    anatfile = 'wd/M_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mult 3',
                            out_file='wd/M_mask_holes_filled.nii.gz')
     maths.run()
 
