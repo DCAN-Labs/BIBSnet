@@ -12,6 +12,7 @@ import os
 
 from docopt import docopt
 import nibabel as nib
+import shutil
 
 from nipype.interfaces import fsl
 
@@ -49,49 +50,68 @@ def correct_chirality_mask(nifti_input_file_path, segment_lookup_table, nifti_ou
 
 def fill_in_holes(nifti_output_file_path):
     os.system('module load fsl')
-    # separate mask into L (1), R (2), and middle (3) files
+
+    #create working directory to store intermediate outputs that can be deleted after
+    if not os.path.exists('wd'):
+        os.mkdir('wd')
+
+    # separate mask into L (1), R (2), and middle (3) files.
+
     anatfile = nifti_output_file_path
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1 -bin',
-                           out_file='Lmask.nii.gz')
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
+                           out_file='wd/Lmask.nii.gz')
     maths.run()
 
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2 -bin',
-                           out_file='Rmask.nii.gz')
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
+                           out_file='wd/Rmask.nii.gz')
     maths.run()
 
     maths.run()
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3 -bin',
-                           out_file='Mmask.nii.gz')
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
+                           out_file='wd/Mmask.nii.gz')
     maths.run()
 
-    # dilate, fill, and erode each mask in order to get rid of holes
-    anatfile = 'Lmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -dilM -fillh -ero -ero -ero -ero',
-                           out_file='L_mask_holes_filled.nii.gz')
+    # dilate, fill, and erode each mask in order to get rid of holes (also binarize L and M images in order to perform binary operations)
+    anatfile = 'wd/Lmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -fillh -ero -ero -ero',
+                           out_file='wd/L_mask_holes_filled.nii.gz')
     maths.run()
 
-    anatfile = 'Rmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -dilM -fillh -ero -ero -ero -ero',
-                           out_file='R_mask_holes_filled.nii.gz')
+    anatfile = 'wd/Rmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero -ero -ero',
+                           out_file='wd/R_mask_holes_filled.nii.gz')
     maths.run()
 
-    anatfile = 'Mmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -dilM -fillh -ero -ero -ero -ero',
-                           out_file='M_mask_holes_filled.nii.gz')
+    anatfile = 'wd/Mmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero -ero -ero',
+                           out_file='wd/M_mask_holes_filled.nii.gz')
+    maths.run()
+
+    # Reassign values of 2 and 3 to R and middle masks
+    anatfile = 'wd/R_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 2',
+                           out_file='wd/R_mask_holes_filled_label2.nii.gz')
+    maths.run()
+
+    anatfile = 'wd/M_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 3',
+                           out_file='wd/M_mask_holes_filled_label3.nii.gz')
     maths.run()
 
     # recombine new L and R mask files
-    anatfile_left = 'L_mask_holes_filled.nii.gz'
-    anatfile_right = 'R_mask_holes_filled.nii.gz'
-    anatfile_mid = 'M_mask_holes_filled.nii.gz'
+    anatfile_left = 'wd/L_mask_holes_filled.nii.gz'
+    anatfile_right = 'wd/R_mask_holes_filled_label2.nii.gz'
+    anatfile_mid = 'wd/M_mask_holes_filled_label3.nii.gz'
     maths = fsl.ImageMaths(in_file=anatfile_left, op_string='-add {}'.format(anatfile_right),
-                           out_file='recombined_mask_LR.nii.gz')
+                           out_file='wd/recombined_mask_LR.nii.gz')
     maths.run()
 
-    maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add recombined_mask_LR.nii.gz',
+    maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add wd/recombined_mask_LR.nii.gz',
                            out_file='recombined_mask.nii.gz')
     maths.run()
     os.replace('recombined_mask.nii.gz', nifti_output_file_path)
+
+    shutil.rmtree('wd')
 
 
 def create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table):
