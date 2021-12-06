@@ -27,11 +27,12 @@ def check_mask_values(mask_file):
 
     val_4 = np.where(mask_data_1D == 4.0)
     val_5 = np.where(mask_data_1D == 5.0)
-    total = len(val_4[0]) + len(val_5[0])
+    val_6 = np.where(mask_data_1D == 6.0)
+    total = len(val_4[0]) + len(val_5[0]) + len(val_6[0])
 
     percentage_mislabeled = total/num_nonzeros
     percentage_mislabeled = round(percentage_mislabeled, 5)
-    print("{} out of {} voxels ({}%) have a value of 4 or 5".format(len(val_4[0]), num_nonzeros, percentage_mislabeled))
+    print("{} out of {} voxels ({}%) have a value of 4, 5, or 6".format(total, num_nonzeros, percentage_mislabeled))
 
 if __name__ == '__main__':
     args = docopt(__doc__)
