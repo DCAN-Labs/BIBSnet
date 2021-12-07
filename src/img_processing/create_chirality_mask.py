@@ -159,10 +159,7 @@ def fix_overlap_values(nifti_output_file_path):
     out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
     nib.save(out_img, nifti_output_file_path)
 
-    shutil.rm('filled_mask.nii.gz')
-
-    #nib.save(out_img, 'LRmask_final.nii.gz')
-    #os.replace('LRmask_final.nii.gz', nifti_output_file_path)
+    os.remove('filled_mask.nii.gz')
 
 def create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table):
     img = nib.load(nifti_input_file_path)

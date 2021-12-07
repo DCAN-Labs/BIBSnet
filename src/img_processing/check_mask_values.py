@@ -2,7 +2,7 @@
 Check that fixed chirality masks don't contain label values of 4 or 5.
 
 Usage:
-  check_mask_values <mask_file>
+  check_mask_values <dilated_LRmask>
   check_mask_values -h | --help
 
 Options:
@@ -12,10 +12,11 @@ Options:
 import nibabel as nib
 import numpy as np
 from docopt import docopt
+import pandas as pd
 
 
-def check_mask_values(mask_file):
-    mask_img = nib.load(mask_file)
+def check_mask_values(dilated_LRmask):
+    mask_img = nib.load(dilated_LRmask)
     mask_data = mask_img.get_fdata()
 
     #reshape numpy array
@@ -34,6 +35,7 @@ def check_mask_values(mask_file):
     percentage_mislabeled = round(percentage_mislabeled, 5)
     print("{} out of {} voxels ({}%) have a value of 4, 5, or 6".format(total, num_nonzeros, percentage_mislabeled))
 
+
 if __name__ == '__main__':
     args = docopt(__doc__)
-    check_mask_values(args['<mask_file>'])
+    check_mask_values(args['<dilated_LRmask>'])
