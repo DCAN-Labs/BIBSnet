@@ -13,6 +13,7 @@ import os
 from docopt import docopt
 import nibabel as nib
 import shutil
+import numpy as np
 
 from nipype.interfaces import fsl
 
@@ -46,6 +47,8 @@ def correct_chirality_mask(nifti_input_file_path, segment_lookup_table, nifti_ou
     create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table)
 
     fill_in_holes(nifti_output_file_path)
+
+    fix_overlap_values(nifti_output_file_path)
 
 
 def fill_in_holes(nifti_output_file_path):
@@ -107,12 +110,59 @@ def fill_in_holes(nifti_output_file_path):
     maths.run()
 
     maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add wd/recombined_mask_LR.nii.gz',
-                           out_file='recombined_mask.nii.gz')
+                           out_file='filled_mask.nii.gz')
     maths.run()
-    os.replace('recombined_mask.nii.gz', nifti_output_file_path)
+    #os.replace('filled_mask.nii.gz', nifti_output_file_path)
 
     shutil.rmtree('wd')
 
+def fix_overlap_values(nifti_output_file_path):
+    # load original and filled LR mask data
+    orig_LRmask_img = nib.load(nifti_output_file_path)
+    orig_LRmask_data = orig_LRmask_img.get_fdata()
+
+    fill_LRmask_img = nib.load('filled_mask.nii.gz')
+    fill_LRmask_data = fill_LRmask_img.get_fdata()
+
+    # Flatten numpy arrays
+    orig_LRmask_data_2D = orig_LRmask_data.reshape((182, 39676), order='C')
+    orig_LRmask_data_1D = orig_LRmask_data_2D.reshape((7221032), order='C')
+
+    fill_LRmask_data_2D = fill_LRmask_data.reshape((182, 39676), order='C')
+    fill_LRmask_data_1D = fill_LRmask_data_2D.reshape((7221032), order='C')
+
+    #grab index values of voxels with a value of 4, 5, or 6 in filled L/R mask
+    val_0 = np.where(fill_LRmask_data_1D == 0.0)
+    num_nonzeros = fill_LRmask_data_1D.shape[0] - len(val_0[0])
+
+    val_4 = np.where(fill_LRmask_data_1D == 4.0)
+    val_5 = np.where(fill_LRmask_data_1D == 5.0)
+    val_6 = np.where(fill_LRmask_data_1D == 6.0)
+    total = len(val_4[0]) + len(val_5[0]) + len(val_6[0])
+
+    percentage_mislabeled = total / num_nonzeros
+    percentage_mislabeled = round(percentage_mislabeled, 5)
+    print("{} out of {} voxels ({}%) have a value of 4, 5, or 6".format(total, num_nonzeros, percentage_mislabeled))
+    print("Replacing voxel values of 4, 5, or 6 with equivalent voxel label alues from initial L/R mask created before filling holes...")
+
+    #Replace overlapping label values with corresponding label values from initial mask
+    index_vals = np.concatenate([val_4, val_5, val_6], axis=1)
+    for i in index_vals[:]:
+        fill_LRmask_data_1D[i] = orig_LRmask_data_1D[i]
+
+    # reshape numpy array
+    fill_LRmask_data_2D = fill_LRmask_data_1D.reshape((182, 39676), order='C')
+    fill_LRmask_data_3D = fill_LRmask_data_2D.reshape((182, 218, 182), order='C')
+
+    #save new numpy array as image
+    empty_header = nib.Nifti1Header()
+    out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
+    nib.save(out_img, nifti_output_file_path)
+
+    shutil.rm('filled_mask.nii.gz')
+
+    #nib.save(out_img, 'LRmask_final.nii.gz')
+    #os.replace('LRmask_final.nii.gz', nifti_output_file_path)
 
 def create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table):
     img = nib.load(nifti_input_file_path)
