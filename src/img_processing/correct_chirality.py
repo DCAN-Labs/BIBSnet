@@ -54,10 +54,10 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_ma
         for j in range(height):
             for k in range(depth):
                 voxel = data[i][j][k]
-                chirality_voxel = int(left_right_data[i][j][k])
-                if chirality_voxel == chirality_constants.UNKNOWN or chirality_voxel == chirality_constants.BILATERAL:
-                    continue
                 region = free_surfer_label_to_region[voxel]
+                chirality_voxel = int(left_right_data[i][j][k])
+                if not (region.startswith(LEFT) or region.startswith(RIGHT)):
+                    continue
                 if chirality_voxel == chirality_constants.LEFT:
                     check_and_correct_region(True, region, segment_name_to_number, new_data, i, j, k)
                 elif chirality_voxel == chirality_constants.RIGHT:
