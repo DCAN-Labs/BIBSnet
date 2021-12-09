@@ -18,13 +18,13 @@ def test_correct_chirality_incorrect_left_label():
     input_img = nib.load(nifti_input_file_path)
     input_data = input_img.get_data()
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
-    output_img = nib.load(nifti_input_file_path)
+    output_img = nib.load(nifti_output_file_path)
     output_data = output_img.get_data()
-    assert incorrect_right_label == free_surfer_label_to_region(
-            input_data[incorrectly_labeled_left[0]], [incorrectly_labeled_left[1]], [incorrectly_labeled_left[2]])
+    assert incorrect_right_label == free_surfer_label_to_region[
+            input_data[incorrectly_labeled_left[0]][incorrectly_labeled_left[1]][incorrectly_labeled_left[2]]]
     correct_right_label = 'Right-Cerebral-White-Matter'
-    assert correct_right_label == free_surfer_label_to_region(
-            output_data[incorrectly_labeled_left[0]], [incorrectly_labeled_left[1]], [incorrectly_labeled_left[2]])
+    assert correct_right_label == free_surfer_label_to_region[
+            output_data[incorrectly_labeled_left[0]][incorrectly_labeled_left[1]][incorrectly_labeled_left[2]]]
 
 
 if __name__ == "__main__":
