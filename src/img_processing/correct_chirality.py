@@ -59,7 +59,8 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_ma
                 if not (region.startswith(LEFT) or region.startswith(RIGHT)):
                     continue
                 if chirality_voxel == chirality_constants.LEFT or chirality_voxel == chirality_constants.RIGHT:
-                    check_and_correct_region(chirality_voxel == chirality_constants.LEFT, region, segment_name_to_number, new_data, i, j, k)
+                    check_and_correct_region(
+                        chirality_voxel == chirality_constants.LEFT, region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_output_file_path)
 
