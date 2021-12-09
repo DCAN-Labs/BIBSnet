@@ -7,9 +7,9 @@ from util.look_up_tables import get_id_to_region_mapping
 
 def test_correct_chirality_incorrect_right_label():
     nifti_input_file_path = \
-        '../../temp/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
+        '../../data/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
     segment_lookup_table = '../../data/look_up_tables/FreeSurferColorLUT.txt'
-    left_right_mask_nifti_file = '../../temp/test_subject_data/1mo/LRmask.nii.gz'
+    left_right_mask_nifti_file = '../../data/test_subject_data/1mo/LRmask.nii.gz'
     fp = tempfile.NamedTemporaryFile(suffix='.nii.gz')
     nifti_output_file_path = fp.name
     correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_mask_nifti_file,
@@ -40,9 +40,9 @@ def get_input_data(nifti_input_file_path):
 
 def test_correct_chirality_correct_right_label():
     nifti_input_file_path = \
-        '../../temp/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
+        '../../data/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
     segment_lookup_table = '../../data/look_up_tables/FreeSurferColorLUT.txt'
-    left_right_mask_nifti_file = '../../temp/test_subject_data/1mo/LRmask.nii.gz'
+    left_right_mask_nifti_file = '../../data/test_subject_data/1mo/LRmask.nii.gz'
     fp = tempfile.NamedTemporaryFile(suffix='.nii.gz')
     nifti_output_file_path = fp.name
     correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_mask_nifti_file,
@@ -66,9 +66,9 @@ def test_correct_labels(correct_label, correctly_labeled, nifti_input_file_path,
 
 def test_correct_chirality_correct_left_label():
     nifti_input_file_path = \
-        '../../temp/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
+        '../../data/test_subject_data/1mo/sub-00006_ses-20170806_nnUnet_aseg_pre_chircorrection.nii.gz'
     segment_lookup_table = '../../data/look_up_tables/FreeSurferColorLUT.txt'
-    left_right_mask_nifti_file = '../../temp/test_subject_data/1mo/LRmask.nii.gz'
+    left_right_mask_nifti_file = '../../data/test_subject_data/1mo/LRmask.nii.gz'
     fp = tempfile.NamedTemporaryFile(suffix='.nii.gz')
     nifti_output_file_path = fp.name
     correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_mask_nifti_file,
