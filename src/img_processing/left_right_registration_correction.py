@@ -2,7 +2,7 @@
 Left-right registration correction.
 
 Usage:
-  left_right_registration_correction <subject_head> <template_head> <template_mask> <nifti_input_file_path> <nifti_output_file_path>
+  left_right_registration_correction <subject_head> <template_head> <template_mask> <nifti_input_file_path> <nifti_output_file_path> <segment_lookup_table>
   left_right_registration_correction -h | --help
 
 Options:
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     template_head = args['<template_head>']
     template_mask = args['<template_mask>']
     nifti_input_file_path = args['<nifti_input_file_path>']
-    segment_lookup_table = '../../data/look_up_tables/FreeSurferColorLUT.txt'
+    segment_lookup_table = args['<segment_lookup_table>']
     command = '../../bin/LR_mask_registration.sh {} {} {}'.format(subject_head, template_head, template_mask)
     nifti_output_file_path = args['<nifti_output_file_path>']
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
