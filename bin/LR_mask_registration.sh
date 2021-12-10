@@ -7,7 +7,7 @@ TemplateMask=$1;shift
 
 # this script will register a LR mask from a "template" brain (T1 OR T2) to a "target" brain T1/T2 from a different case
 
-module load ANTS
+module load ants
 WD="./wd"
 mkdir "$WD"
 
