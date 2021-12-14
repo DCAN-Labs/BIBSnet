@@ -1,0 +1,15 @@
+/temp/
+
+/src/L_mask_holes_filled.nii.gz
+/src/Lmask.nii.gz
+/src/R_mask_holes_filled.nii.gz
+/src/recombined_mask.nii.gz
+/src/Rmask.nii.gz
+/src/img_processing/L_mask_holes_filled.nii.gz
+/src/img_processing/Lmask.nii.gz
+/src/img_processing/M_mask_holes_filled.nii.gz
+/src/img_processing/Mmask.nii.gz
+/src/img_processing/R_mask_holes_filled.nii.gz
+/src/img_processing/recombined_mask_LR.nii.gz
+/src/img_processing/Rmask.nii.gz
+/data/chirality_masks/1_month_corrected_chirality.nii.gz
