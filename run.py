@@ -42,7 +42,7 @@ STAGES = ("crop-resize", "nnU-Net", "chirality-mask", "nibabies", "XCP")  # Call
 
 # Custom local imports
 from src.utilities import (
-    crop_images, exit_with_time_info, extract_from_json, resize_images,
+    as_cli_arg, crop_images, ensure_dict_has, exit_with_time_info, extract_from_json, resize_images,
     valid_readable_json
 )
 
@@ -87,24 +87,65 @@ def get_params_from_JSON():
     parser.add_argument(
         "stages", nargs="+", required=True, choices=STAGES, default=STAGES
     )
-    return extract_from_json(parser.parse_args().parameter_json)
+    return validate_json_args(extract_from_json(parser.parse_args().parameter_json), parser)
 
 
-def crop_and_resize_images(json_args):
+def validate_json_args(j_args):
     """
-    :param json_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args from parameter .JSON file
     """
-    crop_images(json_args["crop_resize"]["input_dir"],
-                json_args["crop_resize"]["output_dir"])
-    resize_images(json_args["crop_resize"]["input_dir"],
-                  json_args["crop_resize"]["output_dir"])
+    # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int
+
+    j_args["nibabies"] = ensure_dict_has(
+        j_args["nibabies"], "age_months",
+        read_age_from_participants_tsv(j_args)
+        # TODO Figure out which column in the participants.tsv file has the age_months value
+    )
 
 
-def make_mask(json_args):
+def read_age_from_participants_tsv(j_args):
     """
-    :param json_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :return: Int, the subject's age (in months) listed in participants.tsv
     """
-    base_dir = json_args["nibabies"]["work_dir"]
+    # Read in participants.tsv
+    part_tsv_df = pd.read_csv(os.path.join(j_args["common"]["bids_dir"],
+                                           "participants.tsv"), sep="\t")
+
+    # Column names of participants.tsv                         
+    age_months_col = "age" # TODO Get name of column with age_months value
+    sub_ID_col = "participant_id" # TODO Figure out the subject ID column name (participant ID or subject ID)
+    ses_ID_col = "session"
+
+    # Ensure that the subject and session IDs start with the right prefixes
+    sub_ses = {"participant_label": "sub-", "session": "ses-"}
+    for param_name, prefix in sub_ses.items():
+        param = j_args["common"][param_name]
+        sub_ses[prefix] = (param if param[:len(prefix)]
+                            == prefix else prefix + param)
+
+    # Get and return the age_months value from participants.tsv
+    subj_row = part_tsv_df.loc[(part_tsv_df[sub_ID_col] == sub_ses["sub-"]) &
+                               (part_tsv_df[ses_ID_col] == sub_ses["ses-"])] # select where "participant_id" and "session" match
+
+    return int(subj_row.loc[age_months_col].strip("M")) # the "age" column has an "M" at the end of each number
+
+
+def crop_and_resize_images(j_args):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    crop_images(j_args["crop_resize"]["input_dir"],
+                j_args["crop_resize"]["output_dir"])
+    resize_images(j_args["crop_resize"]["input_dir"],
+                  j_args["crop_resize"]["output_dir"])
+
+
+def make_mask(j_args):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    base_dir = j_args["nibabies"]["work_dir"]
     os.chdir(base_dir)
     
     aseg = glob('sub-*_aseg.nii.gz')
@@ -129,11 +170,11 @@ def make_mask(json_args):
             img_maths.run()
 
 
-def make_mask_Luci_original(json_args):
+def make_mask_Luci_original(j_args):
     """
-    :param json_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args from parameter .JSON file
     """
-    base_dir = json_args["nibabies"]["work_dir"]
+    base_dir = j_args["nibabies"]["work_dir"]
     os.chdir(base_dir)
     
     aseg = glob('sub-*_aseg.nii.gz')
@@ -160,6 +201,38 @@ def make_mask_Luci_original(json_args):
         img_maths = fsl.ImageMaths(in_file=anatfile, op_string='-ero',
                                    out_file='{}_{}_aseg_mask.nii.gz'.format(sub, ses))
         img_maths.run()
+
+
+def run_nibabies(j_args):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    # Get nibabies options from parameter file and turn them into flags
+    nibabies_args = list()
+    for nibabies_arg in ["age_months", "work_dir", ]:
+        nibabies_args.append(as_cli_arg(nibabies_arg))
+        nibabies_args.append(j_args["nibabies"][nibabies_arg])
+
+    # Get cohort number from template_description.json
+    template_description = extract_from_json(j_args["common"]["template_description_json"])
+    cohorts = template_description["cohort"]
+    for cohort_num, cohort_details in cohorts:
+        if (int(cohort_details["age"][0]) < int(j_args["nibabies"]["age_months"])
+                                            < int(cohort_details["age"][1])):
+            cohort = cohort_num
+            break
+
+    # Run nibabies
+    myseg_dir = os.path.join(j_args["common"]["derivatives"], "myseg")
+    subprocess.check_call([
+        j_args["nibabies"]["script_path"],
+        j_args["common"]["bids_dir"],
+        j_args["common"]["nibabies_dir"],
+        "participant",
+        "--derivatives", myseg_dir,
+        "--output-spaces", "MNIInfant:cohort-{}".format(cohort),
+        *nibabies_args
+    ])
 
 
 if __name__ == '__main__':

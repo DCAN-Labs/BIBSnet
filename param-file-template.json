@@ -1,9 +1,13 @@
 {
     "common": {
+        "bids_dir": "",
+        "derivatives": "",
         "fd_spike_threshold": "",
         "nibabies_dir": "",
         "participant_label": "",
+        "session": "",
         "task_id": "",
+        "template_description_json": "",
         "verbose": ""
     },
 
@@ -66,6 +70,7 @@
         "reports_only": "",
         "resource_monitor": "",
         "return_all_components": "",
+        "script_path": "",
         "segmentation_atlases_dir": "",
         "skip_bids_validation": "",
         "skull_strip_fixed_seed": "",
@@ -100,6 +105,7 @@
         "nuissance_regressors": "",
         "output_dir": "",
         "resource_monitor": "",
+        "script_path": "",
         "smoothing": "",
         "upper_bpf": "",
         "work_dir": ""
