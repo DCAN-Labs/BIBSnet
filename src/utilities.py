@@ -372,16 +372,32 @@ def resize_images(input_folder, output_folder):
 
     os.system('module load fsl')
     resolution = 1
+    count = 1
     for eachfile in only_files:
-        input_image = os.path.join(input_folder, eachfile)
-        print(eachfile)
-        command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
-        reference_image = \
-            '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
-        output_image = os.path.join(output_folder, eachfile)
-        filled_in_command = command.format(input_image, reference_image, resolution, output_image)
-        os.system(filled_in_command)
-
+        if count==1:
+            input_image = os.path.join(input_folder, eachfile)
+            print(eachfile)
+            command = 'flirt -interp spline -dof 6 -in {} -ref {} -omat {}'
+            reference_image = os.image.join(input_folder,only_files[1])
+            T1toT2_matrix = os.path.join(output_folder, 'T1toT2.mat')
+            filled_in_command = command.format(input_image, reference_image, T1toT2_matrix)
+            os.system(filled_in_command)            
+            command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init {} -o {}'
+            reference_image = \
+                '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
+            output_image = os.path.join(output_folder, eachfile)
+            filled_in_command = command.format(input_image, reference_image, resolution, T1toT2_matrix ,output_image)
+            os.system(filled_in_command)
+        elif count==2:
+            input_image = os.path.join(input_folder, eachfile)
+            print(eachfile)
+            command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
+            reference_image = \
+                '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
+            output_image = os.path.join(output_folder, eachfile)
+            filled_in_command = command.format(input_image, reference_image, resolution, output_image)
+            os.system(filled_in_command)
+        count+=1
 
 def valid_float_0_to_1(val):
     """
