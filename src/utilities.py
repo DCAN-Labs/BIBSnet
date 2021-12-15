@@ -10,19 +10,18 @@ Updated: 2021-12-02
 
 # Import standard libraries
 import argparse
-from datetime import datetime  # for seeing how long scripts take to run
-from glob import glob
 import json
-import multiprocessing as mp
-import nibabel as nib
 import os
-import pandas as pd 
 import random  # only used by rand_string
 import shutil
 import string  # only used by rand_string
 import subprocess
 import sys
-import time
+from datetime import datetime  # for seeing how long scripts take to run
+from glob import glob
+from os import listdir
+
+import nibabel as nib
 
 # Constants: Name of scanner-info command-line argument, directory containing
 # the main pipeline script, SLURM-/SBATCH-related arguments' default names, and
@@ -57,7 +56,7 @@ def add_slurm_args_to(parser):
     :param parser: argparse.ArgumentParser with some command-line arguments 
     :return: parser with all CLI arguments needed to run parallel SLURM jobs
     """
-    default_CPUs = 1
+    default_cpus = 1
     default_gb_mem = 8
     default_sleep = 10
     default_time_limit = "01:00:00"
@@ -66,9 +65,9 @@ def add_slurm_args_to(parser):
         help="Name of the account to submit the SBATCH job under."
     )
     parser.add_argument(
-        '-c', '--cpus', type=valid_whole_number, default=default_CPUs,
+        '-c', '--cpus', type=valid_whole_number, default=default_cpus,
         help=('Number of CPUs to use for each Python job. By default, this '
-              'argument\'s value will be {}.'.format(default_CPUs))
+              'argument\'s value will be {}.'.format(default_cpus))
     )
     parser.add_argument(
         '-mem', '--memory', type=valid_whole_number, default=default_gb_mem,
@@ -169,6 +168,7 @@ def exit_with_time_info(start_time, exit_code=0):
     """
     Terminate the pipeline after displaying a message showing how long it ran
     :param start_time: datetime.datetime object of when the script started
+    :param exit_code: exit code
     """
     print('The pipeline for this subject took this long to run {}: {}'
           .format('successfully' if exit_code == 0 else 'and then crashed',
@@ -244,23 +244,18 @@ def get_optional_cli_args(cli_args, drop_slurm=False):
             elif not isinstance(cli_args[arg], bool):
                 optional_args.append(str(cli_args[arg]))
     return optional_args
-    
 
-def get_pipeline_cli_argparser(arg_names=get_main_pipeline_arg_names()):
+
+def get_pipeline_cli_argparser(arg_names=None):
     """
     :param arg_names: Set containing strings naming all command-line arguments
     :return: argparse.ArgumentParser with all command-line arguments 
              needed to run pipeline_wrapper.py
     """
     # Default values for user input arguments
-    default_BIDS_dir = 'abcd-hcp-pipeline'
-    default_censor_num = 0 # 2
-    default_fd = 0.9
-    default_smooth = 0
-    default_study_name = 'ABCD'
-    default_runs_lvls = [1, 2]
-    default_temporal_filter = 100
-    default_wb_command = get_default_ext_command('wb_command')
+    if arg_names is None:
+        arg_names = get_main_pipeline_arg_names()
+    default_bids_dir = 'abcd-hcp-pipeline'
     generic_dtseries_path = os.path.join(
         '(--study-dir)', 'derivatives', '(--bids-dir)',
         '(--subject)', '(--ses)', 'func',
@@ -274,46 +269,46 @@ def get_pipeline_cli_argparser(arg_names=get_main_pipeline_arg_names()):
     # Strings used in multiple help messages
     msg_default = ' By default, this argument\'s value(s) will be {}.'
     msg_pipeline = 'Name of the {} that you are running the pipeline on.'
-    msg_smooth = ('Millimeters of {} smoothing that has already been applied '
-                  'in the minimal processing steps.')
-    msg_template = 'Name (not full path) of the Level {} .fsf template file.'
-    msg_whole_num = ' This argument must be a positive integer.'
 
     # Create parser with command-line arguments from user
     parser = argparse.ArgumentParser(description=(
         'ABCD fMRI Task Prep pipeline. Inputs must be in the same format '
         'as ABCD-HCP-Pipeline outputs after running filemap.'
     ))
-    parser = add_arg_if_in_arg_names('parameter_file', arg_names, parser, )  # TODO Make the script use a parameter file instead of just adding all of the options from the nibabies, XCP, etc.?
+    parser = add_arg_if_in_arg_names('parameter_file', arg_names,
+                                     parser, )  # TODO Make the script use a parameter file instead of just adding all
+    # of the options from the nibabies, XCP, etc.?
     parser = add_arg_if_in_arg_names('bids_dir', arg_names, parser,
-        metavar='NAME_OF_BIDS_DERIVATIVES_PIPELINE_DIRECTORY',
-        default=default_BIDS_dir,
-        help=('Name of the BIDS-standard file-mapped directory with subject '
-              'data in the "derivatives" subdirectory of your --study-dir. '
-              'This path should be valid: ' + generic_dtseries_path +
-              msg_default.format(default_BIDS_dir))
-    )
-    parser = add_arg_if_in_arg_names('output', arg_names, parser, 
-        '-out', metavar='OUTPUT_DIRECTORY', type=valid_output_dir, # required=True, 
-        help=('Directory path to save pipeline outputs into.'
-              + msg_default.format(generic_output_dirpath))
-    )
+                                     metavar='NAME_OF_BIDS_DERIVATIVES_PIPELINE_DIRECTORY',
+                                     default=default_bids_dir,
+                                     help=('Name of the BIDS-standard file-mapped directory with subject '
+                                           'data in the "derivatives" subdirectory of your --study-dir. '
+                                           'This path should be valid: ' + generic_dtseries_path +
+                                           msg_default.format(default_bids_dir))
+                                     )
+    parser = add_arg_if_in_arg_names('output', arg_names, parser,
+                                     '-out', metavar='OUTPUT_DIRECTORY', type=valid_output_dir,  # required=True,
+                                     help=('Directory path to save pipeline outputs into.'
+                                           + msg_default.format(generic_output_dirpath))
+                                     )
     # Which task you are running the pipeline on
-    parser = add_arg_if_in_arg_names('task', arg_names, parser,  
-        metavar='TASK_NAME', required=True,
-        help=msg_pipeline.format('task')  # + msg_choices(choices_tasks)
-    )
-    parser = add_arg_if_in_arg_names('temp_dir', arg_names, parser, 
-        type=valid_readable_dir, metavar='TEMPORARY_DIRECTORY',
-        help=('Valid path to existing directory to save temporary files into.')
-    )
+    parser = add_arg_if_in_arg_names('task', arg_names, parser,
+                                     metavar='TASK_NAME', required=True,
+                                     help=msg_pipeline.format('task')  # + msg_choices(choices_tasks)
+                                     )
+    parser = add_arg_if_in_arg_names('temp_dir', arg_names, parser,
+                                     type=valid_readable_dir, metavar='TEMPORARY_DIRECTORY',
+                                     help='Valid path to existing directory to save temporary files into.'
+                                     )
     # Argument used to get this script's dir
     parser = add_arg_if_in_arg_names(WRAPPER_LOC, arg_names, parser,
-        type=valid_readable_dir, required=True,
-        help=('Valid path to existing ABCD-BIDS-task-fmri-pipeline directory '
-              'that contains pipeline_wrapper.py')
-    ) 
+                                     type=valid_readable_dir, required=True,
+                                     help=('Valid path to existing ABCD-BIDS-task-fmri-pipeline directory '
+                                           'that contains pipeline_wrapper.py')
+                                     )
     return parser
+
+
 def get_sbatch_args(cli_args, job):
     """
     :param cli_args: Dictionary containing all command-line arguments from user
@@ -356,12 +351,12 @@ def glob_and_copy(dest_dirpath, *path_parts_to_glob):
         shutil.copy(file_src, dest_dirpath)
 
 
-def rand_string(L):
+def rand_string(length):
     """
-    :param L: Integer, length of the string to randomly generate
+    :param length: Integer, length of the string to randomly generate
     :return: String (of the given length L) of random characters
     """
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=L))
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
 def resize_images(input_folder, output_folder):
@@ -373,14 +368,14 @@ def resize_images(input_folder, output_folder):
     Options:
     -h --help     Show this screen.
     """
-    only_files = [f for f in os.path.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+    only_files = [f for f in listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
 
     os.system('module load fsl')
     resolution = 1
     for eachfile in only_files:
         input_image = os.path.join(input_folder, eachfile)
         print(eachfile)
-        command = 'flirt -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
+        command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
         reference_image = \
             '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
         output_image = os.path.join(output_folder, eachfile)
@@ -404,7 +399,7 @@ def valid_output_dir(path):
     :return: String which is a validated absolute path to real writeable folder
     """
     return validate(path, lambda x: os.access(x, os.W_OK),
-                    valid_readable_dir, 'Cannot create directory at {}', 
+                    valid_readable_dir, 'Cannot create directory at {}',
                     lambda y: os.makedirs(y, exist_ok=True))
 
 
@@ -437,14 +432,14 @@ def valid_readable_json(path):
                     valid_readable_file, '{} is not a readable .json filepath')
 
 
-def valid_subj_ses(in_arg, prefix, name): #, *keywords):
+def valid_subj_ses(in_arg, prefix, name):  # , *keywords):
     """
     :param in_arg: Object to check if it is a valid subject ID or session name
     :param prefix: String, 'sub-' or 'ses-'
     :param name: String describing what in_arg should be (e.g. 'subject')
     :return: True if in_arg is a valid subject ID or session name; else False
     """
-    return validate(in_arg, lambda _: True, # lambda x: any([key in x for key in [prefix, *keywords]]),
+    return validate(in_arg, lambda _: True,  # lambda x: any([key in x for key in [prefix, *keywords]]),
                     lambda y: (y if y[:len(prefix)] == prefix else prefix + y),
                     '{}' + ' is not a valid {}'.format(name))
 
@@ -480,7 +475,7 @@ def valid_whole_number(to_validate):
     :param to_validate: Object to test whether it is a positive integer
     :return: to_validate if it is a positive integer
     """
-    return validate(to_validate, lambda x: int(x) >= 0, int, 
+    return validate(to_validate, lambda x: int(x) >= 0, int,
                     '{} is not a positive integer')
 
 
@@ -500,26 +495,25 @@ def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
             prepare(to_validate)
         assert is_real(to_validate)
         return make_valid(to_validate)
-    except (OSError, TypeError, AssertionError, ValueError, 
+    except (OSError, TypeError, AssertionError, ValueError,
             argparse.ArgumentTypeError):
         raise argparse.ArgumentTypeError(err_msg.format(to_validate))
 
 
-def validate_cli_args(cli_args, parser, arg_names=set()):
+def validate_cli_args(cli_args, arg_names=None):
     """
     Validate types and set defaults for any arg whose validation depends on
     another arg and therefore was not possible in get_pipeline_cli_argparser
     :param cli_args: Dictionary containing all command-line arguments from user
-    :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :param arg_names: Set containing SCAN_ARG if that argument is needed
     :return: cli_args, but fully validated
     """
     # Default output directory. Avoiding ensure_dict_has to
-    if not dict_has(cli_args, 'output'):       # prevent permissions error from
-        cli_args['output'] = valid_output_dir( # valid_output_dir making dirs.
+    if arg_names is None:
+        set()
+    if not dict_has(cli_args, 'output'):  # prevent permissions error from
+        cli_args['output'] = valid_output_dir(  # valid_output_dir making dirs.
             os.path.join(cli_args['study_dir'], 'derivatives', 'abcd-bids-tfm'
-                         'ri-pipeline', cli_args['subject'], cli_args['ses'])
+                                                               'ri-pipeline', cli_args['subject'], cli_args['ses'])
         )
     return cli_args
-
-    
