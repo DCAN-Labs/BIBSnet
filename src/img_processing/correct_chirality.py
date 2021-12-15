@@ -22,6 +22,17 @@ LEFT = 'Left-'
 
 def check_and_correct_region(should_be_left, region, segment_name_to_number, new_data, chirality,
                              floor_ceiling, scanner_bore):
+    """Possibly corrects one voxel in NIFTI data.
+
+    Parameters:
+    should_be_left (Boolean): This voxel *should be on the LHS of the head
+    region (str): Anatomical region name
+    segment_name_to_number (map<str, int>): Map from anatomical regions to identifying numbers
+    new_data (3-d in array): segmentation data passed by reference to be fixed if necessary
+    chirality: x-coordinate into new_data
+    floor_ceiling: y-coordinate into new_data
+    scanner_bore: z-coordinate into new_data
+    """
     if should_be_left:
         expected_prefix = LEFT
         wrong_prefix = RIGHT
@@ -35,14 +46,14 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number, new
 
 
 def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_mask_nifti_file, nifti_output_file_path):
-    '''Creates an output file with chirality corrections fixed.
+    """Creates an output file with chirality corrections fixed.
 
     Parameters:
     nifti_input_file_path (str): Path to a segmentation file with possible chirality problems
     segment_lookup_table (str): Path to a FreeSurfer-style look-up table
     left_right_mask_nifti_file (str): Path to a mask file that distinguishes between left and right
     nifti_output_file_path (str): Location to write the corrected file
-    '''
+    """
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
     segment_name_to_number = {v: k for k, v in free_surfer_label_to_region.items()}
     img = nib.load(nifti_input_file_path)
