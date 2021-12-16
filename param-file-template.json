@@ -1,11 +1,13 @@
 {
     "common": {
+        "age_months": "",
         "bids_dir": "",
         "derivatives": "",
         "fd_spike_threshold": "",
         "nibabies_dir": "",
         "participant_label": "",
         "session": "",
+        "stages_to_run": [""],
         "task_id": "",
         "template_description_json": "",
         "verbose": ""
@@ -19,12 +21,12 @@
         "omp_nthreads": ""
     },
 
-    "crop_resize": {
+    "preBIBSnet": {
         "input_dir": "",
         "output_dir": ""
     },
 
-    "nnU-Net": {
+    "BIBSnet": {
         "input_dir": "",
         "output_dir": "",
         "model": "",
@@ -32,7 +34,6 @@
     },
     
     "nibabies": {
-        "age_months": "",
         "anat_derivatives": "",
         "anat_only": "",
         "aroma_melodic_dimensionality": "",

@@ -4,19 +4,16 @@
 """
 CABINET
 Created: 2021-11-12
-Updated: 2021-12-02
+Updated: 2021-12-16
 """
 
 # Import standard libraries
 import argparse
 from datetime import datetime
 from glob import glob
-import math
 from nipype.interfaces import fsl
 import os
 import pandas as pd
-import random
-import shutil
 import subprocess
 import sys
 
@@ -38,37 +35,29 @@ def find_myself(flg):
 # Constants: Paths to this dir and level 1 analysis script
 WRAPPER_LOC = '--wrapper-location'
 SCRIPT_DIR = find_myself(WRAPPER_LOC)
-STAGES = ("crop-resize", "nnU-Net", "chirality-mask", "nibabies", "XCP")  # Call "crop_resize" Pre-BIBS-Net and "chirality-mask" Post-BIBS-Net?
+LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
+STAGES = ("preBIBSnet", "BIBSnet", "postBIBSnet", "nibabies", "XCP")
 
 # Custom local imports
 from src.utilities import (
-    as_cli_arg, crop_images, ensure_dict_has, exit_with_time_info, extract_from_json, resize_images,
-    valid_readable_json
+    as_cli_arg, crop_images, ensure_dict_has, exit_with_time_info,
+    extract_from_json, resize_images, run_all_stages, valid_readable_json
 )
+from src.img_processing.correct_chirality import correct_chirality
 
 
 def main():
     # Time how long the script takes and get command-line arguments from user 
-    start = datetime.now()
+    start_time = datetime.now()
     json_args = get_params_from_JSON()
 
     print(json_args)  # TODO REMOVE LINE
 
-    # Run nnU-Net
-    json_args = crop_and_resize_images(json_args)  # Somebody else already writing this (Paul?)
-    if json_args["nibabies"]["age_months"] <= 8:
-        json_args = copy_images_to_nnUNet_dir(json_args)  # TODO
-        segmentation = un_nnUNet_predict(json_args)
-        segmentation = ensure_chirality_flipped(segmentation)  # Paul(?) already writing this
-
-    # Put just the mask and the segmentation (and nothing else) into a directory to run nibabies
-        mask = make_mask(json_args, segmentation)  # Luci has a script for this - we'll just use it as a blueprint
-        run_nibabies(json_args, mask, segmentation)
-    else:
-        run_nibabies(json_args)
+    run_all_stages(STAGES, json_args["stages"]["start"],
+                   json_args["stages"]["end"], json_args) # TODO Ensure that each stage only needs j_args?
 
     # Show user how long the pipeline took and end the pipeline here
-    exit_with_time_info(start)
+    exit_with_time_info(start_time)
 
 
 def get_params_from_JSON():
@@ -85,22 +74,33 @@ def get_params_from_JSON():
         # TODO: Maaaybe read in each parameter from the .json using argparse if possible? stackoverflow.com/a/61003775
     )
     parser.add_argument(
-        "stages", nargs="+", required=True, choices=STAGES, default=STAGES
+        "-start", "--starting-stage", dest="start",
+        choices=STAGES, default=STAGES[0]
     )
-    return validate_json_args(extract_from_json(parser.parse_args().parameter_json), parser)
+    parser.add_argument(
+        "-end", "--ending-stage", dest="end",
+        choices=STAGES, default=STAGES[-1]
+    )
+    cli_args = parser.parse_args()
+    return validate_json_args(extract_from_json(cli_args.parameter_json),
+                              cli_args.start, cli_args.end, parser)
 
 
-def validate_json_args(j_args):
+def validate_json_args(j_args, start, end, parser):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
     # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int
 
-    j_args["nibabies"] = ensure_dict_has(
-        j_args["nibabies"], "age_months",
+    j_args["common"] = ensure_dict_has(
+        j_args["common"], "age_months",
         read_age_from_participants_tsv(j_args)
         # TODO Figure out which column in the participants.tsv file has the age_months value
     )
+    
+    j_args["stages"] = {"start": start, "end": end}
+    
+    return j_args
 
 
 def read_age_from_participants_tsv(j_args):
@@ -131,14 +131,58 @@ def read_age_from_participants_tsv(j_args):
     return int(subj_row.loc[age_months_col].strip("M")) # the "age" column has an "M" at the end of each number
 
 
-def crop_and_resize_images(j_args):
+def run_preBIBSnet(j_args):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
-    crop_images(j_args["crop_resize"]["input_dir"],
-                j_args["crop_resize"]["output_dir"])
-    resize_images(j_args["crop_resize"]["input_dir"],
-                  j_args["crop_resize"]["output_dir"])
+    crop_images(j_args["preBIBSnet"]["input_dir"],
+                j_args["preBIBSnet"]["output_dir"])
+    resize_images(j_args["preBIBSnet"]["input_dir"],
+                  j_args["preBIBSnet"]["output_dir"])
+
+
+def run_BIBSnet(j_args):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    if j_args["common"]["age_months"] <= 8:
+        j_args = copy_images_to_BIBSnet_dir(j_args)           # TODO
+        j_args["segmentation"] = run_BIBSnet_predict(j_args)  # TODO
+    return j_args
+
+
+def run_postBIBSnet(j_args):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    # Template selection values
+    age_months = j_args["common"]["age_months"]
+    t1or2 = 2 if age_months < 22 else 1
+    if age_months > 33:
+        age_months = "34-38"
+
+    # Paths for left & right registration
+    chiral_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
+    template_head = os.path.join(chiral_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
+    template_mask = os.path.join(chiral_dir, "{}mo_template_LRmask.nii.gz")
+    subject_head_path = os.path.join(
+        j_args["BIBSnet"]["output_dir"],
+        "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
+    )
+
+    # Run left & right registration
+    subprocess.check_call((LR_REGISTR_PATH, subject_head_path,
+                           template_head.format(age_months, t1or2),
+                           template_mask.format(age_months)))
+
+    # Chirality correction
+    segment_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
+                                        "FreeSurferColorLUT.txt")
+    left_right_mask_nifti_file = "LRmask.nii.gz"  # TODO Make the --output path in LR_mask_registration.sh an absolute path and copy it here
+    nifti_output_file_path = os.path.basename(subject_head_path) + "-corrected"  # TODO Figure out the directory path for this one too
+    correct_chirality(subject_head_path, segment_lookup_table,
+                      left_right_mask_nifti_file, nifti_output_file_path)
+    return j_args
 
 
 def make_mask(j_args):
@@ -204,20 +248,35 @@ def make_mask_Luci_original(j_args):
 
 
 def run_nibabies(j_args):
+    segmentation = j_args["segmentation"]
+
+    # Put just the mask and the segmentation (and nothing else) into a directory to run nibabies
+    if j_args["common"]["age_months"] <= 8:
+        mask = make_mask(j_args, segmentation)  # Luci has a script for this - we'll just use it as a blueprint
+        run_nibabies_command(j_args, mask, segmentation)
+    else:
+        run_nibabies_command(j_args)
+    return j_args
+
+
+def run_nibabies_command(j_args, *args):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
     # Get nibabies options from parameter file and turn them into flags
     nibabies_args = list()
-    for nibabies_arg in ["age_months", "work_dir", ]:
+    for nibabies_arg in [j_args["common"]["age_months"],
+                         j_args["nibabies"]["work_dir"], ]:
         nibabies_args.append(as_cli_arg(nibabies_arg))
-        nibabies_args.append(j_args["nibabies"][nibabies_arg])
+        nibabies_args.append(nibabies_arg)
 
     # Get cohort number from template_description.json
-    template_description = extract_from_json(j_args["common"]["template_description_json"])
+    template_description = extract_from_json(
+        j_args["common"]["template_description_json"]
+    )
     cohorts = template_description["cohort"]
     for cohort_num, cohort_details in cohorts:
-        if (int(cohort_details["age"][0]) < int(j_args["nibabies"]["age_months"])
+        if (int(cohort_details["age"][0]) < int(j_args["common"]["age_months"])
                                             < int(cohort_details["age"][1])):
             cohort = cohort_num
             break
@@ -233,6 +292,7 @@ def run_nibabies(j_args):
         "--output-spaces", "MNIInfant:cohort-{}".format(cohort),
         *nibabies_args
     ])
+
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2021-12-02
+Updated: 2021-12-16
 """
 
 # Import standard libraries
@@ -402,6 +402,26 @@ def resize_images(input_folder, output_folder):
             filled_in_command = command.format(input_image, reference_image, resolution, output_image)
             os.system(filled_in_command)
         count += 1
+
+
+def run_all_stages(all_stages, start, end, params_for_every_stage):
+    """
+    Run stages sequentially, starting and ending at stages specified by user
+    :param all_stages: List of strings where each names a stage to run
+    :param start: String naming the first stage the user wants to run
+    :param end: String naming the last stage the user wants to run
+    :param params_for_every_stage: Dictionary of all args needed by each stage
+    """
+    running = False
+    for stage in all_stages:
+        if stage == start:
+            running = True
+        if running:
+            stage_start = datetime.now()
+            globals()["run_" + stage](params_for_every_stage)
+            get_and_print_time_since(stage + " started", stage_start)
+        if stage == end:
+            running = False
 
 
 def valid_float_0_to_1(val):

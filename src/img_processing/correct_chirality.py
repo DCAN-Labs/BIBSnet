@@ -11,13 +11,13 @@ Options:
 
 import nibabel as nib
 from docopt import docopt
-import chirality_constants
+
 
 from util.look_up_tables import get_id_to_region_mapping
 
-RIGHT = 'Right-'
-
+CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
 LEFT = 'Left-'
+RIGHT = 'Right-'
 
 
 def check_and_correct_region(should_be_left, region, segment_name_to_number, new_data, chirality,
@@ -77,9 +77,9 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_ma
                 chirality_voxel = int(left_right_data[i][j][k])
                 if not (region.startswith(LEFT) or region.startswith(RIGHT)):
                     continue
-                if chirality_voxel == chirality_constants.LEFT or chirality_voxel == chirality_constants.RIGHT:
+                if chirality_voxel == CHIRALITY_CONST["LEFT"] or chirality_voxel == CHIRALITY_CONST["RIGHT"]:
                     check_and_correct_region(
-                        chirality_voxel == chirality_constants.LEFT, region, segment_name_to_number, new_data, i, j, k)
+                        chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_output_file_path)
 
