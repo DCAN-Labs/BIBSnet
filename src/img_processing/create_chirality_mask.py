@@ -17,6 +17,7 @@ import numpy as np
 
 from nipype.interfaces import fsl
 
+import util.look_up_tables
 
 UNKNOWN = 0
 LEFT = 1
@@ -24,23 +25,8 @@ RIGHT = 2
 BILATERAL = 3
 
 
-def get_id_to_region_mapping(mapping_file_name, separator=None):
-    file = open(mapping_file_name, 'r')
-    lines = file.readlines()
-
-    id_to_region = {}
-    for line in lines:
-        line = line.strip()
-        if line.startswith('#') or line == '':
-            continue
-        if separator:
-            parts = line.split(separator)
-        else:
-            parts = line.split()
-        region_id = int(parts[0])
-        region = parts[1]
-        id_to_region[region_id] = region
-    return id_to_region
+def get_id_to_region_mapping(mapping_file_name):
+    return util.look_up_tables.get_id_to_region_mapping(mapping_file_name)
 
 
 def correct_chirality_mask(nifti_input_file_path, segment_lookup_table, nifti_output_file_path):
@@ -54,7 +40,7 @@ def correct_chirality_mask(nifti_input_file_path, segment_lookup_table, nifti_ou
 def fill_in_holes(nifti_output_file_path):
     os.system('module load fsl')
 
-    #create working directory to store intermediate outputs that can be deleted after
+    # create working directory to store intermediate outputs that can be deleted after
     if not os.path.exists('wd'):
         os.mkdir('wd')
 
@@ -74,7 +60,8 @@ def fill_in_holes(nifti_output_file_path):
                            out_file='wd/Mmask.nii.gz')
     maths.run()
 
-    # dilate, fill, and erode each mask in order to get rid of holes (also binarize L and M images in order to perform binary operations)
+    # dilate, fill, and erode each mask in order to get rid of holes (also binarize L and M images in order to perform
+    # binary operations)
     anatfile = 'wd/Lmask.nii.gz'
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -fillh -ero -ero -ero',
                            out_file='wd/L_mask_holes_filled.nii.gz')
@@ -112,54 +99,58 @@ def fill_in_holes(nifti_output_file_path):
     maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add wd/recombined_mask_LR.nii.gz',
                            out_file='filled_mask.nii.gz')
     maths.run()
-    #os.replace('filled_mask.nii.gz', nifti_output_file_path)
+    # os.replace('filled_mask.nii.gz', nifti_output_file_path)
 
     shutil.rmtree('wd')
 
+
 def fix_overlap_values(nifti_output_file_path):
     # load original and filled LR mask data
-    orig_LRmask_img = nib.load(nifti_output_file_path)
-    orig_LRmask_data = orig_LRmask_img.get_fdata()
+    orig_l_r_mask_img = nib.load(nifti_output_file_path)
+    orig_l_r_mask_data = orig_l_r_mask_img.get_fdata()
 
-    fill_LRmask_img = nib.load('filled_mask.nii.gz')
-    fill_LRmask_data = fill_LRmask_img.get_fdata()
+    fill_l_r_mask_img = nib.load('filled_mask.nii.gz')
+    fill_l_r_mask_data = fill_l_r_mask_img.get_fdata()
 
     # Flatten numpy arrays
-    orig_LRmask_data_2D = orig_LRmask_data.reshape((182, 39676), order='C')
-    orig_LRmask_data_1D = orig_LRmask_data_2D.reshape((7221032), order='C')
+    orig_l_r_mask_data_2_d = orig_l_r_mask_data.reshape((182, 39676), order='C')
+    orig_l_r_mask_data_1_d = orig_l_r_mask_data_2_d.reshape(7221032, order='C')
 
-    fill_LRmask_data_2D = fill_LRmask_data.reshape((182, 39676), order='C')
-    fill_LRmask_data_1D = fill_LRmask_data_2D.reshape((7221032), order='C')
+    fill_l_r_mask_data_2_d = fill_l_r_mask_data.reshape((182, 39676), order='C')
+    fill_l_r_mask_data_1_d = fill_l_r_mask_data_2_d.reshape(7221032, order='C')
 
-    #grab index values of voxels with a value of 4, 5, or 6 in filled L/R mask
-    val_0 = np.where(fill_LRmask_data_1D == 0.0)
-    num_nonzeros = fill_LRmask_data_1D.shape[0] - len(val_0[0])
+    # grab index values of voxels with a value of 4, 5, or 6 in filled L/R mask
+    val_0 = np.where(fill_l_r_mask_data_1_d == 0.0)
+    num_nonzeros = fill_l_r_mask_data_1_d.shape[0] - len(val_0[0])
 
-    val_4 = np.where(fill_LRmask_data_1D == 4.0)
-    val_5 = np.where(fill_LRmask_data_1D == 5.0)
-    val_6 = np.where(fill_LRmask_data_1D == 6.0)
+    val_4 = np.where(fill_l_r_mask_data_1_d == 4.0)
+    val_5 = np.where(fill_l_r_mask_data_1_d == 5.0)
+    val_6 = np.where(fill_l_r_mask_data_1_d == 6.0)
     total = len(val_4[0]) + len(val_5[0]) + len(val_6[0])
 
     percentage_mislabeled = total / num_nonzeros
     percentage_mislabeled = round(percentage_mislabeled, 5)
     print("{} out of {} voxels ({}%) have a value of 4, 5, or 6".format(total, num_nonzeros, percentage_mislabeled))
-    print("Replacing voxel values of 4, 5, or 6 with equivalent voxel label alues from initial L/R mask created before filling holes...")
+    print(
+        "Replacing voxel values of 4, 5, or 6 with equivalent voxel label alues from initial L/R mask created before "
+        "filling holes...")
 
-    #Replace overlapping label values with corresponding label values from initial mask
+    # Replace overlapping label values with corresponding label values from initial mask
     index_vals = np.concatenate([val_4, val_5, val_6], axis=1)
     for i in index_vals[:]:
-        fill_LRmask_data_1D[i] = orig_LRmask_data_1D[i]
+        fill_l_r_mask_data_1_d[i] = orig_l_r_mask_data_1_d[i]
 
     # reshape numpy array
-    fill_LRmask_data_2D = fill_LRmask_data_1D.reshape((182, 39676), order='C')
-    fill_LRmask_data_3D = fill_LRmask_data_2D.reshape((182, 218, 182), order='C')
+    fill_l_r_mask_data_2_d = fill_l_r_mask_data_1_d.reshape((182, 39676), order='C')
+    fill_l_r_mask_data_3_d = fill_l_r_mask_data_2_d.reshape((182, 218, 182), order='C')
 
-    #save new numpy array as image
+    # save new numpy array as image
     empty_header = nib.Nifti1Header()
-    out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
+    out_img = nib.Nifti1Image(fill_l_r_mask_data_3_d, orig_l_r_mask_img.affine, empty_header)
     nib.save(out_img, nifti_output_file_path)
 
     os.remove('filled_mask.nii.gz')
+
 
 def create_initial_mask(nifti_input_file_path, nifti_output_file_path, segment_lookup_table):
     img = nib.load(nifti_input_file_path)
