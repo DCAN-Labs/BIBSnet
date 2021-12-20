@@ -1,6 +1,6 @@
 # CABINET
 
-##Stages
+## Stages
 1. PreBIBSnet
 2. BIBSnet
 3. PostBIBSnet
