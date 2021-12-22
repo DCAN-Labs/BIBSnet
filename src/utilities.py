@@ -407,20 +407,22 @@ def resize_images(input_folder, output_folder):
 def run_all_stages(all_stages, start, end, params_for_every_stage):
     """
     Run stages sequentially, starting and ending at stages specified by user
-    :param all_stages: List of strings where each names a stage to run
+    :param all_stages: Dictionary mapping a string naming a stage to the
+                       function to run that stage
     :param start: String naming the first stage the user wants to run
     :param end: String naming the last stage the user wants to run
     :param params_for_every_stage: Dictionary of all args needed by each stage
     """
     running = False
-    for stage in all_stages:
-        if stage == start:
+    for stage_name in all_stages.keys():
+        if stage_name == start:
             running = True
         if running:
             stage_start = datetime.now()
-            globals()["run_" + stage](params_for_every_stage)
-            get_and_print_time_since(stage + " started", stage_start)
-        if stage == end:
+            # globals()["run_" + stage](params_for_every_stage)
+            all_stages[stage_name](params_for_every_stage)
+            get_and_print_time_since(stage_name + " started", stage_start)
+        if stage_name == end:
             running = False
 
 

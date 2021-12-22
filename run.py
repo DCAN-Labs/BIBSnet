@@ -36,7 +36,6 @@ def find_myself(flg):
 WRAPPER_LOC = '--wrapper-location'
 SCRIPT_DIR = find_myself(WRAPPER_LOC)
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
-STAGES = ("preBIBSnet", "BIBSnet", "postBIBSnet", "nibabies", "XCP")
 
 # Custom local imports
 from src.utilities import (
@@ -49,7 +48,10 @@ from src.img_processing.correct_chirality import correct_chirality
 def main():
     # Time how long the script takes and get command-line arguments from user 
     start_time = datetime.now()
-    json_args = get_params_from_JSON()
+    STAGES = {"preBIBSnet": run_preBIBSnet, "BIBSnet": run_BIBSnet,
+              "postBIBSnet": run_postBIBSnet, "nibabies": run_nibabies,
+              "XCP": run_XCP}
+    json_args = get_params_from_JSON(list(STAGES.keys()))
 
     print(json_args)  # TODO REMOVE LINE
 
@@ -60,8 +62,9 @@ def main():
     exit_with_time_info(start_time)
 
 
-def get_params_from_JSON():
+def get_params_from_JSON(stage_names):
     """
+    :param stage_names: List of strings where each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
     parser = argparse.ArgumentParser()
@@ -75,11 +78,11 @@ def get_params_from_JSON():
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=STAGES, default=STAGES[0]
+        choices=stage_names, default=stage_names[0]
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
-        choices=STAGES, default=STAGES[-1]
+        choices=stage_names, default=stage_names[-1]
     )
     cli_args = parser.parse_args()
     return validate_json_args(extract_from_json(cli_args.parameter_json),
@@ -108,27 +111,38 @@ def read_age_from_participants_tsv(j_args):
     :param j_args: Dictionary containing all args from parameter .JSON file
     :return: Int, the subject's age (in months) listed in participants.tsv
     """
+    columns = {"age": "str", "participant_id": "str", "session": "str"}
+
     # Read in participants.tsv
-    part_tsv_df = pd.read_csv(os.path.join(j_args["common"]["bids_dir"],
-                                           "participants.tsv"), sep="\t")
+    part_tsv_df = pd.read_csv(
+        os.path.join(j_args["common"]["bids_dir"],
+        "participants.tsv"), sep="\t", dtype=columns)
 
     # Column names of participants.tsv                         
     age_months_col = "age" # TODO Get name of column with age_months value
     sub_ID_col = "participant_id" # TODO Figure out the subject ID column name (participant ID or subject ID)
     ses_ID_col = "session"
 
+    """
     # Ensure that the subject and session IDs start with the right prefixes
     sub_ses = {"participant_label": "sub-", "session": "ses-"}
+    sub_ses_labels = sub_ses.copy()
     for param_name, prefix in sub_ses.items():
         param = j_args["common"][param_name]
-        sub_ses[prefix] = (param if param[:len(prefix)]
-                            == prefix else prefix + param)
-
+        sub_ses_labels[prefix] = (param[-len(prefix)] if param[:len(prefix)]
+                                  == prefix else param)
+    print(sub_ses_labels)
+    """
     # Get and return the age_months value from participants.tsv
-    subj_row = part_tsv_df.loc[(part_tsv_df[sub_ID_col] == sub_ses["sub-"]) &
-                               (part_tsv_df[ses_ID_col] == sub_ses["ses-"])] # select where "participant_id" and "session" match
+    subj_row = part_tsv_df[
+        part_tsv_df[sub_ID_col] == j_args["common"]["participant_label"]
+    ]
+    subj_row = subj_row[
+        subj_row[ses_ID_col] == j_args["common"]["session"]
+    ] # select where "participant_id" and "session" match
 
-    return int(subj_row.loc[age_months_col].strip("M")) # the "age" column has an "M" at the end of each number
+    print(subj_row)
+    return int(subj_row[age_months_col]) # the "age" column has an "M" at the end of each number
 
 
 def run_preBIBSnet(j_args):
@@ -293,6 +307,9 @@ def run_nibabies_command(j_args, *args):
         *nibabies_args
     ])
 
+
+def run_XCP(j_args):
+    return "placeholder"
 
 
 if __name__ == '__main__':

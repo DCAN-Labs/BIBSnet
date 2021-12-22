@@ -10,10 +10,10 @@ Options:
 """
 
 import nibabel as nib
-from docopt import docopt
+# from docopt import docopt
 
 
-from util.look_up_tables import get_id_to_region_mapping
+from src.util.look_up_tables import get_id_to_region_mapping
 
 CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
 LEFT = 'Left-'
@@ -85,7 +85,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_ma
 
 
 if __name__ == "__main__":
-    args = docopt(__doc__)
+    # args = docopt(__doc__)
     correct_chirality(
         args['<nifti_input_file_path>'], args['<segment_lookup_table>'], args['<left_right_mask_nifti_file>'],
         args['<nifti_output_file_path>'])
