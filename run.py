@@ -4,7 +4,7 @@
 """
 CABINET
 Created: 2021-11-12
-Updated: 2021-12-16
+Updated: 2022-01-04
 """
 
 # Import standard libraries
@@ -142,7 +142,7 @@ def read_age_from_participants_tsv(j_args):
     ] # select where "participant_id" and "session" match
 
     print(subj_row)
-    return int(subj_row[age_months_col]) # the "age" column has an "M" at the end of each number
+    return int(subj_row[age_months_col])
 
 
 def run_preBIBSnet(j_args):
