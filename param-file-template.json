@@ -1,6 +1,7 @@
 {
     "common": {
         "age_months": "",
+        "BIBSnet_work_dir": "",
         "bids_dir": "",
         "derivatives": "",
         "fd_spike_threshold": "",
@@ -19,11 +20,6 @@
         "nipype_plugin_file": "",
         "nthreads": "",
         "omp_nthreads": ""
-    },
-
-    "preBIBSnet": {
-        "input_dir": "",
-        "output_dir": ""
     },
 
     "BIBSnet": {
