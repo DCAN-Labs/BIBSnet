@@ -43,6 +43,7 @@ from src.utilities import (
     as_cli_arg, crop_images, ensure_dict_has, exit_with_time_info,
     extract_from_json, resize_images, run_all_stages, valid_readable_json
 )
+from src.img_processing.correct_chirality import correct_chirality
 
 
 def main():
@@ -202,12 +203,27 @@ def run_postBIBSnet(j_args):
     if age_months > 33:
         age_months = "34-38"
 
-    os.path.join(
+    # Paths for left & right registration
+    chiral_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
+    template_head = os.path.join(chiral_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
+    template_mask = os.path.join(chiral_dir, "{}mo_template_LRmask.nii.gz")
+    subject_head_path = os.path.join(
         j_args["BIBSnet"]["output_dir"],
-        "{}_acq-T1inT2".format(j_args["common"]["participant_label"])
-        # TODO Figure out / double-check the BIBSnet output file name for this participant
+        "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
     )
 
+    # Run left & right registration
+    subprocess.check_call((LR_REGISTR_PATH, subject_head_path,
+                           template_head.format(age_months, t1or2),
+                           template_mask.format(age_months)))
+
+    # Chirality correction
+    segment_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
+                                        "FreeSurferColorLUT.txt")
+    left_right_mask_nifti_file = "LRmask.nii.gz"  # TODO Make the --output path in LR_mask_registration.sh an absolute path and copy it here
+    nifti_output_file_path = os.path.basename(subject_head_path) + "-corrected"  # TODO Figure out the directory path for this one too
+    correct_chirality(subject_head_path, segment_lookup_table,
+                      left_right_mask_nifti_file, nifti_output_file_path)
     return j_args
 
 
