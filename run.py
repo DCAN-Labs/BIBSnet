@@ -4,7 +4,7 @@
 """
 CABINET
 Created: 2021-11-12
-Updated: 2022-01-06
+Updated: 2022-01-13
 """
 
 # Import standard libraries
@@ -101,9 +101,7 @@ def validate_json_args(j_args, start, end, parser):
         read_age_from_participants_tsv(j_args)
         # TODO Figure out which column in the participants.tsv file has the age_months value
     )
-    
     j_args["stages"] = {"start": start, "end": end}
-    
     return j_args
 
 
@@ -169,27 +167,31 @@ def run_preBIBSnet(j_args):
         for eachfile in glob(os.path.join(
             subject_dir, session, "anat", "*T{}w*.nii.gz".format(each_anat)
         )):
-            os.chmod(eachfile, 0o775)  # TODO Test that this fixes the permissions error(s)
             new_fpath = os.path.join(work_dirs["BIDS_data"],
                                      os.path.basename(eachfile))
             shutil.copy2(eachfile, new_fpath)
-            os.chmod(new_fpath, 0o775)  # TODO Open permissions on new copy of eachfile?
     
     # Crop and resize images
     crop_images(work_dirs["BIDS_data"], work_dirs["cropped"])
-    # [os.chmod(eachfile.path, 775) for eachfile in os.scandir(os.path.join(work_dirs["cropped"]))]  # TODO Check whether this is needed
-    resize_images(work_dirs["cropped"], work_dirs["resized"])
+    os.chmod(work_dirs["cropped"], 0o775)
+    ref_img = os.path.join(SCRIPT_DIR, 'data', 'test_subject_data', '1mo',
+                           'sub-00006_T1w_acpc_dc_restore.nii.gz')
+    id_mx = os.path.join(SCRIPT_DIR, 'data', 'identity_matrix.mat')
+    resize_images(work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx)
 
 
 def run_BIBSnet(j_args):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
+    # TODO Test BIBSnet functionality once it's containerized
+    """
     verify_image_file_names(j_args)  # TODO Ensure that the T1s have _0000 at the end of their filenames and T2s have _0001
 
     if j_args["common"]["age_months"] <= 8:
         j_args = copy_images_to_BIBSnet_dir(j_args)           # TODO
         j_args["segmentation"] = run_BIBSnet_predict(j_args)  # TODO
+    """
     return j_args
 
 

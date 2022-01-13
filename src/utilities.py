@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2021-12-16
+Updated: 2022-01-13
 """
 
 # Import standard libraries
@@ -131,7 +131,8 @@ def crop_images(image_dir, output_dir, z_min=80, z_max=320):
     Options:
     -h --help     Show this screen.
     """
-    image_files = sorted([f for f in os.listdir(image_dir) if os.path.isfile(os.path.join(image_dir, f))])
+    image_files = sorted([f for f in os.listdir(image_dir)
+                          if os.path.isfile(os.path.join(image_dir, f))])
     for eachfile in image_files:
         # fslroi sub-CENSORED_ses-20210412_T1w sub-CENSORED_ses-20210412_T1w_cropped 0 144 0 300 103 320
         input_file = os.path.join(image_dir, eachfile)
@@ -359,49 +360,42 @@ def rand_string(length):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 
-def resize_images(input_folder, output_folder):
+def resize_images(input_folder, output_folder, reference_image_path, ident_mx):
     """
-    Resize Images.  the script resizes the images to match the dimensions of the images trained in the model -- in
-    addition, the script ensures that the first image (presumably a T1) is co-registered to the second image (presumably
-    a T2) before resizing
-    Usage:
-    resize_images <input_folder> <output_folder>
-    resize_images -h | --help
-    Options:
-    -h --help     Show this screen.
+    Resize the images to match the dimensions of images trained in the model,
+    and ensure that the first image (presumably a T1) is co-registered to the
+    second image (presumably a T2) before resizing
+    :param input_folder: String, valid path to existing directory containing
+                         image files to resize
+    :param output_folder: String, valid path to existing directory to save
+                          resized image files into
+    :param reference_image_path: String, valid path to existing image file for
+                                 flirt to use as a reference image
+    :param ident_mx: String, valid path to existing identity matrix .MAT file
     """
-    only_files = [f for f in listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+    only_files = [f for f in listdir(input_folder)  # TODO Add comment explaining what this is
+                  if os.path.isfile(os.path.join(input_folder, f))]
 
-    os.system('module load fsl')
-    resolution = 1
+    os.system('module load fsl')  # TODO This will only work on MSI, so change it (import it somehow?)
+    resolution = "1"
     count = 1
     for eachfile in only_files:
+        input_image = os.path.join(input_folder, eachfile)
+        output_image = os.path.join(output_folder, eachfile)
+        print(eachfile)  # TODO remove this line?
+
         if count == 1:
-            input_image = os.path.join(input_folder, eachfile)
-            print(eachfile)
-            command = 'flirt -interp spline -dof 6 -in {} -ref {} -omat {}'
-            reference_image = os.path.join(input_folder, only_files[1])
+            reference_image = os.path.join(input_folder, only_files[1])  # TODO Add explanatory comments!
             t1_to_t2_matrix = os.path.join(output_folder, 'T1toT2.mat')
-            filled_in_command = command.format(input_image, reference_image, t1_to_t2_matrix)
-            os.system(filled_in_command)
-            # flirt -interp spline will help with the blurriness from the resizing :slightly_smiling_face: I didn't
-            # realize flirt switched its default to a poor trilinear solution
-            command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init {} -o {}'
-            reference_image = \
-                '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
-            output_image = os.path.join(output_folder, eachfile)
-            filled_in_command = command.format(input_image, reference_image, resolution, t1_to_t2_matrix, output_image)
-            os.system(filled_in_command)
+            run_flirt_resize('flirt', input_image, reference_image,  # TODO Add flirt path as input parameter
+                             '-omat', t1_to_t2_matrix)
+            init_matrix = t1_to_t2_matrix
         elif count == 2:
-            input_image = os.path.join(input_folder, eachfile)
-            print(eachfile)
-            command = 'flirt -interp spline -in {} -ref {} -applyisoxfm {} -init $FSLDIR/etc/flirtsch/ident.mat -o {}'
-            reference_image = \
-                '/home/feczk001/shared/projects/nnunet_predict/BCP/single_input/input/1mo_sub-CENSORED.nii.gz'
-            output_image = os.path.join(output_folder, eachfile)
-            filled_in_command = command.format(input_image, reference_image, resolution, output_image)
-            os.system(filled_in_command)
-        count += 1
+            init_matrix = ident_mx
+        run_flirt_resize('flirt', input_image, reference_image_path,
+                         '-applyisoxfm', resolution, '-init', init_matrix,
+                         '-o', output_image)
+        count += 1 
 
 
 def run_all_stages(all_stages, start, end, params_for_every_stage):
@@ -424,6 +418,18 @@ def run_all_stages(all_stages, start, end, params_for_every_stage):
             get_and_print_time_since(stage_name + " started", stage_start)
         if stage_name == end:
             running = False
+
+
+def run_flirt_resize(flirt_path, in_path, ref_path, *args):
+    """
+    Run flirt command to resize an image
+    :param flirt_path: String, valid path to existing flirt executable file
+    :param ref_path: String, valid path to existing reference image .nii.gz
+    :param in_path: String, valid path to existing input image file
+    :param args: List of strings; each is an additional flirt parameter
+    """
+    subprocess.check_call([flirt_path, '-interp', 'spline', '-in',
+                           in_path, '-ref', ref_path, *args])
 
 
 def valid_float_0_to_1(val):
