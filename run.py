@@ -4,7 +4,7 @@
 """
 CABINET
 Created: 2021-11-12
-Updated: 2022-01-13
+Updated: 2022-01-18
 """
 
 # Import standard libraries
@@ -318,7 +318,7 @@ def run_nibabies_command(j_args, *args):
     template_description = extract_from_json(
         j_args["common"]["template_description_json"]
     )
-    cohorts = template_description["cohort"]
+    cohorts = template_description["cohort"]  # TODO Remove this functionality when/if it's implemented in nibabies
     for cohort_num, cohort_details in cohorts:
         if (int(cohort_details["age"][0]) < int(j_args["common"]["age_months"])
                                             < int(cohort_details["age"][1])):
