@@ -5,12 +5,13 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-01-13
+Updated: 2022-01-19
 """
 
 # Import standard libraries
 import argparse
 import json
+import logging
 import os
 import random  # only used by rand_string
 import shutil
@@ -165,6 +166,15 @@ def ensure_dict_has(a_dict, a_key, new_value):
     return a_dict
 
 
+def ensure_prefixed(label, prefix):
+    """ 
+    :param label: String to check whether it starts with prefix
+    :param prefix: String that should be a substring at the beginning of label
+    :return: label, but guaranteed to start with prefix
+    """
+    return label if label[:len(prefix)] == prefix else prefix + label
+
+
 def exit_with_time_info(start_time, exit_code=0):
     """
     Terminate the pipeline after displaying a message showing how long it ran
@@ -216,18 +226,6 @@ def get_default_ext_command(cmd_name):
     return cmd
 
 
-def get_main_pipeline_arg_names():
-    """
-    :return: Set containing strings naming all command-line arguments included
-             by default in the main script, pipeline_wrapper.py
-    """
-    return {'bids_dir', 'censor', 'events_dir', 'fd', 'filter', 'fsl_dir',
-            'keep_all', 'levels', 'no_parallel', 'output', 'runs', 'ses',
-            'spat_smooth', 'subject', 'surf_smooth', 'study_dir', 'study_name',
-            'task', 'temp_dir', 'templates', 'template1', 'template2',
-            'vol_smooth', 'wb_command', WRAPPER_LOC}
-
-
 def get_optional_cli_args(cli_args, drop_slurm=False):
     """
     :param cli_args: Dictionary with all validated command-line arguments,
@@ -247,69 +245,6 @@ def get_optional_cli_args(cli_args, drop_slurm=False):
     return optional_args
 
 
-def get_pipeline_cli_argparser(arg_names=None):
-    """
-    :param arg_names: Set containing strings naming all command-line arguments
-    :return: argparse.ArgumentParser with all command-line arguments 
-             needed to run pipeline_wrapper.py
-    """
-    # Default values for user input arguments
-    if arg_names is None:
-        arg_names = get_main_pipeline_arg_names()
-    default_bids_dir = 'abcd-hcp-pipeline'
-    generic_dtseries_path = os.path.join(
-        '(--study-dir)', 'derivatives', '(--bids-dir)',
-        '(--subject)', '(--ses)', 'func',
-        'sub-(--subject)_ses-(--ses)_task-(--task)_'
-        'run-(--runs)_bold_timeseries.dtseries.nii'
-    )
-    generic_output_dirpath = os.path.join('(--study-dir)', 'derivatives',
-                                          'abcd-bids-tfmri-pipeline',
-                                          '(--subject)', '(--ses)')
-
-    # Strings used in multiple help messages
-    msg_default = ' By default, this argument\'s value(s) will be {}.'
-    msg_pipeline = 'Name of the {} that you are running the pipeline on.'
-
-    # Create parser with command-line arguments from user
-    parser = argparse.ArgumentParser(description=(
-        'ABCD fMRI Task Prep pipeline. Inputs must be in the same format '
-        'as ABCD-HCP-Pipeline outputs after running filemap.'
-    ))
-    parser = add_arg_if_in_arg_names('parameter_file', arg_names,
-                                     parser, )  # TODO Make the script use a parameter file instead of just adding all
-    # of the options from the nibabies, XCP, etc.?
-    parser = add_arg_if_in_arg_names('bids_dir', arg_names, parser,
-                                     metavar='NAME_OF_BIDS_DERIVATIVES_PIPELINE_DIRECTORY',
-                                     default=default_bids_dir,
-                                     help=('Name of the BIDS-standard file-mapped directory with subject '
-                                           'data in the "derivatives" subdirectory of your --study-dir. '
-                                           'This path should be valid: ' + generic_dtseries_path +
-                                           msg_default.format(default_bids_dir))
-                                     )
-    parser = add_arg_if_in_arg_names('output', arg_names, parser,
-                                     '-out', metavar='OUTPUT_DIRECTORY', type=valid_output_dir,  # required=True,
-                                     help=('Directory path to save pipeline outputs into.'
-                                           + msg_default.format(generic_output_dirpath))
-                                     )
-    # Which task you are running the pipeline on
-    parser = add_arg_if_in_arg_names('task', arg_names, parser,
-                                     metavar='TASK_NAME', required=True,
-                                     help=msg_pipeline.format('task')  # + msg_choices(choices_tasks)
-                                     )
-    parser = add_arg_if_in_arg_names('temp_dir', arg_names, parser,
-                                     type=valid_readable_dir, metavar='TEMPORARY_DIRECTORY',
-                                     help='Valid path to existing directory to save temporary files into.'
-                                     )
-    # Argument used to get this script's dir
-    parser = add_arg_if_in_arg_names(WRAPPER_LOC, arg_names, parser,
-                                     type=valid_readable_dir, required=True,
-                                     help=('Valid path to existing ABCD-BIDS-task-fmri-pipeline directory '
-                                           'that contains pipeline_wrapper.py')
-                                     )
-    return parser
-
-
 def get_sbatch_args(cli_args, job):
     """
     :param cli_args: Dictionary containing all command-line arguments from user
@@ -321,24 +256,26 @@ def get_sbatch_args(cli_args, job):
             '-J', job, argify('mem', '{}gb'.format(cli_args["memory"]))]
 
 
-def get_sub_base(cli_args, run_num=None):
+def get_sub_base(j_args, run_num=None):
     """
-    :param cli_args: Dictionary containing all command-line arguments from user
+    :param j_args: Dictionary containing all args from parameter .JSON file
     :param run_num: Whole number as an int or string defining which run this is
     :return: String identifying a subject, session, task, and maybe run
     """
-    parts = [get_subj_ses(cli_args), 'task-' + cli_args['task']]
+    parts = [get_subj_ses(j_args), 'task-' + j_args['common']['task_id']]
     if run_num is not None:
         parts.append('run-{}'.format(run_num))
     return '_'.join(parts)
 
 
-def get_subj_ses(cli_args):
+def get_subj_ses(j_args):
     """
-    :param cli_args: Dictionary containing all command-line arguments from user
-    :return: String which combines --subject and --ses from command line
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :return: String combining subject ID and session from parameter file
     """
-    return '_'.join((cli_args['subject'], cli_args['ses']))
+    sub = ensure_prefixed(j_args['common']['participant_label'], "sub-")
+    ses = ensure_prefixed(j_args['common']['session'], "ses-")
+    return '_'.join((sub, ses))
 
 
 def glob_and_copy(dest_dirpath, *path_parts_to_glob):
@@ -407,6 +344,7 @@ def run_all_stages(all_stages, start, end, params_for_every_stage):
     :param end: String naming the last stage the user wants to run
     :param params_for_every_stage: Dictionary of all args needed by each stage
     """
+    logger = logging.getLogger(os.path.basename(sys.argv[0]))
     running = False
     for stage_name in all_stages.keys():
         if stage_name == start:
@@ -414,7 +352,7 @@ def run_all_stages(all_stages, start, end, params_for_every_stage):
         if running:
             stage_start = datetime.now()
             # globals()["run_" + stage](params_for_every_stage)
-            all_stages[stage_name](params_for_every_stage)
+            all_stages[stage_name](params_for_every_stage, logger)
             get_and_print_time_since(stage_name + " started", stage_start)
         if stage_name == end:
             running = False
@@ -549,20 +487,19 @@ def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
         raise argparse.ArgumentTypeError(err_msg.format(to_validate))
 
 
-def validate_cli_args(cli_args, arg_names=None):
+def warn_user_biconditional(cond1, cond2, problem1, problem2, logger, warning):
     """
-    Validate types and set defaults for any arg whose validation depends on
-    another arg and therefore was not possible in get_pipeline_cli_argparser
-    :param cli_args: Dictionary containing all command-line arguments from user
-    :param arg_names: Set containing SCAN_ARG if that argument is needed
-    :return: cli_args, but fully validated
+    Show warning message to user based on boolean conditions 
+    :param cond1: Bool
+    :param cond2: Bool
+    :param problem1: String to put into the warning message if cond1
+    :param problem2: String to put into the warning message if cond2
+    :param logger: logging.Logger object to raise warning
+    :param warning: String with warning message to put problems into and log
     """
-    # Default output directory. Avoiding ensure_dict_has to
-    if arg_names is None:
-        set()
-    if not dict_has(cli_args, 'output'):  # prevent permissions error from
-        cli_args['output'] = valid_output_dir(  # valid_output_dir making dirs.
-            os.path.join(cli_args['study_dir'], 'derivatives', 'abcd-bids-tfm'
-                                                               'ri-pipeline', cli_args['subject'], cli_args['ses'])
-        )
-    return cli_args
+    problems = list()
+    if cond1:
+        problems.append(problem1)
+    if cond2:
+        problems.append(problem2)
+    logger.warn(warning.format(" and ".join(problems)))

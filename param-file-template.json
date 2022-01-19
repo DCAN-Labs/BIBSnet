@@ -3,15 +3,20 @@
         "age_months": "",
         "BIBSnet_work_dir": "",
         "bids_dir": "",
-        "derivatives": "",
         "fd_spike_threshold": "",
-        "nibabies_dir": "",
         "participant_label": "",
         "session": "",
         "stages_to_run": [""],
         "task_id": "",
         "template_description_json": "",
         "verbose": ""
+    },
+
+    "optional_out_dirs": {
+        "BIBSnet": "",
+        "derivatives": "",
+        "nibabies": "",
+        "XCPD": ""
     },
 
     "resource_management": {
@@ -82,7 +87,7 @@
         "write_graph": ""
     },
 
-    "XCP": {
+    "XCPD": {
         "band_stop_max": "",
         "band_stop_min": "",
         "bpf_order": "",
