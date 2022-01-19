@@ -11,14 +11,11 @@ Updated: 2022-01-19
 import argparse
 from datetime import datetime
 from glob import glob
-from hashlib import new
 from nipype.interfaces import fsl
 import os
 import pandas as pd
-from re import sub
 import subprocess
 import sys
-from tkinter import E
 
 
 def find_myself(flg):
