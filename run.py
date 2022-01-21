@@ -4,7 +4,7 @@
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Created: 2021-11-12
-Updated: 2022-01-19
+Updated: 2022-01-20
 """
 
 # Import standard libraries
@@ -64,9 +64,9 @@ def main():
     exit_with_time_info(start_time)
 
 
-def get_params_from_JSON(stage_names):
+def get_params_from_JSON(stages):
     """
-    :param stage_names: List of strings where each names a stage to run
+    :param stages: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
     parser = argparse.ArgumentParser()
@@ -80,20 +80,21 @@ def get_params_from_JSON(stage_names):
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=stage_names, default=stage_names[0]
+        choices=stages, default=stages[0]
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
-        choices=stage_names, default=stage_names[-1]
+        choices=stages, default=stages[-1]
     )
     cli_args = parser.parse_args()
     return validate_json_args(extract_from_json(cli_args.parameter_json),
-                              cli_args.start, cli_args.end, parser)
+                              cli_args.start, cli_args.end, stages, parser)
 
 
-def validate_json_args(j_args, start, end, parser):
+def validate_json_args(j_args, start, end, stages, parser):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param stages: List of strings; each names a stage to run
     """
     # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int
 
@@ -105,7 +106,7 @@ def validate_json_args(j_args, start, end, parser):
 
     # Define (and create) default paths in derivatives directory structure
     j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")
-    for deriv in ("BIBSnet", "nibabies", "XCPD"):
+    for deriv in stages:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
 
     j_args["stages"] = {"start": start, "end": end} 
@@ -177,7 +178,7 @@ def run_preBIBSnet(j_args, logger):
 
     # Make working directories to run pre-BIBSnet processing in
     subj_work_dir = os.path.join(
-        j_args["common"]["BIBSnet_work_dir"], subj_ID
+        j_args["optional_out_dirs"]["preBIBSnet"], subj_ID
     )
     work_dirs = {"parent": os.path.join(subj_work_dir, session)}
     for dirname in ("BIDS_data", "cropped", "resized"):
@@ -193,6 +194,7 @@ def run_preBIBSnet(j_args, logger):
             new_fpath = os.path.join(work_dirs["BIDS_data"],
                                      os.path.basename(eachfile))
             copy_and_rename_file(eachfile, new_fpath)
+            os.chmod(new_fpath, 0o775)
             # TODO What do we do if there's >1 T1w or >1 T2w? nnU-Net can't handle >1 rn.
             #      Average them (after crop/resize) like the pre-FreeSurfer infant pipeline does,
             #      per Fez and Luci, and do a rigid body registration while averaging
@@ -205,12 +207,14 @@ def run_preBIBSnet(j_args, logger):
     id_mx = os.path.join(SCRIPT_DIR, 'data', 'identity_matrix.mat')
     resize_images(work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx)
 
+    """
     # Copy resized images into bids_dir
     # (replacing originals, which were copied into the preBIBSnet work dir)
-    for image in os.scandir(work_dirs["resized"]): 
+    for image in os.scandir(work_dirs["resized"]):
         copy_and_rename_file(image.path, os.path.join(
             j_args["common"]["bids_dir"], subj_ID, session, "anat", image.name
         ))
+    """
 
     # TODO rename files to nnU-Net conventions (0000, 0001)
     return j_args
@@ -235,9 +239,13 @@ def run_postBIBSnet(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
+    subj_ID = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
+    session = ensure_prefixed(j_args["common"]["session"], "ses-")
+
     # Template selection values
     age_months = j_args["common"]["age_months"]
-    t1or2 = 2 if age_months < 22 else 1
+    print(age_months)
+    t1or2 = 2 if int(age_months) < 22 else 1
     if age_months > 33:
         age_months = "34-38"
 
@@ -246,11 +254,11 @@ def run_postBIBSnet(j_args, logger):
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
     tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
     subject_head_path = os.path.join(
-        j_args["BIBSnet"]["output_dir"],
+        j_args["optional_out_dirs"]["BIBSnet"], subj_ID, session,
         "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
     )
 
-    # Run left & right registration
+    # Run left & right registration  # NOTE: Script run successfully to here 2022-01-20_13:47
     subprocess.check_call((LR_REGISTR_PATH, subject_head_path,
                            tmpl_head.format(age_months, t1or2),
                            tmpl_mask.format(age_months)))
@@ -266,7 +274,9 @@ def run_postBIBSnet(j_args, logger):
     correct_chirality(subject_head_path, segment_lookup_table,
                       left_right_mask_nifti_file, nifti_output_file_path)
 
-    masks = make_asegderived_mask(chiral_out_dir)
+    # TODO Bring aseg back into native T1 space
+
+    masks = make_asegderived_mask(chiral_out_dir)  # NOTE Mask must be in native T1 space too
     
     # Make nibabies input dirs
     derivs_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],

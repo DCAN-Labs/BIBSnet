@@ -123,7 +123,7 @@ def copy_and_rename_file(old_file, new_file):
     os.rename(shutil.copy2(old_file, os.path.dirname(new_file)), new_file)
 
 
-def crop_images(image_dir, output_dir, z_min=80, z_max=320):
+def crop_images(image_dir, output_dir, z_min=80, z_max=320):  # TODO Save out these hardcoded parameters
     """
     Resize Images.
     Usage:
@@ -138,7 +138,7 @@ def crop_images(image_dir, output_dir, z_min=80, z_max=320):
         # fslroi sub-CENSORED_ses-20210412_T1w sub-CENSORED_ses-20210412_T1w_cropped 0 144 0 300 103 320
         input_file = os.path.join(image_dir, eachfile)
         img = nib.load(input_file)
-        cropped_img = img.slicer[:208, :300, z_min:z_max, ...]
+        cropped_img = img.slicer[:208, :300, z_min:z_max, ...]  # TODO Save out these hardcoded parameters
         print(cropped_img.shape)
         output_file = os.path.join(output_dir, eachfile)
         nib.save(cropped_img, output_file)

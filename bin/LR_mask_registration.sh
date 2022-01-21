@@ -16,7 +16,9 @@ TemplateMask=$1;shift
 
 module load ants
 WD="./wd"
-mkdir "$WD"
+if [ ! -d "$WD" ]; then
+	mkdir "$WD"
+fi
 
 # Register the template head to the subject head
 ANTS 3 -m CC["$SubjectHead","$TemplateHead",1,5] -t SyN[0.25] -r Gauss[3,0] -o "$WD"/antsreg -i 60x50x20 --use-Histogram-Matching  --number-of-affine-iterations 10000x10000x10000x10000x10000 --MI-option 32x16000
