@@ -59,6 +59,8 @@ def main():
 
     run_all_stages(STAGES, json_args["stages"]["start"],
                    json_args["stages"]["end"], json_args) # TODO Ensure that each stage only needs j_args?
+    #TODO default to running all stages if not specified by the user
+    #TODO add error if end is given as a stage that happens before start
 
     # Show user how long the pipeline took and end the pipeline here
     exit_with_time_info(start_time)
@@ -96,7 +98,7 @@ def validate_json_args(j_args, start, end, stages, parser):
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param stages: List of strings; each names a stage to run
     """
-    # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int
+    # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int - see param-types.json, parse this
 
     j_args["common"] = ensure_dict_has(
         j_args["common"], "age_months",
@@ -104,7 +106,7 @@ def validate_json_args(j_args, start, end, stages, parser):
         # TODO Figure out which column in the participants.tsv file has the age_months value
     )
 
-    # Define (and create) default paths in derivatives directory structure
+    # Define (and create) default paths in derivatives directory structure for each stage
     j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")
     for deriv in stages:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
@@ -142,10 +144,11 @@ def read_age_from_participants_tsv(j_args):
     )
 
     # Column names of participants.tsv                         
-    age_months_col = "age" # TODO Get name of column with age_months value
-    sub_ID_col = "participant_id" # TODO Figure out the subject ID column name (participant ID or subject ID)
+    age_months_col = "age" # TODO is there a way to assure the age column is given in months using the participants.json (the participants.tsv 's sidecar)
+    sub_ID_col = "participant_id"
     ses_ID_col = "session"
 
+    # TODO can we remove this code block?
     """
     # Ensure that the subject and session IDs start with the right prefixes
     sub_ses = {"participant_label": "sub-", "session": "ses-"}
@@ -172,6 +175,7 @@ def run_preBIBSnet(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
+    # Validating and correcting prefixes for subject and session
     subj_ID = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
     session = ensure_prefixed(j_args["common"]["session"], "ses-")
     subject_dir = os.path.join(j_args["common"]["bids_dir"], subj_ID)
@@ -198,14 +202,17 @@ def run_preBIBSnet(j_args, logger):
             # TODO What do we do if there's >1 T1w or >1 T2w? nnU-Net can't handle >1 rn.
             #      Average them (after crop/resize) like the pre-FreeSurfer infant pipeline does,
             #      per Fez and Luci, and do a rigid body registration while averaging
-    
+
     # Crop and resize images
     crop_images(work_dirs["BIDS_data"], work_dirs["cropped"])
+    logger.info("The anatomical images have been cropped for use in BIBSnet")
+
     os.chmod(work_dirs["cropped"], 0o775)
     ref_img = os.path.join(SCRIPT_DIR, 'data', 'test_subject_data', '1mo',
                            'sub-00006_T1w_acpc_dc_restore.nii.gz')
     id_mx = os.path.join(SCRIPT_DIR, 'data', 'identity_matrix.mat')
     resize_images(work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx)
+    logger.info("The anatomical images have been resized for use in BIBSnet")
 
     """
     # Copy resized images into bids_dir
@@ -217,6 +224,8 @@ def run_preBIBSnet(j_args, logger):
     """
 
     # TODO rename files to nnU-Net conventions (0000, 0001)
+
+    logger.info("PreBIBSnet has completed")
     return j_args
 
 
@@ -232,6 +241,8 @@ def run_BIBSnet(j_args, logger):
         j_args = copy_images_to_BIBSnet_dir(j_args)           # TODO
         j_args["segmentation"] = run_BIBSnet_predict(j_args)  # TODO
     """
+
+    logger.info("BIBSnet has completed")
     return j_args
 
 
@@ -239,6 +250,7 @@ def run_postBIBSnet(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
+    # Validating and correcting prefixes for subject and session
     subj_ID = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
     session = ensure_prefixed(j_args["common"]["session"], "ses-")
 
@@ -274,10 +286,13 @@ def run_postBIBSnet(j_args, logger):
     correct_chirality(subject_head_path, segment_lookup_table,
                       left_right_mask_nifti_file, nifti_output_file_path)
 
+    logger.info("The BIBSnet segmentation has had it's chirality checked and registered if needed")
+
     # TODO Bring aseg back into native T1 space
 
     masks = make_asegderived_mask(chiral_out_dir)  # NOTE Mask must be in native T1 space too
-    
+    logger.info("A mask of the BIBSnet segmentation has been produced")
+
     # Make nibabies input dirs
     derivs_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                               j_args["common"]["participant_label"],
@@ -292,6 +307,7 @@ def run_postBIBSnet(j_args, logger):
         
     # TODO Get dataset_description.json and put it in derivs_dir
 
+    logger.info("PostBIBSnet has completed.")
     return j_args
 
 
@@ -363,6 +379,8 @@ def run_nibabies(j_args, logger):
                            j_args["common"]["bids_dir"],
                            j_args["optional_out_dirs"]["nibabies"],
                            "participant", *derivs, *nibabies_args])
+
+    logger.info("Nibabies has completed")
     return j_args
 
 
@@ -381,6 +399,7 @@ def run_XCPD(j_args, logger):
         "/data", "/out", "--cifti", "-w", "/work", "--participant-label",
         j_args["common"]["participant_label"]
     ))
+    logger.info("XCP-D has completed")
     return j_args
 
 
