@@ -1,20 +1,20 @@
 {
     "common": {
         "age_months": "",
-        "BIBSnet_work_dir": "",
         "bids_dir": "",
         "fd_spike_threshold": "",
         "participant_label": "",
         "session": "",
-        "stages_to_run": [""],
         "task_id": "",
         "template_description_json": "",
         "verbose": ""
     },
 
     "optional_out_dirs": {
-        "BIBSnet": "",
         "derivatives": "",
+        "preBIBSnet": "",
+        "BIBSnet": "",
+        "postBIBSnet": "",
         "nibabies": "",
         "XCPD": ""
     },
@@ -29,7 +29,6 @@
 
     "BIBSnet": {
         "input_dir": "",
-        "output_dir": "",
         "model": "",
         "task": ""
     },

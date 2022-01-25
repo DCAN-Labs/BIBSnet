@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-01-19
+Updated: 2022-01-24
 """
 
 # Import standard libraries
@@ -438,6 +438,11 @@ def valid_template_filename(fname):
     """
     return validate(fname, lambda x: os.path.splitext(x)[-1] == '.fsf',
                     lambda y: y, '{} is not an .fsf file name')
+
+
+# TODO For nibabies --output-spaces type validation, see https://fmriprep.org/en/latest/spaces.html
+# TODO Use --clean-env flag to prevent contamination of Singularity run by outside environment variables?
+#   https://3.basecamp.com/5032058/buckets/21517584/messages/4545156874
 
 
 def valid_time_str(in_arg):

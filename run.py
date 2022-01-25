@@ -4,7 +4,7 @@
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Created: 2021-11-12
-Updated: 2022-01-20
+Updated: 2022-01-24
 """
 
 # Import standard libraries
@@ -341,7 +341,7 @@ def run_nibabies(j_args, logger):
     nibabies_args = [j_args["common"]["age_months"], ]
     for nibabies_arg in ["cifti_output", "work_dir"]:
         nibabies_args.append(as_cli_arg(nibabies_arg))
-        nibabies_args.append(j_args["nibabies"][nibabies_arg])
+        nibabies_args.append(j_args["nibabies"][nibabies_arg])  # TODO Ensure that all common args required by nibabies are added
 
     # Check whether aseg and mask files were produced by BIBSnet
     glob_path = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
@@ -372,7 +372,7 @@ def run_XCPD(j_args, logger):
     :param j_args: Dictionary containing all args from parameter .JSON file
     :return: j_args, unchanged
     """
-    subprocess.check_call((
+    subprocess.check_call((   # TODO Ensure that all "common" and "XCPD" args required by XCPD are added
         "singularity", "run", "--cleanenv",
         "-B", j_args["optional_out_dirs"]["nibabies"] + ":/data:ro",
         "-B", j_args["optional_out_dirs"]["XCPD"] + ":/out",
