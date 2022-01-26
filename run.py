@@ -41,7 +41,8 @@ LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 from src.utilities import (
     as_cli_arg, copy_and_rename_file, crop_images, ensure_dict_has,
     ensure_prefixed, exit_with_time_info, extract_from_json, get_subj_ses,
-    resize_images, run_all_stages, valid_readable_json, warn_user_biconditional
+    resize_images, run_all_stages, valid_readable_json,
+    validate_parameter_types, warn_user_biconditional
 )
 from src.img_processing.correct_chirality import correct_chirality
 
@@ -71,14 +72,21 @@ def get_params_from_JSON(stages):
     :param stages: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
+    default_types_json = os.path.join(SCRIPT_DIR, "param-types.json")
+    msg_json = "Valid path to existing readable parameter .json file."
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "parameter_json", type=valid_readable_json,
-        help=("Valid path to readable parameter .json file. See README.md "
-              "for more information on parameters")
+        help=("{} See README.md for more information on parameters."
+              .format(msg_json))
         # TODO: Add description of every parameter to the README, and maybe also to this --help message
         # TODO: Add nnU-Net parameters (once they're decided on)
         # TODO: Maaaybe read in each parameter from the .json using argparse if possible? stackoverflow.com/a/61003775
+    )
+    parser.add_argument(
+        "--types-json", type=valid_readable_json, default=default_types_json,
+        help=("{} This file must map every CABINET parameter to its data type."
+              .format(msg_json))
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
@@ -88,17 +96,21 @@ def get_params_from_JSON(stages):
         "-end", "--ending-stage", dest="end",
         choices=stages, default=stages[-1]
     )
-    cli_args = parser.parse_args()
-    return validate_json_args(extract_from_json(cli_args.parameter_json),
-                              cli_args.start, cli_args.end, stages, parser)
+    return validate_cli_args(vars(parser.parse_args()), stages, parser)
 
 
-def validate_json_args(j_args, start, end, stages, parser):
+def validate_cli_args(cli_args, stages, parser):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param stages: List of strings; each names a stage to run
     """
-    # TODO Validate types in j_args; e.g. validate that nibabies[age_months] is an int - see param-types.json, parse this
+    # Get command-line input arguments and use them to get .JSON parameters
+    j_args = extract_from_json(cli_args["parameter_json"])
+    j_args["stages"] = {"start": cli_args["start"], "end": cli_args["end"]} 
+
+    # Verify that every parameter in the parameter .JSON file is a valid input
+    validate_parameter_types(j_args, extract_from_json(cli_args["types_json"]),
+                             cli_args["parameter_json"], parser)
 
     j_args["common"] = ensure_dict_has(
         j_args["common"], "age_months",
@@ -111,7 +123,6 @@ def validate_json_args(j_args, start, end, stages, parser):
     for deriv in stages:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
 
-    j_args["stages"] = {"start": start, "end": end} 
     return j_args
 
 

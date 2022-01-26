@@ -368,7 +368,7 @@ def run_flirt_resize(flirt_path, in_path, ref_path, *args):
     """
     subprocess.check_call([flirt_path, '-interp', 'spline', '-in',
                            in_path, '-ref', ref_path, *args])
-
+                    
 
 def valid_float_0_to_1(val):
     """
@@ -376,7 +376,7 @@ def valid_float_0_to_1(val):
     :return: val if it is a float between 0 and 1 (otherwise invalid)
     """
     return validate(val, lambda x: 0 <= float(x) <= 1, float,
-                    'Value must be a number between 0 and 1')
+                    '{} is not a number between 0 and 1')
 
 
 def valid_output_dir(path):
@@ -388,6 +388,16 @@ def valid_output_dir(path):
     return validate(path, lambda x: os.access(x, os.W_OK),
                     valid_readable_dir, 'Cannot create directory at {}',
                     lambda y: os.makedirs(y, exist_ok=True))
+
+
+def valid_positive_float(to_validate):
+    """
+    Throw argparse exception unless to_validate is a positive float
+    :param to_validate: Object to test whether it is a positive float
+    :return: to_validate if it is a positive float
+    """
+    return validate(to_validate, lambda x: float(x) >= 0, float,
+                    '{} is not a positive number')
 
 
 def valid_readable_dir(path):
@@ -471,6 +481,7 @@ def valid_whole_number(to_validate):
                     '{} is not a positive integer')
 
 
+
 def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
     """
     Parent/base function used by different type validation functions. Raises an
@@ -490,6 +501,51 @@ def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
     except (OSError, TypeError, AssertionError, ValueError,
             argparse.ArgumentTypeError):
         raise argparse.ArgumentTypeError(err_msg.format(to_validate))
+
+
+def validate_parameter_types(j_args, j_types, param_json, parser):
+    """
+    Verify that every parameter in j_args is the correct data-type and the 
+    right kind of value. If any parameter is invalid, crash with an error.
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_types: Dictionary mapping every argument in j_args to its type
+    :param param_json: String, valid path to readable parameter .JSON file
+    :param parser: [type], [description]
+    """
+    # Define functions to validate arguments of each data type
+    TYPE_VALIDATORS = {"bool": bool,
+                       "existing_directory_path": valid_readable_dir,
+                       "existing_file_path": valid_readable_file,
+                       "existing_json_file_path": valid_readable_json,
+                       "float_0_to_1": valid_float_0_to_1,
+                       "new_directory_path": valid_output_dir,
+                       "positive_float": valid_positive_float,
+                       "positive_int": valid_whole_number, 
+                       "str": lambda _: True}
+
+    # For each parameter, run its corresponding validation function
+    err_msg = ("'{}' is not a valid '{}' parameter in the '{}' section "
+               "of {} ({})\n")
+    for section_name, section_dict in j_types.items():
+        for arg_name, arg_type in section_dict.items():
+            try:
+                to_validate = j_args[section_name][arg_name]
+
+                # Either run a type validation function defined above or check
+                # that the parameter is a valid member of a list of choices
+                {str: TYPE_VALIDATORS[arg_type],
+                 list: lambda prm: prm if prm in arg_type else parser.error(
+                     err_msg.format(prm, arg_name, section_name, param_json,
+                                    "Valid {} values: {}"
+                                    .format(arg_name, ", ".join(arg_type)))
+                 )
+                }[type(arg_type)](to_validate)
+
+            # If type validation fails, then inform the user which parameter
+            # has an invalid type and what the valid types are
+            except (argparse.ArgumentTypeError, TypeError) as e:
+                parser.error(err_msg.format(to_validate, arg_name,
+                                            section_name, param_json, e))
 
 
 def warn_user_biconditional(cond1, cond2, problem1, problem2, logger, warning):
