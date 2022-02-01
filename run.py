@@ -4,12 +4,12 @@
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Created: 2021-11-12
-Updated: 2022-01-24
+Updated: 2022-01-31
 """
 
 # Import standard libraries
 import argparse
-from datetime import datetime
+from datetime import datetime 
 from glob import glob
 from nipype.interfaces import fsl
 import os
@@ -33,33 +33,34 @@ def find_myself(flg):
 
 
 # Constants: Paths to this dir and level 1 analysis script
-WRAPPER_LOC = '--wrapper-location'
-SCRIPT_DIR = find_myself(WRAPPER_LOC)
+SCRIPT_DIR_ARG = "--script-dir"
+SCRIPT_DIR = find_myself(SCRIPT_DIR_ARG)
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 
 # Custom local imports
 from src.utilities import (
-    as_cli_arg, copy_and_rename_file, crop_images, ensure_dict_has,
-    ensure_prefixed, exit_with_time_info, extract_from_json, get_subj_ses,
-    resize_images, run_all_stages, valid_readable_json,
-    validate_parameter_types, warn_user_biconditional
+    as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
+    crop_images, dict_has, ensure_dict_has, ensure_prefixed,
+    exit_with_time_info, extract_from_json, get_stage_name,
+    get_subj_ID_and_session, get_subj_ses, resize_images, run_all_stages,
+    valid_readable_json, validate_parameter_types, valid_readable_dir,
+    warn_user_of_conditions
 )
-from src.img_processing.correct_chirality import correct_chirality
 
 
 def main():
     # Time how long the script takes and get command-line arguments from user 
     start_time = datetime.now()
 
-    STAGES = {"preBIBSnet": run_preBIBSnet, "BIBSnet": run_BIBSnet,
-              "postBIBSnet": run_postBIBSnet, "nibabies": run_nibabies,
-              "XCPD": run_XCPD}
-    json_args = get_params_from_JSON(list(STAGES.keys()))
+    STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
+              run_XCPD]
+    STAGE_NAMES = [get_stage_name(stg) for stg in STAGES]
+    json_args = get_params_from_JSON(STAGE_NAMES)
 
     print(json_args)  # TODO REMOVE LINE
 
-    run_all_stages(STAGES, json_args["stages"]["start"],
-                   json_args["stages"]["end"], json_args) # TODO Ensure that each stage only needs j_args?
+    run_all_stages(STAGES, json_args["stage_names"]["start"],
+                   json_args["stage_names"]["end"], json_args) # TODO Ensure that each stage only needs j_args?
     #TODO default to running all stages if not specified by the user
     #TODO add error if end is given as a stage that happens before start
 
@@ -67,9 +68,9 @@ def main():
     exit_with_time_info(start_time)
 
 
-def get_params_from_JSON(stages):
+def get_params_from_JSON(stage_names):
     """
-    :param stages: List of strings; each names a stage to run
+    :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
     default_types_json = os.path.join(SCRIPT_DIR, "param-types.json")
@@ -84,33 +85,42 @@ def get_params_from_JSON(stages):
         # TODO: Maaaybe read in each parameter from the .json using argparse if possible? stackoverflow.com/a/61003775
     )
     parser.add_argument(
+        "-start", "--starting-stage", dest="start",
+        choices=stage_names, default=stage_names[0]
+    )
+    parser.add_argument(
+        "-end", "--ending-stage", dest="end",
+        choices=stage_names, default=stage_names[-1]
+    )
+    parser.add_argument(
         "--types-json", type=valid_readable_json, default=default_types_json,
         help=("{} This file must map every CABINET parameter to its data type."
               .format(msg_json))
     )
     parser.add_argument(
-        "-start", "--starting-stage", dest="start",
-        choices=stages, default=stages[0]
+        SCRIPT_DIR_ARG, dest="script_dir", type=valid_readable_dir,
+        help=("Valid path to the existing parent directory of this run.py "
+              "script. Include this argument if and only if you are running "
+              "the script as a SLURM/SBATCH job.")
     )
-    parser.add_argument(
-        "-end", "--ending-stage", dest="end",
-        choices=stages, default=stages[-1]
-    )
-    return validate_cli_args(vars(parser.parse_args()), stages, parser)
+    return validate_cli_args(vars(parser.parse_args()), stage_names, parser)
 
 
-def validate_cli_args(cli_args, stages, parser):
+def validate_cli_args(cli_args, stage_names, parser):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :param stages: List of strings; each names a stage to run
+    :param stage_names: List of strings; each names a stage to run
     """
     # Get command-line input arguments and use them to get .JSON parameters
     j_args = extract_from_json(cli_args["parameter_json"])
-    j_args["stages"] = {"start": cli_args["start"], "end": cli_args["end"]} 
+    j_args["meta"] = {SCRIPT_DIR_ARG: SCRIPT_DIR,
+                      "slurm": bool(cli_args[as_cli_attr(SCRIPT_DIR_ARG)])}
+    j_args["stage_names"] = {"start": cli_args["start"],
+                             "end": cli_args["end"]} 
 
     # Verify that every parameter in the parameter .JSON file is a valid input
     validate_parameter_types(j_args, extract_from_json(cli_args["types_json"]),
-                             cli_args["parameter_json"], parser)
+                             cli_args["parameter_json"], parser, stage_names)
 
     j_args["common"] = ensure_dict_has(
         j_args["common"], "age_months",
@@ -120,7 +130,7 @@ def validate_cli_args(cli_args, stages, parser):
 
     # Define (and create) default paths in derivatives directory structure for each stage
     j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")
-    for deriv in stages:
+    for deriv in stage_names:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
 
     return j_args
@@ -148,6 +158,8 @@ def read_age_from_participants_tsv(j_args):
     """
     columns = {"age": "str", "participant_id": "str", "session": "str"}
 
+    subj_ID, session = get_subj_ID_and_session(j_args)
+
     # Read in participants.tsv
     part_tsv_df = pd.read_csv(
         os.path.join(j_args["common"]["bids_dir"],
@@ -159,17 +171,6 @@ def read_age_from_participants_tsv(j_args):
     sub_ID_col = "participant_id"
     ses_ID_col = "session"
 
-    # TODO can we remove this code block?
-    """
-    # Ensure that the subject and session IDs start with the right prefixes
-    sub_ses = {"participant_label": "sub-", "session": "ses-"}
-    sub_ses_labels = sub_ses.copy()
-    for param_name, prefix in sub_ses.items():
-        param = j_args["common"][param_name]
-        sub_ses_labels[prefix] = (param[-len(prefix)] if param[:len(prefix)]
-                                  == prefix else param)
-    print(sub_ses_labels)
-    """
     # Get and return the age_months value from participants.tsv
     subj_row = part_tsv_df[
         part_tsv_df[sub_ID_col] == j_args["common"]["participant_label"]
@@ -186,9 +187,7 @@ def run_preBIBSnet(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
-    # Validating and correcting prefixes for subject and session
-    subj_ID = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
-    session = ensure_prefixed(j_args["common"]["session"], "ses-")
+    subj_ID, session = get_subj_ID_and_session(j_args)
     subject_dir = os.path.join(j_args["common"]["bids_dir"], subj_ID)
 
     # Make working directories to run pre-BIBSnet processing in
@@ -219,10 +218,12 @@ def run_preBIBSnet(j_args, logger):
     logger.info("The anatomical images have been cropped for use in BIBSnet")
 
     os.chmod(work_dirs["cropped"], 0o775)
-    ref_img = os.path.join(SCRIPT_DIR, 'data', 'test_subject_data', '1mo',
-                           'sub-00006_T1w_acpc_dc_restore.nii.gz')
-    id_mx = os.path.join(SCRIPT_DIR, 'data', 'identity_matrix.mat')
-    resize_images(work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx)
+    ref_img = os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo",
+                           "sub-00006_T1w_acpc_dc_restore.nii.gz")
+    id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
+    j_args["transformed_images"] = resize_images(
+        work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx
+    )
     logger.info("The anatomical images have been resized for use in BIBSnet")
 
     """
@@ -261,9 +262,7 @@ def run_postBIBSnet(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
-    # Validating and correcting prefixes for subject and session
-    subj_ID = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
-    session = ensure_prefixed(j_args["common"]["session"], "ses-")
+    subj_ID, session = get_subj_ID_and_session(j_args)
 
     # Template selection values
     age_months = j_args["common"]["age_months"]
@@ -281,26 +280,40 @@ def run_postBIBSnet(j_args, logger):
         "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
     )
 
-    # Run left & right registration  # NOTE: Script run successfully to here 2022-01-20_13:47
+    # Left/right registration output file path
+    left_right_mask_nifti_fpath = os.path.join(
+        j_args["optional_out_dirs"]["postBIBSnet"], "LRmask.nii.gz"
+    )
+
+    # Run left & right registration  # NOTE: Script ran successfully to here 2022-01-20_13:47
     subprocess.check_call((LR_REGISTR_PATH, subject_head_path,
                            tmpl_head.format(age_months, t1or2),
-                           tmpl_mask.format(age_months)))
+                           tmpl_mask.format(age_months),
+                           left_right_mask_nifti_fpath))
 
-    # Chirality correction
-    chiral_out_dir = os.path.join(j_args["BIBSnet"]["output_dir"], "chirality_correction")
+    # Define paths to dirs/files used in chirality correction script
+    chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+                                  "chirality_correction")
     os.makedirs(chiral_out_dir)
-    segment_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
+    segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
                                         "FreeSurferColorLUT.txt")
-    left_right_mask_nifti_file = "LRmask.nii.gz"  # TODO Make the --output path in LR_mask_registration.sh an absolute path and copy it here
-    nifti_output_file_path = os.path.join(chiral_out_dir,
-                                          os.path.basename(subject_head_path))
-    correct_chirality(subject_head_path, segment_lookup_table,
-                      left_right_mask_nifti_file, nifti_output_file_path)
+    seg_BIBSnet_outfile = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                       j_args["BIBSnet"]["aseg_outfile"])
+    chiral_corrected_nii_outfile_path = os.path.join(
+        chiral_out_dir, j_args["BIBSnet"]["aseg_outfile"]
+    ) 
+    path_T1w = glob(os.path.join(
+        j_args["common"]["bids_input_dir"], subj_ID, session, "anat", "*_T1w.nii.gz"
+    ))[0]  # Select an arbitrary T1w image path to use to get T1w space
 
-    logger.info("The BIBSnet segmentation has had it's chirality checked and registered if needed")
+    correct_chirality(seg_BIBSnet_outfile, segment_lookup_table_path,
+                      left_right_mask_nifti_fpath,
+                      chiral_corrected_nii_outfile_path,
+                      j_args["transformed_images"]["T1w"], path_T1w)
+    logger.info("The BIBSnet segmentation has had its chirality checked and registered if needed")
 
     # TODO Bring aseg back into native T1 space
-
+    
     masks = make_asegderived_mask(chiral_out_dir)  # NOTE Mask must be in native T1 space too
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
@@ -330,9 +343,9 @@ def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_part):
     :param sub_ses: String, the subject and session connected by an underscore
     :param new_fname_part: String to add to the end of the new filename
     """
-    copy_and_rename_file(file_to_copy, os.path.join(
-        derivs_dir, sub_ses + "_space-orig_desc-{}.nii.gz".format(new_fname_part)
-    ))
+    copy_and_rename_file(file_to_copy, os.path.join(derivs_dir, (
+        "{}_space-orig_desc-{}.nii.gz".format(sub_ses, new_fname_part)
+    )))
 
 
 def make_asegderived_mask(aseg_dir):
@@ -343,18 +356,18 @@ def make_asegderived_mask(aseg_dir):
     :return: List of strings; each is a valid path to an aseg mask file
     """
     # Only make masks from chirality-corrected nifti files
-    aseg = glob(os.path.join(aseg_dir, 'sub-*_aseg.nii.gz'))  
+    aseg = glob(os.path.join(aseg_dir, "sub-*_aseg.nii.gz"))  
     aseg.sort()
 
     # binarize, fillh, and erode aseg to make mask:
     mask_out_files = list()
     for aseg_file in aseg:
         mask_out_files.append(os.path.join(
-            aseg_dir, '{}_mask.nii.gz'.format(aseg_file.split('.nii.gz')[0])
+            aseg_dir, "{}_mask.nii.gz".format(aseg_file.split(".nii.gz")[0])
         ))
         maths = fsl.ImageMaths(in_file=aseg_file,  # (anat file)
-                               op_string=('-bin -dilM -dilM -dilM -dilM '
-                                          '-fillh -ero -ero -ero -ero'),
+                               op_string=("-bin -dilM -dilM -dilM -dilM "
+                                          "-fillh -ero -ero -ero -ero"),
                                out_file=mask_out_files[-1])
         maths.run()
     return mask_out_files
@@ -379,10 +392,10 @@ def run_nibabies(j_args, logger):
         derivs = ["--derivatives", j_args["optional_out_dirs"]["BIBSnet"]]
     else:
         derivs = list()
-        warn_user_biconditional(
-            aseg_glob, mask_glob, "mask", "aseg", logger,
-            ("Missing {{}} files in {}\nNow running nibabies with JLF and "
-             "without BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"]))
+        warn_user_of_conditions(
+            ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
+             "BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"])),
+            logger, mask=mask_glob, aseg=aseg_glob
         )
     
     # Run nibabies
@@ -414,5 +427,5 @@ def run_XCPD(j_args, logger):
     return j_args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

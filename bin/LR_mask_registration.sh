@@ -13,6 +13,7 @@ set -e
 SubjectHead=$1;shift
 TemplateHead=$1;shift
 TemplateMask=$1;shift
+OutputMaskFile=$1;shift
 
 module load ants
 WD="./wd"
@@ -25,7 +26,7 @@ ANTS 3 -m CC["$SubjectHead","$TemplateHead",1,5] -t SyN[0.25] -r Gauss[3,0] -o "
 
 # Apply resulting transformation to template L/R mask to generate subject L/R mask
 antsApplyTransforms -d 3 \
-        --output LRmask.nii.gz \
+        --output "$OutputMaskFile" \  # LRmask.nii.gz \
         --reference-image "$SubjectHead" \
         --transform "$WD"/antsregWarp.nii.gz "$WD"/antsregAffine.txt \
         --input "$TemplateMask" \

@@ -11,12 +11,12 @@
     },
 
     "optional_out_dirs": {
-        "derivatives": "new_directory_path",
-        "preBIBSnet": "new_directory_path",
-        "BIBSnet": "new_directory_path",
-        "postBIBSnet": "new_directory_path",
-        "nibabies": "new_directory_path",
-        "XCPD": "new_directory_path"
+        "derivatives": "optional_new_dirpath",
+        "preBIBSnet": "optional_new_dirpath",
+        "BIBSnet": "optional_new_dirpath",
+        "postBIBSnet": "optional_new_dirpath",
+        "nibabies": "optional_new_dirpath",
+        "XCPD": "optional_new_dirpath"
     },
 
     "resource_management": {
@@ -27,8 +27,9 @@
         "omp_nthreads": "positive_int",
         "resource_monitor": "bool"
     },
-
+    
     "BIBSnet": {
+        "aseg_outfile": "new_file_path",
         "input_dir": "new_directory_path",
         "model": "str",
         "singularity_image_path": "existing_file_path",
@@ -42,7 +43,7 @@
         "bids_database_dir": "existing_directory_path",
         "bids_filter_file": "existing_json_file_path",
         "boilerplate_only": "bool",
-        "bold2t1w_dof": "choices(6, 9, 12)",
+        "bold2t1w_dof": [6, 9, 12],
         "bold2t1w_init": ["register", "header"],
         "cifti_output": ["91k", "170k"],
         "clean_workdir": "bool",

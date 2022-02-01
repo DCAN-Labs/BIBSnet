@@ -10,10 +10,14 @@ Options:
 """
 
 import nibabel as nib
+import os
+import shutil
+import subprocess
 # from docopt import docopt
 
 
 from src.util.look_up_tables import get_id_to_region_mapping
+from src.utilities import run_flirt_resize
 
 CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
 LEFT = 'Left-'
@@ -45,7 +49,9 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number, new
         new_data[chirality][floor_ceiling][scanner_bore] = flipped_id
 
 
-def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_mask_nifti_file, nifti_output_file_path):
+def correct_chirality(nifti_input_file_path, segment_lookup_table,
+                      left_right_mask_nifti_file, nifti_output_file_path,
+                      transformed_T1w_out, t1w_path):
     """Creates an output file with chirality corrections fixed.
 
     Parameters:
@@ -82,6 +88,15 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table, left_right_ma
                         chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_output_file_path)
+
+    # TODO DEFINE PATHS
+    output_copy = nifti_output_file_path + "_dummy"
+    shutil.copy2(nifti_output_file_path, output_copy)
+    transformed_output = "resize_to_T1w.mat"  # TODO
+    subprocess.check_call(("convert_xfm", "-omat", transformed_output, "-inverse", transformed_T1w_out))  # TODO get path to FSL tool convert_xfm  # TODO Invert transformed_T1w_out
+    run_flirt_resize('flirt', output_copy, t1w_path,
+                     '-applyxfm', '-init', transformed_T1w_out,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
+                     '-o', nifti_output_file_path)
 
 
 if __name__ == "__main__":

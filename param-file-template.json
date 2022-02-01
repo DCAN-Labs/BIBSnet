@@ -28,9 +28,11 @@
     },
 
     "BIBSnet": {
-        "input_dir": "",
-        "model": "",
-        "task": ""
+        "aseg_outfile": "placeholder",
+        "input_dir": "placeholder",
+        "model": "placeholder",
+        "singularity_image_path": "placeholder",
+        "task": "placeholder"
     },
     
     "nibabies": {
