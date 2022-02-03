@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-01-31
+Updated: 2022-02-03
 """
 
 # Import standard libraries
@@ -16,7 +16,7 @@ import nibabel as nib
 import os
 import random  # only used by rand_string
 import shutil
-from src.util.look_up_tables import get_id_to_region_mapping
+# from src.util.look_up_tables import get_id_to_region_mapping
 import string  # only used by rand_string
 import subprocess
 import sys
@@ -308,6 +308,34 @@ def get_default_ext_command(cmd_name):
     return cmd
 
 
+def get_id_to_region_mapping(mapping_file_name, separator=None):
+    """
+    Author: Paul Reiners
+    Create a map from region ID to region name from a from a FreeSurfer-style
+    look-up table. This function parses a FreeSurfer-style look-up table. It
+    then returns a map that maps region IDs to their names.
+    :param mapping_file_name: String, the name or path to the look-up table
+    :param separator: String delimiter separating parts of look-up table lines
+    :return: Dictionary, a map from the ID of a region to its name
+    """
+    file = open(mapping_file_name, 'r')
+    lines = file.readlines()
+
+    id_to_region = {}
+    for line in lines:
+        line = line.strip()
+        if line.startswith('#') or line == '':
+            continue
+        if separator:
+            parts = line.split(separator)
+        else:
+            parts = line.split()
+        region_id = int(parts[0])
+        region = parts[1]
+        id_to_region[region_id] = region
+    return id_to_region
+
+
 def get_optional_cli_args(cli_args, drop_slurm=False):
     """
     :param cli_args: Dictionary with all validated command-line arguments,
@@ -421,10 +449,10 @@ def resize_images(input_folder, output_folder, reference_image_path, ident_mx):
         scan_type = eachfile.rsplit("_", 1)[-1].split(".", 1)[0]
         print(eachfile)  # TODO remove this line?
 
-        if scan_type == "T1w": # count == 1:
+        if scan_type == "0000": # count == 1:
             t1w_image = os.path.join(input_folder, eachfile)  # TODO Add explanatory comments!
             output_t1w_img = os.path.join(output_folder, eachfile)
-        elif scan_type == "T2w": # count == 2:
+        elif scan_type == "0001": # count == 2:
             t2w_image = os.path.join(input_folder, eachfile)
             output_t2w_img = os.path.join(output_folder, eachfile)
 

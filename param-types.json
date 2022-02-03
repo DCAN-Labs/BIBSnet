@@ -27,6 +27,12 @@
         "omp_nthreads": "positive_int",
         "resource_monitor": "bool"
     },
+
+    "preBIBSnet": {
+        "input_dir": "str",
+        "cropped_dir": "str",
+        "resized_dir": "str"
+    },
     
     "BIBSnet": {
         "aseg_outfile": "new_file_path",

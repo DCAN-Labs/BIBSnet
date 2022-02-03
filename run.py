@@ -4,7 +4,7 @@
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Created: 2021-11-12
-Updated: 2022-01-31
+Updated: 2022-02-03
 """
 
 # Import standard libraries
@@ -192,53 +192,53 @@ def run_preBIBSnet(j_args, logger):
 
     # Make working directories to run pre-BIBSnet processing in
     subj_work_dir = os.path.join(
-        j_args["optional_out_dirs"]["preBIBSnet"], subj_ID
+        j_args["optional_out_dirs"]["preBIBSnet"], subj_ID, session
     )
-    work_dirs = {"parent": os.path.join(subj_work_dir, session)}
-    for dirname in ("BIDS_data", "cropped", "resized"):
-        work_dirs[dirname] = os.path.join(work_dirs["parent"], dirname)
-    for eachdir in work_dirs.values():
-        os.makedirs(eachdir, exist_ok=True)
+    for jarg, work_dirname in j_args["preBIBSnet"].items():
+        j_args["preBIBSnet"][jarg] = os.path.join(subj_work_dir, work_dirname)
+        os.makedirs(j_args["preBIBSnet"][jarg], exist_ok=True)
+    work_dirs = {"parent": subj_work_dir, **j_args["preBIBSnet"]}
 
     # Copy any file with T1 or T2 in its name from BIDS/anat dir to BIBSnet work dir
     for each_anat in (1, 2):
         for eachfile in glob(os.path.join(
             subject_dir, session, "anat", "*T{}w*.nii.gz".format(each_anat)
         )):
-            new_fpath = os.path.join(work_dirs["BIDS_data"],
-                                     os.path.basename(eachfile))
+            new_fpath = os.path.join(
+                work_dirs["input_dir"],
+                rename_for_nnUNet(os.path.basename(eachfile))
+            )
             copy_and_rename_file(eachfile, new_fpath)
             os.chmod(new_fpath, 0o775)
-            # TODO What do we do if there's >1 T1w or >1 T2w? nnU-Net can't handle >1 rn.
-            #      Average them (after crop/resize) like the pre-FreeSurfer infant pipeline does,
-            #      per Fez and Luci, and do a rigid body registration while averaging
 
     # Crop and resize images
-    crop_images(work_dirs["BIDS_data"], work_dirs["cropped"])
+    crop_images(work_dirs["input_dir"], work_dirs["cropped_dir"])
     logger.info("The anatomical images have been cropped for use in BIBSnet")
 
-    os.chmod(work_dirs["cropped"], 0o775)
+    os.chmod(work_dirs["cropped_dir"], 0o775)
     ref_img = os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo",
                            "sub-00006_T1w_acpc_dc_restore.nii.gz")
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     j_args["transformed_images"] = resize_images(
-        work_dirs["cropped"], work_dirs["resized"], ref_img, id_mx
+        work_dirs["cropped_dir"], work_dirs["resized_dir"], ref_img, id_mx
     )
     logger.info("The anatomical images have been resized for use in BIBSnet")
 
-    """
-    # Copy resized images into bids_dir
-    # (replacing originals, which were copied into the preBIBSnet work dir)
-    for image in os.scandir(work_dirs["resized"]):
-        copy_and_rename_file(image.path, os.path.join(
-            j_args["common"]["bids_dir"], subj_ID, session, "anat", image.name
-        ))
-    """
-
-    # TODO rename files to nnU-Net conventions (0000, 0001)
+    # TODO What do we do if there's >1 T1w or >1 T2w? nnU-Net can't handle >1 rn.
+    #      Average them (after crop/resize) like the pre-FreeSurfer infant pipeline does,
+    #      per Fez and Luci, and do a rigid body registration while averaging
 
     logger.info("PreBIBSnet has completed")
     return j_args
+
+
+def rename_for_nnUNet(fname):
+    """
+    Given a filename, change that name to meet nnU-Net's conventions
+    :param fname: String naming a .nii.gz file
+    :return: String, fname but replacing the "T?w" with "000?"
+    """
+    return fname.replace("T1w", "0000").replace("T2w", "0001")
 
 
 def run_BIBSnet(j_args, logger):
@@ -263,6 +263,7 @@ def run_postBIBSnet(j_args, logger):
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
     subj_ID, session = get_subj_ID_and_session(j_args)
+    sub_ses = "{}_{}".format(subj_ID, session)
 
     # Template selection values
     age_months = j_args["common"]["age_months"]
@@ -275,18 +276,18 @@ def run_postBIBSnet(j_args, logger):
     chiral_in_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
     tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
-    subject_head_path = os.path.join(
-        j_args["optional_out_dirs"]["BIBSnet"], subj_ID, session,
-        "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
-    )
+    subject_head_path = os.path.join(j_args["preBIBSnet"]["resized_dir"],
+                                     sub_ses + "_run-*_0000.nii.gz")
+        # "{}_acq-T1inT2".format(j_args["common"]["participant_label"]) # TODO Figure out / double-check the BIBSnet output file name for this participant
+    first_subject_head = glob(subject_head_path)[0]  # Grab the first resized T1w from preBIBSnet
 
     # Left/right registration output file path
     left_right_mask_nifti_fpath = os.path.join(
         j_args["optional_out_dirs"]["postBIBSnet"], "LRmask.nii.gz"
     )
 
-    # Run left & right registration  # NOTE: Script ran successfully to here 2022-01-20_13:47
-    subprocess.check_call((LR_REGISTR_PATH, subject_head_path,
+    # Run left & right registration  # NOTE: Script ran successfully up to here 2022-01-20_13:47
+    subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
                            tmpl_head.format(age_months, t1or2),
                            tmpl_mask.format(age_months),
                            left_right_mask_nifti_fpath))
@@ -296,7 +297,7 @@ def run_postBIBSnet(j_args, logger):
                                   "chirality_correction")
     os.makedirs(chiral_out_dir)
     segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
-                                        "FreeSurferColorLUT.txt")
+                                             "FreeSurferColorLUT.txt")
     seg_BIBSnet_outfile = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                                        j_args["BIBSnet"]["aseg_outfile"])
     chiral_corrected_nii_outfile_path = os.path.join(
@@ -311,9 +312,7 @@ def run_postBIBSnet(j_args, logger):
                       chiral_corrected_nii_outfile_path,
                       j_args["transformed_images"]["T1w"], path_T1w)
     logger.info("The BIBSnet segmentation has had its chirality checked and registered if needed")
-
-    # TODO Bring aseg back into native T1 space
-    
+  
     masks = make_asegderived_mask(chiral_out_dir)  # NOTE Mask must be in native T1 space too
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
@@ -322,7 +321,6 @@ def run_postBIBSnet(j_args, logger):
                               j_args["common"]["participant_label"],
                               j_args["common"]["session"])
     os.makedirs(derivs_dir, exist_ok=True)
-    sub_ses = get_subj_ses(j_args)
     for eachfile in os.scandir(chiral_out_dir):
         if "aseg" in chiral_out_dir.name:
             copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")
@@ -330,6 +328,7 @@ def run_postBIBSnet(j_args, logger):
         copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")
         
     # TODO Get dataset_description.json and put it in derivs_dir
+    # TODO Add padding
 
     logger.info("PostBIBSnet has completed.")
     return j_args
