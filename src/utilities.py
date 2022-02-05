@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-02-03
+Updated: 2022-02-04
 """
 
 # Import standard libraries
@@ -14,10 +14,8 @@ import json
 import logging
 import nibabel as nib
 import os
-import random  # only used by rand_string
 import shutil
 # from src.util.look_up_tables import get_id_to_region_mapping
-import string  # only used by rand_string
 import subprocess
 import sys
 from datetime import datetime  # for seeing how long scripts take to run
@@ -32,25 +30,6 @@ RIGHT = "Right-"
 # SLURM-/SBATCH-related arguments' default names
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 SLURM_ARGS = ("account", "cpus", "memory", "print_progress", "sleep", "time")
-
-
-def add_arg_if_in_arg_names(arg_name, all_args, parser, *shortnames, **kwargs):
-    """
-    Wrapper for argparse.ArgumentParser.add_argument. Nearly identical, but 
-    will only add the argument to the parser if arg_name is in all_args.
-    :param arg_name: String naming the argument to (maybe) add to parser
-    :param all_args: Set of strings; each names a command-line argument
-    :param parser: argparse.ArgumentParser
-    :param shortnames: Unpacked list of strings; each is arg_name shortened
-    :param kwargs: Unpacked dictionary of argparse attributes to give the arg
-    :return: parser, but (maybe) with the argument named arg_name added
-    """
-    if arg_name in all_args:
-        cli_arg = as_cli_arg(arg_name)
-        parser.add_argument(
-            cli_arg[1:], cli_arg, *shortnames, **kwargs
-        )
-    return parser
 
 
 def add_slurm_args_to(parser):
@@ -198,7 +177,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
 
     output_copy = nifti_output_file_path + "_dummy"
     copy_and_rename_file(nifti_output_file_path, output_copy)
-    transformed_output = "resize_to_T1w.mat"  # TODO
+    transformed_output = "resize_to_T1w.mat"  # TODO Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
     subprocess.check_call(("convert_xfm", "-omat", transformed_output, "-inverse", transformed_T1w_out))  # Invert transformed_T1w_out  # TODO get path to FSL tool convert_xfm
     run_flirt_resize("flirt", output_copy, t1w_path,
                      "-applyxfm", "-init", transformed_T1w_out,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
@@ -214,6 +193,7 @@ def crop_images(image_dir, output_dir, z_min=80, z_max=320):  # TODO Save out th
     Options:
     -h --help     Show this screen.
     """
+    # TODO Use Thomas's RobustFOV FSL function https://nipype.readthedocs.io/en/latest/api/generated/nipype.interfaces.fsl.utils.html#robustfov
     image_files = sorted([f for f in os.listdir(image_dir)
                           if os.path.isfile(os.path.join(image_dir, f))])
     for eachfile in image_files:
@@ -417,14 +397,6 @@ def glob_and_copy(dest_dirpath, *path_parts_to_glob):
         shutil.copy(file_src, dest_dirpath)
 
 
-def rand_string(length):
-    """
-    :param length: Integer, length of the string to randomly generate
-    :return: String (of the given length L) of random characters
-    """
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
-
-
 def resize_images(input_folder, output_folder, reference_image_path, ident_mx):
     """
     Resize the images to match the dimensions of images trained in the model,
@@ -443,16 +415,17 @@ def resize_images(input_folder, output_folder, reference_image_path, ident_mx):
 
     os.system("module load fsl")  # TODO This will only work on MSI, so change it (import it somehow?)
     resolution = "1"
-    # count = 1
 
+    # TODO Include option to also do the full HCP ACPC-only alignment using MNI template, then discard the worse one judged by a cost function, and log the choice that the cost function makes? 
+    # See https://github.com/DCAN-Labs/dcan-infant-pipeline/blob/master/PreFreeSurfer/scripts/ACPCAlignment_with_crop.sh
     for eachfile in only_files:
         scan_type = eachfile.rsplit("_", 1)[-1].split(".", 1)[0]
         print(eachfile)  # TODO remove this line?
 
-        if scan_type == "0000": # count == 1:
+        if scan_type == "0000": # (i.e. T1w)
             t1w_image = os.path.join(input_folder, eachfile)  # TODO Add explanatory comments!
             output_t1w_img = os.path.join(output_folder, eachfile)
-        elif scan_type == "0001": # count == 2:
+        elif scan_type == "0001": # (i.e. T2w)
             t2w_image = os.path.join(input_folder, eachfile)
             output_t2w_img = os.path.join(output_folder, eachfile)
 
@@ -476,8 +449,8 @@ def resize_images(input_folder, output_folder, reference_image_path, ident_mx):
     return transformed_images
 
 
-def revert_aseg_to_native_space(input_folder, output_folder, ref_image_path,
-                                ident_mx):
+def revert_anat_to_native_space(input_folder, output_folder, ref_image_path,
+                                ident_mx):  # NOTE This function is unneeded as of 2022-02-04
     """
     Resize the images to match the dimensions of images trained in the model,
     and ensure that the first image (presumably a T1) is co-registered to the
@@ -630,15 +603,14 @@ def valid_readable_json(path):
                     "'{}' is not a path to a readable .json file")
 
 
-def valid_subj_ses(in_arg, prefix, name):  # , *keywords):
+def valid_subj_ses(in_arg, pfx, name):  # , *keywords):
     """
     :param in_arg: Object to check if it is a valid subject ID or session name
-    :param prefix: String, "sub-" or "ses-"
+    :param pfx: String that's the prefix to an ID; "sub-" or "ses-"
     :param name: String describing what in_arg should be (e.g. "subject")
     :return: True if in_arg is a valid subject ID or session name; else False
     """
-    return validate(in_arg, lambda _: True,
-                    lambda y: (y if y[:len(prefix)] == prefix else prefix + y),
+    return validate(in_arg, lambda _: True, lambda x: ensure_prefixed(x, pfx),
                     "'{}'" + " is not a valid {}".format(name))
 
 
