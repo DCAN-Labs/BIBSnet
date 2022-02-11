@@ -11,6 +11,7 @@ Updated: 2022-02-04
 import argparse
 from datetime import datetime 
 from glob import glob
+import logging
 from nipype.interfaces import fsl
 import os
 import pandas as pd
@@ -40,8 +41,9 @@ LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 # Custom local imports
 from src.utilities import (
     as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
-    crop_images, ensure_dict_has, exit_with_time_info, extract_from_json,
-    get_stage_name, get_subj_ID_and_session, get_subj_ses, resize_images,
+    create_anatomical_average, crop_images, ensure_dict_has,
+    exit_with_time_info, extract_from_json, get_stage_name,
+    get_subj_ID_and_session, get_subj_ses, resize_images,
     run_all_stages, valid_readable_json, validate_parameter_types,
     valid_readable_dir, warn_user_of_conditions
 )
@@ -50,14 +52,17 @@ from src.utilities import (
 def main():
     # Time how long the script takes and get command-line arguments from user 
     start_time = datetime.now()
+    logger = logging.getLogger(os.path.basename(sys.argv[0]))
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
               run_XCPD]
-    json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES])
-    print(json_args)  # TODO REMOVE LINE
+    json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
+                                     logger)
+    if json_args["common"]["verbose"]:
+        logger.info("Parameters from input .JSON file:\n{}".format(json_args))
 
     # Run every stage that the parameter file says to run
     run_all_stages(STAGES, json_args["stage_names"]["start"],
-                   json_args["stage_names"]["end"], json_args)
+                   json_args["stage_names"]["end"], json_args, logger)
     # TODO default to running all stages if not specified by the user
     # TODO add error if end is given as a stage that happens before start
 
@@ -65,7 +70,7 @@ def main():
     exit_with_time_info(start_time)
 
 
-def get_params_from_JSON(stage_names):
+def get_params_from_JSON(stage_names, logger):
     """
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
@@ -99,10 +104,11 @@ def get_params_from_JSON(stage_names):
               "script. Include this argument if and only if you are running "
               "the script as a SLURM/SBATCH job.")
     )
-    return validate_cli_args(vars(parser.parse_args()), stage_names, parser)
+    return validate_cli_args(vars(parser.parse_args()), stage_names,
+                             parser, logger)
 
 
-def validate_cli_args(cli_args, stage_names, parser):
+def validate_cli_args(cli_args, stage_names, parser, logger):
     """
     :param cli_args: Dictionary containing all command-line input arguments
     :param stage_names: List of strings naming stages to run (in order)
@@ -120,7 +126,8 @@ def validate_cli_args(cli_args, stage_names, parser):
                              cli_args["parameter_json"], parser, stage_names)
 
     j_args["common"] = ensure_dict_has(j_args["common"], "age_months",
-                                       read_age_from_participants_tsv(j_args))
+                                       read_age_from_participants_tsv(j_args,
+                                                                      logger))
     # TODO Figure out which column in the participants.tsv file has age_months
 
     # Define (and create) default paths in derivatives directory structure for each stage
@@ -146,7 +153,7 @@ def ensure_j_args_has_bids_subdir(j_args, *subdirnames):
     return j_args
 
 
-def read_age_from_participants_tsv(j_args):
+def read_age_from_participants_tsv(j_args, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :return: Int, the subject's age (in months) listed in participants.tsv
@@ -173,8 +180,9 @@ def read_age_from_participants_tsv(j_args):
     subj_row = subj_row[  # TODO Run ensure_prefixed on the ses_ID_col?
         subj_row[ses_ID_col] == j_args["common"]["session"]
     ] # select where "participant_id" and "session" match
-
-    print(subj_row)
+    if j_args["common"]["verbose"]:
+        logger.info("Subject details from participants.tsv row:\n{}"
+                    .format(subj_row))
     return int(subj_row[age_months_col])
 
 
@@ -197,50 +205,46 @@ def run_preBIBSnet(j_args, logger):
         os.makedirs(j_args["preBIBSnet"][jarg], exist_ok=True)
     work_dirs = {"parent": subj_work_dir, **j_args["preBIBSnet"]}
 
-    # Copy any file with T1 or T2 in its name from BIDS/anat dir to BIBSnet work dir
+    # Build paths to BIDS anatomical input images and
+    # (averaged, nnU-Net-renamed) output images
+    avg_params = dict()
     for each_anat in (1, 2):
+        for put in ("in", "out"):
+            avg_params["T{}w_{}put".format(each_anat, put)] = list()
         for eachfile in glob(os.path.join(
             subject_dir, session, "anat", "*T{}w*.nii.gz".format(each_anat)
         )):
-            new_fpath = os.path.join(
-                work_dirs["input_dir"],
-                rename_for_nnUNet(os.path.basename(eachfile))
-            )
-            copy_and_rename_file(eachfile, new_fpath)
-            os.chmod(new_fpath, 0o775)
+            avg_params["T{}w_input"].append(eachfile)
+        avg_params["T{}w_output"] = os.path.join(  # TODO Use this name instead of robustroi.nii.gz later 
+            work_dirs["averaged_dir"],
+            "{}_{}_000{}".format(subj_ID, session, each_anat - 1)
+        )
 
-    # TODO What do we do if there's >1 T1w or >1 T2w? nnU-Net can't handle >1 rn.
-    # - Average them (after crop/resize) like the pre-FreeSurfer infant pipeline
-    #   does, per Fez and Luci, and do a rigid body registration while averaging
-    # - If BIBSnet will ever use a model accepting multiple T1ws or T2ws, then
-    #   make averaging optional
-    # - Include option (in later version, e.g. 2.0) to just pick the best T?w
-    #   instead of averaging? Or just assume that if they want to pick the
-    #   best, then they would have picked/isolated it beforehand?
+    # If there are multiple T1ws/T2ws, then average them
+    create_anatomical_average(
+        t1_image_file_paths=avg_params["T1w_input"],
+        t2_image_file_paths=avg_params["T2w_input"],
+        t1_avg_output_file_path=avg_params["T1w_output"],
+        t2_avg_output_file_path=avg_params["T2w_output"]
+    )  # TODO make averaging optional with later BIBSnet model?
 
-    # Crop and resize images
-    crop_images(work_dirs["input_dir"], work_dirs["cropped_dir"])
+    # Crop T1w and T2w images
+    crop_images(work_dirs["averaged_dir"], work_dirs["cropped_dir"], j_args)
     logger.info("The anatomical images have been cropped for use in BIBSnet")
-
     os.chmod(work_dirs["cropped_dir"], 0o775)
+
+    # Resize T1w and T2w images 
+    # TODO Make ref_img an input parameter if someone wants a different reference image?
     ref_img = os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo",
-                           "sub-00006_T1w_acpc_dc_restore.nii.gz")
+                           "sub-00006_T1w_acpc_dc_restore.nii.gz") 
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     j_args["transformed_images"] = resize_images(
-        work_dirs["cropped_dir"], work_dirs["resized_dir"], ref_img, id_mx
+        work_dirs["cropped_dir"], work_dirs["resized_dir"],
+        ref_img, id_mx, j_args, logger
     )
     logger.info("The anatomical images have been resized for use in BIBSnet")
     logger.info("PreBIBSnet has completed")
     return j_args
-
-
-def rename_for_nnUNet(fname):
-    """
-    Given a filename, change that name to meet nnU-Net's conventions
-    :param fname: String naming a .nii.gz file
-    :return: String, fname but replacing the "T?w" with "000?"
-    """
-    return fname.replace("T1w", "0000").replace("T2w", "0001")
 
 
 def run_BIBSnet(j_args, logger):
@@ -272,7 +276,7 @@ def run_postBIBSnet(j_args, logger):
 
     # Template selection values
     age_months = j_args["common"]["age_months"]
-    print(age_months)
+    logger.info("Age of participant: {} months".format(age_months))
     if age_months > 33:
         age_months = "34-38"
 
@@ -281,7 +285,8 @@ def run_postBIBSnet(j_args, logger):
         j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1
     )
     logger.info("Left/right image registration completed")
-    chiral_out_dir = run_chirality_correction(j_args, left_right_mask_nifti_fpath)
+    chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,
+                                              j_args, logger)
     logger.info("The BIBSnet segmentation has had its chirality checked and "
                 "registered if needed")
 
@@ -337,11 +342,12 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2):
     return left_right_mask_nifti_fpath
 
 
-def run_chirality_correction(j_args, l_r_mask_nifti_fpath):
+def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
     :param l_r_mask_nifti_fpath: String, valid path to existing left/right
                                  registration output mask file
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :return: String, valid path to existing directory containing newly created
              chirality correction outputs
     """
@@ -366,7 +372,7 @@ def run_chirality_correction(j_args, l_r_mask_nifti_fpath):
     # Run chirality correction script
     correct_chirality(seg_BIBSnet_outfile, segment_lookup_table_path,
                       l_r_mask_nifti_fpath, chiral_corrected_nii_outfile_path,
-                      j_args["transformed_images"]["T1w"], path_T1w)
+                      path_T1w, j_args, logger)
     return chiral_out_dir
 
 

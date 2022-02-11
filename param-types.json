@@ -3,6 +3,7 @@
         "age_months": "positive_int",
         "bids_dir": "existing_directory_path",
         "fd_spike_threshold": "float_0_to_1",
+        "fsl_bin_path": "existing_directory_path",
         "participant_label": "str",
         "session": "str",
         "task_id": "str",
@@ -29,7 +30,8 @@
     },
 
     "preBIBSnet": {
-        "input_dir": "str",
+        "brain_size": "positive_int",
+        "averaged_dir": "str",
         "cropped_dir": "str",
         "resized_dir": "str"
     },

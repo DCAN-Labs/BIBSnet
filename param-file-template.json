@@ -3,6 +3,7 @@
         "age_months": "",
         "bids_dir": "",
         "fd_spike_threshold": "",
+        "fsl_bin_path": "",
         "participant_label": "",
         "session": "",
         "task_id": "",
@@ -27,12 +28,19 @@
         "omp_nthreads": ""
     },
 
+    "preBIBSnet": {
+        "brain_size": "",
+        "averaged_dir": "",
+        "cropped_dir": "",
+        "resized_dir": ""
+    },
+
     "BIBSnet": {
-        "aseg_outfile": "placeholder",
-        "input_dir": "placeholder",
-        "model": "placeholder",
-        "singularity_image_path": "placeholder",
-        "task": "placeholder"
+        "aseg_outfile": "",
+        "input_dir": "",
+        "model": "",
+        "singularity_image_path": "",
+        "task": ""
     },
     
     "nibabies": {
