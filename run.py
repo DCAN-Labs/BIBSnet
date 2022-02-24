@@ -4,7 +4,7 @@
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Created: 2021-11-12
-Updated: 2022-02-04
+Updated: 2022-02-23
 """
 
 # Import standard libraries
@@ -41,9 +41,9 @@ LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 # Custom local imports
 from src.utilities import (
     as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
-    create_anatomical_average, crop_images, ensure_dict_has,
-    exit_with_time_info, extract_from_json, get_stage_name,
-    get_subj_ID_and_session, get_subj_ses, resize_images,
+    create_anatomical_average, crop_image, ensure_dict_has,
+    exit_with_time_info, extract_from_json, get_and_make_preBIBSnet_work_dirs,
+    get_stage_name, get_subj_ID_and_session, get_subj_ses, resize_images,
     run_all_stages, valid_readable_json, validate_parameter_types,
     valid_readable_dir, warn_user_of_conditions
 )
@@ -53,6 +53,8 @@ def main():
     # Time how long the script takes and get command-line arguments from user 
     start_time = datetime.now()
     logger = logging.getLogger(os.path.basename(sys.argv[0]))
+
+    # Get and validate parameters from .JSON file
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
               run_XCPD]
     json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
@@ -61,6 +63,11 @@ def main():
         logger.info("Parameters from input .JSON file:\n{}".format(json_args))
 
     # Run every stage that the parameter file says to run
+    # TODO For every function that creates a file, log that the file was
+    # created -- or if the pipeline crashed -- and in later runs check that
+    # status log and start from where the pipeline last left off
+      # Log should include when each stage finished, and if the stage didn't,
+      # *then* it should check which intermediate function the stage crashed in
     run_all_stages(STAGES, json_args["stage_names"]["start"],
                    json_args["stage_names"]["end"], json_args, logger)
     # TODO default to running all stages if not specified by the user
@@ -83,6 +90,7 @@ def get_params_from_JSON(stage_names, logger):
         help=("{} See README.md for more information on parameters."
               .format(msg_json))
         # TODO: Add description of every parameter to the README, and maybe also to this --help message
+        # TODO: Mention which arguments are required and which are optional (with defaults)
         # TODO: Add nnU-Net parameters (once they're decided on)
     )
     parser.add_argument(
@@ -93,7 +101,7 @@ def get_params_from_JSON(stage_names, logger):
         "-end", "--ending-stage", dest="end",
         choices=stage_names, default=stage_names[-1]
     )
-    parser.add_argument(
+    parser.add_argument(  # TODO 
         "--types-json", type=valid_readable_json, default=default_types_json,
         help=("{} This file must map every CABINET parameter to its data type."
               .format(msg_json))
@@ -192,57 +200,34 @@ def run_preBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, but with preBIBSnet working directory names added
     """
-    # Get subject ID, session, and directory of subject's BIDS-valid input data
-    subj_ID, session = get_subj_ID_and_session(j_args)
-    subject_dir = os.path.join(j_args["common"]["bids_dir"], subj_ID)
-
-    # Make working directories to run pre-BIBSnet processing in
-    subj_work_dir = os.path.join(
-        j_args["optional_out_dirs"]["preBIBSnet"], subj_ID, session
-    )
-    for jarg, work_dirname in j_args["preBIBSnet"].items():
-        j_args["preBIBSnet"][jarg] = os.path.join(subj_work_dir, work_dirname)
-        os.makedirs(j_args["preBIBSnet"][jarg], exist_ok=True)
-    work_dirs = {"parent": subj_work_dir, **j_args["preBIBSnet"]}
-
-    # Build paths to BIDS anatomical input images and
-    # (averaged, nnU-Net-renamed) output images
-    avg_params = dict()
-    for each_anat in (1, 2):
-        for put in ("in", "out"):
-            avg_params["T{}w_{}put".format(each_anat, put)] = list()
-        for eachfile in glob(os.path.join(
-            subject_dir, session, "anat", "*T{}w*.nii.gz".format(each_anat)
-        )):
-            avg_params["T{}w_input"].append(eachfile)
-        avg_params["T{}w_output"] = os.path.join(  # TODO Use this name instead of robustroi.nii.gz later 
-            work_dirs["averaged_dir"],
-            "{}_{}_000{}".format(subj_ID, session, each_anat - 1)
-        )
+    completion_msg = "The anatomical images have been {} for use in BIBSnet"
+    preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_average(
-        t1_image_file_paths=avg_params["T1w_input"],
-        t2_image_file_paths=avg_params["T2w_input"],
-        t1_avg_output_file_path=avg_params["T1w_output"],
-        t2_avg_output_file_path=avg_params["T2w_output"]
-    )  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_average(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
     # Crop T1w and T2w images
-    crop_images(work_dirs["averaged_dir"], work_dirs["cropped_dir"], j_args)
-    logger.info("The anatomical images have been cropped for use in BIBSnet")
-    os.chmod(work_dirs["cropped_dir"], 0o775)
+    cropped = dict()
+    for t in (1, 2):
+        cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
+        roi2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+                              preBIBSnet_paths["crop_T{}w".format(t)], j_args)
+    logger.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
-    ref_img = os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo",
-                           "sub-00006_T1w_acpc_dc_restore.nii.gz") 
+    reference_imgs = {
+        "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
+                                 "INFANT_MNI_T{}_1mm.nii.gz"),
+        "ref_reg": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
+                                "1mo", "sub-00006_T1w_acpc_dc_restore.nii.gz")
+    }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     j_args["transformed_images"] = resize_images(
-        work_dirs["cropped_dir"], work_dirs["resized_dir"],
-        ref_img, id_mx, j_args, logger
+        cropped, preBIBSnet_paths["resized"], reference_imgs, 
+        id_mx, roi2full, j_args, logger
     )
-    logger.info("The anatomical images have been resized for use in BIBSnet")
+    logger.info(completion_msg.format("resized"))
     logger.info("PreBIBSnet has completed")
     return j_args
 
