@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-02-22
+Updated: 2022-02-28
 """
 
 # Import standard libraries
@@ -59,10 +59,9 @@ def align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, output_var, t):
                       "-searchrx", "-45", "45", "-searchry", "-30", "30",
                       "-searchrz", "-30", "30")
 
-    run_FSL_sh_script(  # Invert roi2full to get full2roi
-        j_args, "convert_xfm", "-omat", in_work_dir("full2roi.mat"),
-        "-inverse", roi2full
-    )
+    # Invert roi2full to get full2roi
+    run_FSL_sh_script(j_args, "convert_xfm", "-inverse", roi2full,
+                      "-omat", in_work_dir("full2roi.mat"))
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
         j_args, "convert_xfm", "-omat", in_work_dir("full2std.mat"),
@@ -74,7 +73,7 @@ def align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, output_var, t):
     run_FSL_sh_script(j_args, "aff2rigid", in_work_dir("full2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
                       output_matrix)
 
-    # Apply ACPC alignment to the data and return t
+    # Apply ACPC alignment to the data
     run_FSL_sh_script(j_args, "applywarp", "--rel", "--interp=spline", "-i",
                       input_img, "-r", mni_ref_img_path,
                       "--premat=" + output_matrix,  # TODO Name this differently to save T1w and T2w outputs separately
@@ -135,7 +134,7 @@ def calculate_eta(img_paths):
 
     sswithin = (sum(np.square(vectors["T1w"] - m_within))
                 + sum(np.square(vectors["T2w"] - m_within)))
-    sstot = (sum(np.square(vectors["T2w"] - m_grand))
+    sstot = (sum(np.square(vectors["T1w"] - m_grand))
              + sum(np.square(vectors["T2w"] - m_grand)))
 
     # NOTE SStot = SSwithin + SSbetween so eta can also be
@@ -157,6 +156,7 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
     :param floor_ceiling: y-coordinate into new_data
     :param scanner_bore: z-coordinate into new_data
     """
+    # expected_prefix, wrong_prefix = (LEFT, RIGHT) if should_be_left else (RIGHT, LEFT)
     if should_be_left:
         expected_prefix = LEFT
         wrong_prefix = RIGHT
@@ -398,7 +398,7 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     return preBIBSnet_paths
 
 
-def get_and_print_time_since(event_name, event_time):
+def get_and_print_time_since(event_name, event_time, logger):
     """
     Print and return a string showing how much time has passed since the
     current running script reached a certain part of its process
@@ -409,7 +409,7 @@ def get_and_print_time_since(event_name, event_time):
     """
     timestamp = ("\nTime elapsed since {}: {}"
                  .format(event_name, datetime.now() - event_time))
-    print(timestamp)
+    logger.info(timestamp)
     return timestamp
 
 
@@ -438,8 +438,8 @@ def get_id_to_region_mapping(mapping_file_name, separator=None):
     :param separator: String delimiter separating parts of look-up table lines
     :return: Dictionary, a map from the ID of a region to its name
     """
-    file = open(mapping_file_name, 'r')
-    lines = file.readlines()
+    with open(mapping_file_name, 'r') as infile:
+        lines = infile.readlines()
 
     id_to_region = {}
     for line in lines:
@@ -515,13 +515,15 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, logger):
     with and without first doing the ACPC registration)
     :param logger: logging.Logger object to raise warning
     """
-    msg = "Using {} T2w-to-T1w registration for resizing."
+    msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}\n"
     if calculate_eta(xfm_imgs_non_ACPC) > calculate_eta(xfm_imgs_ACPC_and_reg):
         optimal_resize = xfm_imgs_non_ACPC
-        logger.info(msg.format("only"))
+        logger.info(msg.format("only", optimal_resize["T1w"],
+                               optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
     else:
         optimal_resize = xfm_imgs_ACPC_and_reg
-        logger.info(msg.format("ACPC and"))
+        logger.info(msg.format("ACPC and", optimal_resize["T1w"],
+                               optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
     return optimal_resize
                                        
 
@@ -564,9 +566,12 @@ def registration_T2w_to_T1w(j_args, xfm_vars):
     :return: Dictionary mapping "T1w" and "T2w" to their respective newly
              registered image file paths
     """
+    # Make T2w-to-T1w matrix
     t2_to_t1_matrix = os.path.join(xfm_vars["out_dir"], "T2toT1.mat") 
     run_FSL_sh_script(j_args, "flirt", "-ref", xfm_vars["T1w_img"], "-in",
                       xfm_vars["T2w_img"], "-omat", t2_to_t1_matrix)
+
+    # Make transformed T1ws and T2ws
     xfms_matrices = {"T1w": xfm_vars["ident_mx"], "T2w": t2_to_t1_matrix}
     transformed_images = dict()
     for img in xfms_matrices.keys():
@@ -574,10 +579,11 @@ def registration_T2w_to_T1w(j_args, xfm_vars):
         transformed_images[tmpl] = os.path.join(
             xfm_vars["out_dir"], "{}_to_BIBS_template.mat".format(img)
         )
-        transformed_images[img] = xfm_vars["output_T1w_img"]
+        transformed_images[img] = xfm_vars["output_{}_img".format(img)]
+
         run_FSL_sh_script(
-            j_args, "flirt", "-in", xfm_vars["T1w_img"],
-            "-ref", xfm_vars["ref_reg"], "-applyisoxfm",
+            j_args, "flirt", "-in", xfm_vars["{}_img".format(img)],
+            "-ref", xfm_vars["ref_reg"], "-applyisoxfm", 
             xfm_vars["resolution"], "-init", xfms_matrices[img],
             "-o", transformed_images[img], "-omat", transformed_images[tmpl]
         )
@@ -598,7 +604,8 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
     """
     Resize the images to match the dimensions of images trained in the model,
     and ensure that the first image (presumably a T1) is co-registered to the
-    second image (presumably a T2) before resizing
+    second image (presumably a T2) before resizing. Use multiple alignments
+    of both images, and return whichever one is better (higher eta squared)
     :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
                          paths to existing image files to resize)
     :param output_dir: String, valid path to a dir to save resized images into
@@ -625,20 +632,29 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
                                "{}" + os.path.basename(img_path))
         xfm_vars[out_var.format(t)] = out_img.format("")
         xfm_ACPC_args[out_var.format(t)] = out_img.format("ACPC_")
+    if j_args["common"]["verbose"]:
+        msg_xfm = "Arguments for {}ACPC image transformation:\n{}\n"
+        logger.info(msg_xfm.format("non-", xfm_vars))
+        logger.info(msg_xfm.format("", xfm_ACPC_args))
 
     # Make output directories for transformed images
     for each_xfm_vars_dict in (xfm_vars, xfm_ACPC_args):
         os.makedirs(each_xfm_vars_dict["out_dir"], exist_ok=True)
 
-    # T2w to T1w registration
+    # Comparison of T2w to T1w registration approaches
+    # Do direct T1w-T2w alignment
     xfm_imgs_non_ACPC = registration_T2w_to_T1w(j_args, xfm_vars)
     for t in (1, 2):
         if j_args["common"]["verbose"]:
             print("Now resizing {}".format(xfm_vars["T{}w_img".format(t)]))
+        
+        # Run ACPC alignment
         align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, out_var, t)
 
-    # Run ACPC alignment, then return the best of the 2 resized images
+    # T1w-T2w alignment of ACPC-aligned images
     xfm_ACPC_and_registered_imgs = registration_T2w_to_T1w(j_args, xfm_ACPC_args)
+
+    # Return the best of the 2 resized images
     return optimal_realigned_imgs(xfm_imgs_non_ACPC,
                                   xfm_ACPC_and_registered_imgs, logger)
 
@@ -650,9 +666,11 @@ def run_FSL_sh_script(j_args, fsl_function_name, *fsl_args):
     :param fsl_function_name: String naming the FSL function which is an
                               executable file in j_args[common][fsl_bin_path]
     """
-    subprocess.check_call([os.path.join(j_args["common"]["fsl_bin_path"],
-                                        fsl_function_name)]
-                          + [str(f) for f in fsl_args])
+    to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_function_name)
+              ] + [str(f) for f in fsl_args]
+    if j_args["common"]["verbose"]:
+        print("\nNow running FSL command:\n{}\n".format(" ".join(to_run)))
+    subprocess.check_call(to_run)
 
 
 def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
@@ -666,14 +684,14 @@ def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
     """
     running = False
     for stage in all_stages:
-        stage_name = get_stage_name(stage)
-        if stage_name == start:
+        name = get_stage_name(stage)
+        if name == start:
             running = True
         if running:
             stage_start = datetime.now()
             stage(params_for_every_stage, logger)
-            get_and_print_time_since(stage_name + " started", stage_start)
-        if stage_name == end:
+            get_and_print_time_since(name + " started", stage_start, logger)
+        if name == end:
             running = False
                     
 

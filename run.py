@@ -3,8 +3,9 @@
 
 """
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
+Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-02-23
+Updated: 2022-02-28
 """
 
 # Import standard libraries
@@ -41,7 +42,7 @@ LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 # Custom local imports
 from src.utilities import (
     as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
-    create_anatomical_average, crop_image, ensure_dict_has,
+    create_anatomical_average, crop_image, dict_has, ensure_dict_has,
     exit_with_time_info, extract_from_json, get_and_make_preBIBSnet_work_dirs,
     get_stage_name, get_subj_ID_and_session, get_subj_ses, resize_images,
     run_all_stages, valid_readable_json, validate_parameter_types,
@@ -52,6 +53,14 @@ from src.utilities import (
 def main():
     # Time how long the script takes and get command-line arguments from user 
     start_time = datetime.now()
+
+    # Make logger to log status updates, warnings, and other important info
+    logging.basicConfig(stream = sys.stdout,
+                        format = "%(levelname)s %(asctime)s - %(message)s",
+                        level = logging.INFO)  # TODO Will it only print logger.info? What should we do for errors/warnings?
+    logging.basicConfig(stream = sys.stderr,
+                        format = "%(levelname)s %(asctime)s - %(message)s",
+                        level = logging.ERROR)
     logger = logging.getLogger(os.path.basename(sys.argv[0]))
 
     # Get and validate parameters from .JSON file
@@ -60,7 +69,8 @@ def main():
     json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
                                      logger)
     if json_args["common"]["verbose"]:
-        logger.info("Parameters from input .JSON file:\n{}".format(json_args))
+        logger.info("Parameters from input .JSON file:\n{}\n"
+                    .format(json_args))
 
     # Run every stage that the parameter file says to run
     # TODO For every function that creates a file, log that the file was
@@ -133,9 +143,11 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     validate_parameter_types(j_args, extract_from_json(cli_args["types_json"]),
                              cli_args["parameter_json"], parser, stage_names)
 
-    j_args["common"] = ensure_dict_has(j_args["common"], "age_months",
-                                       read_age_from_participants_tsv(j_args,
-                                                                      logger))
+    # Using dict_has instead of easier ensure_dict_has so that the user only
+    # needs a participants.tsv file if they didn't specify age_months
+    if not dict_has(j_args["common"], "age_months"):
+        j_args["common"]["age_months"] = read_age_from_participants_tsv(j_args,
+                                                                        logger)
     # TODO Figure out which column in the participants.tsv file has age_months
 
     # Define (and create) default paths in derivatives directory structure for each stage
@@ -154,7 +166,11 @@ def ensure_j_args_has_bids_subdir(j_args, *subdirnames):
                         mapped by j_args[optional_out_dirs] to the subdir path.
     :return: j_args, but with the (now-existing) subdirectory path
     """
-    subdir_path = os.path.join(j_args["common"]["bids_dir"], *subdirnames)
+    if dict_has(j_args["optional_out_dirs"], "derivatives"):
+        parent = j_args["optional_out_dirs"]["derivatives"]
+    else:
+        parent = j_args["common"]["bids_dir"]
+    subdir_path = os.path.join(parent, *subdirnames)
     j_args["optional_out_dirs"] = ensure_dict_has(j_args["optional_out_dirs"],
                                                   subdirnames[-1], subdir_path)
     os.makedirs(j_args["optional_out_dirs"][subdirnames[-1]], exist_ok=True)
@@ -189,7 +205,7 @@ def read_age_from_participants_tsv(j_args, logger):
         subj_row[ses_ID_col] == j_args["common"]["session"]
     ] # select where "participant_id" and "session" match
     if j_args["common"]["verbose"]:
-        logger.info("Subject details from participants.tsv row:\n{}"
+        logger.info("Subject details from participants.tsv row:\n{}\n"
                     .format(subj_row))
     return int(subj_row[age_months_col])
 
@@ -211,7 +227,7 @@ def run_preBIBSnet(j_args, logger):
     for t in (1, 2):
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
         roi2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
-                              preBIBSnet_paths["crop_T{}w".format(t)], j_args)
+                              cropped[t], j_args)
     logger.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images 
