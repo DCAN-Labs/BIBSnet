@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-02-28
+Updated: 2022-03-10
 """
 
 # Import standard libraries
@@ -32,11 +32,12 @@ RIGHT = "Right-"
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
-def align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, output_var, t):
+def align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, output_var, t):
     """ 
     Functionality copied from the DCAN Infant Pipeline:
     github.com/DCAN-Labs/dcan-infant-pipeline/blob/master/PreFreeSurfer/scripts/ACPCAlignment_with_crop.sh
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :param xfm_ACPC_args: Dictionary mapping strings (ACPC input arguments'
                           names) to strings (ACPC arguments, file/dir paths)
     :param roi2full: String, valid path to existing roi2full.mat file
@@ -52,7 +53,7 @@ def align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, output_var, t):
     in_work_dir = lambda fname: os.path.join(work_dir, fname)  # work_dir is a preBIBSnet working directory
     output_img =  xfm_ACPC_args[output_var.format(t)]
 
-    run_FSL_sh_script(j_args, "flirt", "-interp", "spline",  
+    run_FSL_sh_script(j_args, logger, "flirt", "-interp", "spline",  
                       "-ref", mni_ref_img_path, "-in", input_img,
                       "-omat", in_work_dir("roi2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
                       "-out", in_work_dir("acpc_final.nii.gz"),
@@ -60,22 +61,22 @@ def align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, output_var, t):
                       "-searchrz", "-30", "30")
 
     # Invert roi2full to get full2roi
-    run_FSL_sh_script(j_args, "convert_xfm", "-inverse", roi2full,
+    run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", roi2full,
                       "-omat", in_work_dir("full2roi.mat"))
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
-        j_args, "convert_xfm", "-omat", in_work_dir("full2std.mat"),
+        j_args, logger, "convert_xfm", "-omat", in_work_dir("full2std.mat"),
         "-concat", in_work_dir("roi2std.mat"), in_work_dir("full2roi.mat")
     )
 
     # Transform 12 dof matrix to 6 dof approximation matrix
     output_matrix = in_work_dir("rigidbody2std.mat")
-    run_FSL_sh_script(j_args, "aff2rigid", in_work_dir("full2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
+    run_FSL_sh_script(j_args, logger, "aff2rigid", in_work_dir("full2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
                       output_matrix)
 
     # Apply ACPC alignment to the data
-    run_FSL_sh_script(j_args, "applywarp", "--rel", "--interp=spline", "-i",
-                      input_img, "-r", mni_ref_img_path,
+    run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",
+                      "-i", input_img, "-r", mni_ref_img_path,
                       "--premat=" + output_matrix,  # TODO Name this differently to save T1w and T2w outputs separately
                       "-o", output_img)
 
@@ -175,11 +176,13 @@ def copy_and_rename_file(old_file, new_file):
     :param old_file: String, valid path to an existing file to copy
     :param new_file: String, valid path to what will be a copy of old_file
     """
-    os.rename(shutil.copy2(old_file, os.path.dirname(new_file)), new_file)
+    # shutil.move()
+    # os.rename(shutil.copy2(old_file, os.path.dirname(new_file)), new_file)
+    shutil.copy2(old_file, new_file)
 
 
 def correct_chirality(nifti_input_file_path, segment_lookup_table,
-                      left_right_mask_nifti_file, nifti_output_file_path,
+                      left_right_mask_nifti_file, chiral_out_dir,
                       t1w_path, j_args, logger):
     """
     Creates an output file with chirality corrections fixed.
@@ -191,6 +194,12 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     """
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
+    msg = "{} chirality correction on {}"
+    nifti_output_file_path = os.path.join(chiral_out_dir,
+                                          j_args["BIBSnet"]["aseg_outfile"]) 
+
+    logger.info(msg.format("Running", nifti_input_file_path))
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
     segment_name_to_number = {v: k for k, v in free_surfer_label_to_region.items()}
     img = nib.load(nifti_input_file_path)
@@ -220,23 +229,28 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_output_file_path)
 
-    # TODO Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
-    dummy_copy = nifti_output_file_path + "_dummy"
+    # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
+    dummy_copy = "_dummy".join(split_2_exts(nifti_output_file_path))
     copy_and_rename_file(nifti_output_file_path, dummy_copy)
-    concat_output = "" # TODO
-    roi2full_path = "" # TODO
-    transformed_output = "resize_to_T1w.mat"  
-    run_FSL_sh_script(j_args, "convert_xfm", "-omat", transformed_output,
-                      "-inverse", j_args["transformed_images"]["T1w"])
+    concat_output = os.path.join(chiral_out_dir, "{}_concatenated.mat"  # TODO Give this a more descriptive name?
+                                                 .format("_".join(sub_ses)))
+    roi2full_path = os.path.join(j_args["optional_out_dirs"]["preBIBSnet"],
+                                 *sub_ses, "cropped", "T1w",  # TODO Ask about this: Will we have to average the different T1w/roi2full.mat and T2w/roi2full.mat files?
+                                 "roi2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet 
+    transformed_output = os.path.join(chiral_out_dir, "resize_to_T1w.mat")
+    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
+                      transformed_output, "-inverse",
+                      j_args["optimal_resized"]["T1w"])  # NOTE postBIBSnet ran until here and then crashed on 2022-03-10
 
-    # Invert transformed_T1w_out and transform it back to its original space
-    run_FSL_sh_script(j_args, "convert_xfm", "-omat", concat_output, "-concat",
-                      roi2full_path, transformed_output)
+    # Invert transformed_T1w_out and transform it back to its original space  # TODO Do we need to invert T1w and T2w?
+    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat", concat_output,
+                      "-concat", roi2full_path, transformed_output)
     logger.info("Transforming {} image back to its original space"
                 .format(dummy_copy))
-    run_FSL_sh_script(j_args, "flirt", dummy_copy, t1w_path,
+    run_FSL_sh_script(j_args, logger, "flirt", dummy_copy, t1w_path,
                       "-applyxfm", "-init", concat_output,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
                       "-o", nifti_output_file_path)
+    logger.info(msg.format("Finished", nifti_input_file_path))
 
 
 def create_anatomical_average(avg_params):
@@ -279,19 +293,20 @@ def create_avg_image(output_file_path, registered_files):
     nib.save(new_img, output_file_path)
 
 
-def crop_image(input_avg_img, output_crop_img, j_args):
+def crop_image(input_avg_img, output_crop_img, j_args, logger):
     """
     Run robustFOV to crop image
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
     :param output_crop_img: String, valid path to save cropped image file at
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :return: String, path to roi2full.mat file in same dir as output_crop_img
     """
     output_crop_dir = os.path.dirname(output_crop_img)
-    roi2full = os.path.join(output_crop_dir, "roi2full.mat")
-    run_FSL_sh_script(j_args, "robustfov", "-i", input_avg_img, 
+    roi2full = os.path.join(output_crop_dir, "roi2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
+    run_FSL_sh_script(j_args, logger, "robustfov", "-i", input_avg_img, 
                       "-m", roi2full, "-r", output_crop_img,
-                      "-b", j_args["preBIBSnet"]["brain_size"])
+                      "-b", j_args["preBIBSnet"]["brain_z_size"])
     return roi2full
 
 
@@ -356,13 +371,12 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
               "T?w_avg": Strings, average T?w output file paths}
     """
     # Get subject ID, session, and directory of subject's BIDS-valid input data
-    subj_ID, session = get_subj_ID_and_session(j_args)
-    subj_dir = os.path.join(j_args["common"]["bids_dir"], subj_ID)
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
 
     # Get and make working directories to run pre-BIBSnet processing in
     preBIBSnet_paths = {"parent": os.path.join(
-        j_args["optional_out_dirs"]["preBIBSnet"], subj_ID, session
-    )}
+                            j_args["optional_out_dirs"]["preBIBSnet"], *sub_ses
+                        )}
     for jarg, work_dirname in j_args["preBIBSnet"].items():
 
         # Just get the preBIBSnet parameters that are subdirectories
@@ -381,19 +395,19 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     preBIBSnet_paths["avg"] = dict()
     for t in (1, 2):
         preBIBSnet_paths["avg"]["T{}w_input".format(t)] = list()
-        for eachfile in glob(os.path.join(
-            subj_dir, session, "anat", "*T{}w*.nii.gz".format(t)
-        )):
+        for eachfile in glob(os.path.join(j_args["common"]["bids_dir"],
+                                          *sub_ses, "anat", "*T{}w*.nii.gz"
+                                                            .format(t))):
             preBIBSnet_paths["avg"]["T{}w_input".format(t)].append(eachfile)
-        avg_img_name = "{}_{}_000{}{}".format(subj_ID, session, t-1, ".nii.gz")
-        preBIBSnet_paths["avg"]["T{}w_avg".format(t)] = os.path.join(
-            preBIBSnet_paths["averaged"], avg_img_name
-        )
-
-        # Get paths to, and make, cropped image subdirectories
-        crop_dir = os.path.join(preBIBSnet_paths["cropped"], "T{}w".format(t))
-        preBIBSnet_paths["crop_T{}w".format(t)] = os.path.join(crop_dir,
-                                                               avg_img_name)
+        avg_img_name = "{}_000{}{}".format("_".join(sub_ses), t-1, ".nii.gz")
+        preBIBSnet_paths["avg"]["T{}w_avg".format(t)] = os.path.join(  
+            preBIBSnet_paths["averaged"], avg_img_name  
+        )  
+  
+        # Get paths to, and make, cropped image subdirectories  
+        crop_dir = os.path.join(preBIBSnet_paths["cropped"], "T{}w".format(t))  
+        preBIBSnet_paths["crop_T{}w".format(t)] = os.path.join(crop_dir,  
+                                                               avg_img_name)  
         os.makedirs(crop_dir, exist_ok=True)
     return preBIBSnet_paths
 
@@ -407,7 +421,7 @@ def get_and_print_time_since(event_name, event_time, logger):
     :return: String with an easily human-readable message showing how much time
              has passed since {event_time} when {event_name} happened.
     """
-    timestamp = ("\nTime elapsed since {}: {}"
+    timestamp = ("Time elapsed since {}: {}"
                  .format(event_name, datetime.now() - event_time))
     logger.info(timestamp)
     return timestamp
@@ -480,12 +494,13 @@ def get_sub_base(j_args, run_num=None):
 def get_subj_ID_and_session(j_args):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :return: Tuple of 2 strings, subject ID and session from parameter file,
-             with their correct "sub-" and "ses-" prefixes
-    """
+    :return: List of 2 strings (subject ID and session from parameter file,
+             with their correct "sub-" and "ses-" prefixes) if the parameter
+             file has a session, otherwise just with the prefixed subject ID
+    """ 
     sub = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
-    ses = ensure_prefixed(j_args["common"]["session"], "ses-")
-    return sub, ses
+    return [sub, ensure_prefixed(j_args["common"]["session"], "ses-")
+            ] if j_args["common"]["session"] else [sub]
 
 
 def get_subj_ses(j_args):
@@ -515,7 +530,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, logger):
     with and without first doing the ACPC registration)
     :param logger: logging.Logger object to raise warning
     """
-    msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}\n"
+    msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}"
     if calculate_eta(xfm_imgs_non_ACPC) > calculate_eta(xfm_imgs_ACPC_and_reg):
         optimal_resize = xfm_imgs_non_ACPC
         logger.info(msg.format("only", optimal_resize["T1w"],
@@ -558,18 +573,19 @@ def register_files(input_file_paths, reference):
     return registered_files
     
 
-def registration_T2w_to_T1w(j_args, xfm_vars):
+def registration_T2w_to_T1w(j_args, logger, xfm_vars):
     """
-    T2w to T1w registration 
+    T2w to T1w registration for use in preBIBSnet
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :param xfm_vars: Dictionary containing paths to files used in registration
     :return: Dictionary mapping "T1w" and "T2w" to their respective newly
              registered image file paths
     """
     # Make T2w-to-T1w matrix
     t2_to_t1_matrix = os.path.join(xfm_vars["out_dir"], "T2toT1.mat") 
-    run_FSL_sh_script(j_args, "flirt", "-ref", xfm_vars["T1w_img"], "-in",
-                      xfm_vars["T2w_img"], "-omat", t2_to_t1_matrix)
+    run_FSL_sh_script(j_args, logger, "flirt", "-ref", xfm_vars["T1w_img"],
+                      "-in", xfm_vars["T2w_img"], "-omat", t2_to_t1_matrix)
 
     # Make transformed T1ws and T2ws
     xfms_matrices = {"T1w": xfm_vars["ident_mx"], "T2w": t2_to_t1_matrix}
@@ -582,7 +598,7 @@ def registration_T2w_to_T1w(j_args, xfm_vars):
         transformed_images[img] = xfm_vars["output_{}_img".format(img)]
 
         run_FSL_sh_script(
-            j_args, "flirt", "-in", xfm_vars["{}_img".format(img)],
+            j_args, logger, "flirt", "-in", xfm_vars["{}_img".format(img)],
             "-ref", xfm_vars["ref_reg"], "-applyisoxfm", 
             xfm_vars["resolution"], "-init", xfms_matrices[img],
             "-o", transformed_images[img], "-omat", transformed_images[tmpl]
@@ -633,7 +649,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         xfm_vars[out_var.format(t)] = out_img.format("")
         xfm_ACPC_args[out_var.format(t)] = out_img.format("ACPC_")
     if j_args["common"]["verbose"]:
-        msg_xfm = "Arguments for {}ACPC image transformation:\n{}\n"
+        msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
         logger.info(msg_xfm.format("non-", xfm_vars))
         logger.info(msg_xfm.format("", xfm_ACPC_args))
 
@@ -643,34 +659,54 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
 
     # Comparison of T2w to T1w registration approaches
     # Do direct T1w-T2w alignment
-    xfm_imgs_non_ACPC = registration_T2w_to_T1w(j_args, xfm_vars)
+    xfm_imgs_non_ACPC = registration_T2w_to_T1w(j_args, logger, xfm_vars)
     for t in (1, 2):
         if j_args["common"]["verbose"]:
-            print("Now resizing {}".format(xfm_vars["T{}w_img".format(t)]))
+            logger.info("Now resizing " + str(xfm_vars["T{}w_img".format(t)]))
         
         # Run ACPC alignment
-        align_ACPC_1_img(j_args, xfm_ACPC_args, roi2full, out_var, t)
+        align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, out_var, t)
 
     # T1w-T2w alignment of ACPC-aligned images
-    xfm_ACPC_and_registered_imgs = registration_T2w_to_T1w(j_args, xfm_ACPC_args)
+    xfm_ACPC_and_registered_imgs = registration_T2w_to_T1w(j_args, logger,
+                                                           xfm_ACPC_args)   # TODO Save ACPC T1w and T2w images output from this function to j_args[optional_out_dirs][preBIBSnet]/resized/ACPC_align/ dir
 
     # Return the best of the 2 resized images
     return optimal_realigned_imgs(xfm_imgs_non_ACPC,
                                   xfm_ACPC_and_registered_imgs, logger)
 
 
-def run_FSL_sh_script(j_args, fsl_function_name, *fsl_args):
+def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     """
-    Run any FSL function in a Bash subprocess
+    Run any FSL function in a Bash subprocess, unless its outputs exist and the
+    parameter file said not to overwrite outputs
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :param fsl_function_name: String naming the FSL function which is an
-                              executable file in j_args[common][fsl_bin_path]
+    :param logger: logging.Logger object to show messages and raise warnings
+    :param fsl_fn_name: String naming the FSL function which is an
+                        executable file in j_args[common][fsl_bin_path]
     """
-    to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_function_name)
+    # FSL command to (maybe) run in a subprocess
+    to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_fn_name)
               ] + [str(f) for f in fsl_args]
-    if j_args["common"]["verbose"]:
-        print("\nNow running FSL command:\n{}\n".format(" ".join(to_run)))
-    subprocess.check_call(to_run)
+
+    # If the output image(s) exist(s) and j_args[common][overwrite] is False,
+    # then skip the entire FSL command and tell the user
+    outputs = list()
+    for i in range(len(to_run)):
+        if to_run[i].strip('-') in ("o", "omat", "out"):
+            outputs.append(to_run[i + 1])
+    if ((not j_args["common"]["overwrite"]) and outputs and
+            [os.path.exists(output) for output in outputs]):
+        if j_args["common"]["verbose"]:
+            logger.info("Skipping FSL {} command because its output image(s) "
+                        "listed below exist(s) and overwrite=False.\n{}"
+                        .format(fsl_fn_name, "\n".join(outputs)))
+
+    else:  # Otherwise, just run the FSL command
+        if j_args["common"]["verbose"]:
+            logger.info("Now running FSL command:\n{}"
+                        .format(" ".join(to_run)))
+        subprocess.check_call(to_run)
 
 
 def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
@@ -680,7 +716,7 @@ def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
     :param start: String naming the first stage the user wants to run
     :param end: String naming the last stage the user wants to run
     :param params_for_every_stage: Dictionary of all args needed by each stage
-    :param logger: logging.Logger object to raise warning
+    :param logger: logging.Logger object to show messages and raise warnings
     """
     running = False
     for stage in all_stages:
@@ -693,6 +729,16 @@ def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
             get_and_print_time_since(name + " started", stage_start, logger)
         if name == end:
             running = False
+
+
+def split_2_exts(a_path):
+    """
+    :param path: String, a file path with two extensions (like ".dscalar.nii")
+    :return: Tuple of 2 strings, the extensionless path and the 2 extensions
+    """
+    base, ext2 = os.path.splitext(a_path)
+    base, ext1 = os.path.splitext(base)
+    return base, ext1 + ext2
                     
 
 def valid_float_0_to_1(val):
@@ -862,23 +908,30 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
                        "positive_int": valid_whole_number, 
                        "str": always_true}
 
+    # Get a list of all stages after the last stage to run
+    after_end = stage_names[stage_names.index(j_args["stage_names"]["end"])+1:]
+
+    # Verify parameters in each section
+    to_delete = list()
     for section_name, section_dict in j_types.items():
 
-        # Verify parameters in each section, only including the
-        # resource_management parameters if we're in SLURM/SBATCH job(s)
-        if ((section_name not in stage_names) and not (
-                section_name == "resource_management" 
-                and not j_args["meta"]["slurm"]
+        # Skip the j_args sections for stages not being run
+        if section_name in stage_names and section_name in after_end:
+            to_delete.append(section_name)
 
-            # Skip the j_args sections for stages not being run
-             )) or (section_name in stage_names and will_run_stage(
-                section_name, j_args["stage_names"]["start"],
-                j_args["stage_names"]["end"], stage_names
-            )):
+        # Only include resource_management if we're in SLURM/SBATCH job(s)
+        elif not (section_name == "resource_management"
+                  and not j_args["meta"]["slurm"]):
 
+            # Validate every parameter in the section
             for arg_name, arg_type in section_dict.items():
                 validate_1_parameter(j_args, arg_name, arg_type, section_name,
-                                     type_validators, param_json, parser)
+                                    type_validators, param_json, parser)
+            
+    # Remove irrelevant parameters
+    for section_name in to_delete:
+        del j_args[section_name]
+    return j_args
 
 
 def validate_1_parameter(j_args, arg_name, arg_type, section_name,

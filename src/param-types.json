@@ -4,6 +4,7 @@
         "bids_dir": "existing_directory_path",
         "fd_spike_threshold": "float_0_to_1",
         "fsl_bin_path": "existing_directory_path",
+        "overwrite": "bool",
         "participant_label": "str",
         "session": "str",
         "task_id": "str",
@@ -30,7 +31,7 @@
     },
 
     "preBIBSnet": {
-        "brain_size": "positive_int",
+        "brain_z_size": "positive_int",
         "averaged_dir": "str",
         "cropped_dir": "str",
         "resized_dir": "str"
@@ -38,8 +39,11 @@
     
     "BIBSnet": {
         "aseg_outfile": "new_file_path",
+        "code_dir": "existing_directory_path",
         "input_dir": "new_directory_path",
         "model": "str",
+        "nnUNet_predict_path": "existing_file_path",
+        "output_dir": "new_directory_path",
         "singularity_image_path": "existing_file_path",
         "task": "str"
     },
@@ -99,11 +103,13 @@
         "band_stop_max": "float",
         "band_stop_min": "float",
         "bpf_order": "positive_int",
+        "brain_template": "str",
         "cifti": "bool",
         "clean_workdir": "bool",
         "custom_conf": "existing_tsv_file",
         "despike": "bool",
         "dummytime": "positive_float",
+        "fmri_dir": "existing_directory_path",
         "head_radius": "positive_int",
         "input_type": ["fmirprep", "dcan", "hpc"],
         "lower_bpf": "float",

@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-02-28
+Updated: 2022-03-10
 """
 
 # Import standard libraries
@@ -38,6 +38,7 @@ def find_myself(flg):
 SCRIPT_DIR_ARG = "--script-dir"
 SCRIPT_DIR = find_myself(SCRIPT_DIR_ARG)
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
+TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
@@ -56,10 +57,10 @@ def main():
 
     # Make logger to log status updates, warnings, and other important info
     logging.basicConfig(stream = sys.stdout,
-                        format = "%(levelname)s %(asctime)s - %(message)s",
+                        format = "\n%(levelname)s %(asctime)s: %(message)s",
                         level = logging.INFO)  # TODO Will it only print logger.info? What should we do for errors/warnings?
     logging.basicConfig(stream = sys.stderr,
-                        format = "%(levelname)s %(asctime)s - %(message)s",
+                        format = "\n%(levelname)s %(asctime)s: %(message)s",
                         level = logging.ERROR)
     logger = logging.getLogger(os.path.basename(sys.argv[0]))
 
@@ -69,7 +70,7 @@ def main():
     json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
                                      logger)
     if json_args["common"]["verbose"]:
-        logger.info("Parameters from input .JSON file:\n{}\n"
+        logger.info("Parameters from input .JSON file:\n{}"
                     .format(json_args))
 
     # Run every stage that the parameter file says to run
@@ -92,7 +93,6 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
-    default_types_json = os.path.join(SCRIPT_DIR, "param-types.json")
     msg_json = "Valid path to existing readable parameter .json file."
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -111,13 +111,9 @@ def get_params_from_JSON(stage_names, logger):
         "-end", "--ending-stage", dest="end",
         choices=stage_names, default=stage_names[-1]
     )
-    parser.add_argument(  # TODO 
-        "--types-json", type=valid_readable_json, default=default_types_json,
-        help=("{} This file must map every CABINET parameter to its data type."
-              .format(msg_json))
-    )
     parser.add_argument(
-        SCRIPT_DIR_ARG, dest="script_dir", type=valid_readable_dir,
+        SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
+        type=valid_readable_dir,
         help=("Valid path to the existing parent directory of this run.py "
               "script. Include this argument if and only if you are running "
               "the script as a SLURM/SBATCH job.")
@@ -134,14 +130,16 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     """
     # Get command-line input arguments and use them to get .JSON parameters
     j_args = extract_from_json(cli_args["parameter_json"])
-    j_args["meta"] = {SCRIPT_DIR_ARG: SCRIPT_DIR,
-                      "slurm": bool(cli_args[as_cli_attr(SCRIPT_DIR_ARG)])}
+    script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
+    j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
+                      "slurm": bool(cli_args[script_dir_attr])}
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]} 
 
     # Verify that every parameter in the parameter .JSON file is a valid input
-    validate_parameter_types(j_args, extract_from_json(cli_args["types_json"]),
-                             cli_args["parameter_json"], parser, stage_names)
+    j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
+                                      cli_args["parameter_json"], parser,
+                                      stage_names)
 
     # Using dict_has instead of easier ensure_dict_has so that the user only
     # needs a participants.tsv file if they didn't specify age_months
@@ -151,9 +149,23 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # TODO Figure out which column in the participants.tsv file has age_months
 
     # Define (and create) default paths in derivatives directory structure for each stage
-    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")
+    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")  # TODO Figure out why the script is creating .../derivatives/derivatives/preBIBSnet/...
     for deriv in stage_names:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
+
+    # Save paths to files used by multiple stages:
+    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
+    out_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                           *sub_ses, "input")
+    os.makedirs(out_dir, exist_ok=True)
+    j_args["optimal_resized"] = {"T{}w".format(t): os.path.join(
+                                     out_dir, "{}_optimal_resized_000{}.nii.gz"
+                                              .format("_".join(sub_ses), t-1)
+                                 ) for t in (1, 2)}
+
+    # 2. roi2full for preBIBSnet and postBIBSnet transformation
+    # j_args["xfm"]["roi2full"] =   # TODO
 
     return j_args
 
@@ -184,7 +196,7 @@ def read_age_from_participants_tsv(j_args, logger):
     """
     columns = {"age": "str", "participant_id": "str", "session": "str"}
 
-    subj_ID, session = get_subj_ID_and_session(j_args)
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
 
     # Read in participants.tsv
     part_tsv_df = pd.read_csv(
@@ -205,7 +217,7 @@ def read_age_from_participants_tsv(j_args, logger):
         subj_row[ses_ID_col] == j_args["common"]["session"]
     ] # select where "participant_id" and "session" match
     if j_args["common"]["verbose"]:
-        logger.info("Subject details from participants.tsv row:\n{}\n"
+        logger.info("Subject details from participants.tsv row:\n{}"
                     .format(subj_row))
     return int(subj_row[age_months_col])
 
@@ -217,6 +229,7 @@ def run_preBIBSnet(j_args, logger):
     :return: j_args, but with preBIBSnet working directory names added
     """
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
@@ -227,7 +240,7 @@ def run_preBIBSnet(j_args, logger):
     for t in (1, 2):
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
         roi2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
-                              cropped[t], j_args)
+                              cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images 
@@ -239,11 +252,19 @@ def run_preBIBSnet(j_args, logger):
                                 "1mo", "sub-00006_T1w_acpc_dc_restore.nii.gz")
     }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
-    j_args["transformed_images"] = resize_images(
+    transformed_images = resize_images(
         cropped, preBIBSnet_paths["resized"], reference_imgs, 
         id_mx, roi2full, j_args, logger
     )
     logger.info(completion_msg.format("resized"))
+
+    # Make a symlink in BIBSnet input dir to transformed_images[T1w]
+    for t in (1, 2):
+        tw = "T{}w".format(t)
+        out_fpath = j_args["optimal_resized"][tw]
+        if not os.path.exists(out_fpath):  # j_args["common"]["overwrite"] or 
+            os.symlink(transformed_images[tw], out_fpath, )
+
     logger.info("PreBIBSnet has completed")
     return j_args
 
@@ -253,16 +274,19 @@ def run_BIBSnet(j_args, logger):
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
-    """
-    # TODO Test BIBSnet functionality once it's containerized
-    """
-    verify_image_file_names(j_args)  # TODO Ensure that the T1s have _0000 at the end of their filenames and T2s have _0001
+    """    # TODO Test BIBSnet functionality once it's containerized
+    # Import BIBSnet functionality from BIBSnet/run.py
+    parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+    logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
+    sys.path.append(parent_BIBSnet)
+    from BIBSnet.run import run_nnUNet_predict
 
-    if j_args["common"]["age_months"] <= 8:
-        j_args = copy_images_to_BIBSnet_dir(j_args)           # TODO
-        j_args["segmentation"] = run_BIBSnet_predict(j_args)  # TODO
-    """
-
+    # Run BIBSnet
+    run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
+                        "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
+                        "input": j_args["BIBSnet"]["input_dir"],  # TODO Change any redundant BIBSnet parameters in the parameter file, e.g. remove "input_dir" and just use a preBIBSnet output dir path
+                        "output": j_args["BIBSnet"]["output_dir"],
+                        "task": str(j_args["BIBSnet"]["task"])})
     logger.info("BIBSnet has completed")
     return j_args
 
@@ -273,7 +297,9 @@ def run_postBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    sub_ses = get_subj_ses(j_args)
+    # sub_ses = get_subj_ses(j_args)
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
+    # sub_ses = "{}_{}".format(subj_ID, session)
 
     # Template selection values
     age_months = j_args["common"]["age_months"]
@@ -283,7 +309,7 @@ def run_postBIBSnet(j_args, logger):
 
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
-        j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1
+        j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger
     )
     logger.info("Left/right image registration completed")
     chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,
@@ -300,7 +326,7 @@ def run_postBIBSnet(j_args, logger):
                               j_args["common"]["session"])
     os.makedirs(derivs_dir, exist_ok=True)
     for eachfile in os.scandir(chiral_out_dir):
-        if "aseg" in chiral_out_dir.name:
+        if "aseg" in os.path.basename(chiral_out_dir):
             copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")
     for each_mask in masks:  # There should only be 1, for the record
         copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")
@@ -312,10 +338,10 @@ def run_postBIBSnet(j_args, logger):
     return j_args
 
 
-def run_left_right_registration(j_args, sub_ses, age_months, t1or2):
+def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):  # subj_ID, session, 
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :param sub_ses: String combining subject ID and session from parameter file
+    :param sub_ses: List with either only the subject ID str or the session too
     :param age_months: String or int, the subject's age [range] in months
     :param t1or2: Int, 1 to use T1w image for registration or 2 to use T2w
     :return: String, path to newly created left/right registration output file
@@ -325,21 +351,35 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2):
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
     tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
 
-    # Grab the first resized T1w from preBIBSnet to use for L/R registration
-    subject_head_path = os.path.join(j_args["preBIBSnet"]["resized_dir"],
-                                     sub_ses + "_run-*_0000.nii.gz")
-    first_subject_head = glob(subject_head_path)[0]  
+    # Grab the first resized T2w from preBIBSnet to use for L/R registration
+    # first_subject_head = j_args["transformed_images"]["T1w"]
+    first_subject_head = glob(os.path.join(
+        j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
+        "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
+    ))[0]
+
+    # Make postBIBSnet output directory for this subject/session
+    outdir_LR_reg = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+                                 *sub_ses)
+    os.makedirs(outdir_LR_reg, exist_ok=True)
 
     # Left/right registration output file path (this function's return value)
-    left_right_mask_nifti_fpath = os.path.join(
-        j_args["optional_out_dirs"]["postBIBSnet"], "LRmask.nii.gz"
-    )
+    left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "LRmask.nii.gz")
 
-    # Run left & right registration  # NOTE: Script ran successfully until here 2022-01-20_13:47
-    subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
-                           tmpl_head.format(age_months, t1or2),
-                           tmpl_mask.format(age_months),
-                           left_right_mask_nifti_fpath))
+    # Run left & right registration  # NOTE: Script ran successfully until here 2022-03-08
+    msg = "{} left/right registration on {}"
+    if (j_args["common"]["overwrite"] or not
+            os.path.exists(left_right_mask_nifti_fpath)):
+        logger.info(msg.format("Running", first_subject_head))
+        subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
+                               tmpl_head.format(age_months, t1or2),
+                               tmpl_mask.format(age_months),
+                               left_right_mask_nifti_fpath))
+    else:
+        logger.info(msg.format("Skipping",  "{} because output already exists at {}".format(
+            first_subject_head, left_right_mask_nifti_fpath
+        )))
+    logger.info(msg.format("Finished", first_subject_head))
     return left_right_mask_nifti_fpath
 
 
@@ -352,27 +392,25 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     :return: String, valid path to existing directory containing newly created
              chirality correction outputs
     """
-    subj_ID, session = get_subj_ID_and_session(j_args)
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
 
     # Define paths to dirs/files used in chirality correction script
     chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
-                                  "chirality_correction")
-    os.makedirs(chiral_out_dir)
+                                  *sub_ses, "chirality_correction")  # subj_ID, session, 
+    os.makedirs(chiral_out_dir, exist_ok=True)
     segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
                                              "FreeSurferColorLUT.txt")
     seg_BIBSnet_outfile = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                       *sub_ses,
                                        j_args["BIBSnet"]["aseg_outfile"])
-    chiral_corrected_nii_outfile_path = os.path.join(
-        chiral_out_dir, j_args["BIBSnet"]["aseg_outfile"]
-    ) 
 
     # Select an arbitrary T1w image path to use to get T1w space
-    path_T1w = glob(os.path.join(j_args["common"]["bids_input_dir"], subj_ID,
-                                 session, "anat", "*_T1w.nii.gz"))[0]
+    path_T1w = glob(os.path.join(j_args["common"]["bids_dir"],
+                                 *sub_ses, "anat", "*_T1w.nii.gz"))[0]
 
     # Run chirality correction script
     correct_chirality(seg_BIBSnet_outfile, segment_lookup_table_path,
-                      l_r_mask_nifti_fpath, chiral_corrected_nii_outfile_path,
+                      l_r_mask_nifti_fpath, chiral_out_dir, 
                       path_T1w, j_args, logger)
     return chiral_out_dir
 
@@ -402,16 +440,16 @@ def make_asegderived_mask(aseg_dir):
     return mask_out_files
 
 
-def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_part):
+def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_pt):
     """
     Copy file_to_copy into derivs_dir and rename it with the other 2 arguments
     :param file_to_copy: String, path to existing file to copy to derivs_dir
     :param derivs_dir: String, path to existing directory to copy file into
-    :param sub_ses: String, the subject and session connected by an underscore
-    :param new_fname_part: String to add to the end of the new filename
+    :param sub_ses: List with either only the subject ID str or the session too
+    :param new_fname_pt: String to add to the end of the new filename
     """
     copy_and_rename_file(file_to_copy, os.path.join(derivs_dir, (
-        "{}_space-orig_desc-{}.nii.gz".format(sub_ses, new_fname_part)
+        "{}_space-orig_desc-{}.nii.gz".format("_".join(sub_ses), new_fname_pt)
     )))
 
 

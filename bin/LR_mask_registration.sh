@@ -16,21 +16,25 @@ TemplateMask=$1;shift
 OutputMaskFile=$1;shift
 
 module load ants
-WD="./wd"
+WD=$(dirname $OutputMaskFile)/wd
 if [ ! -d "$WD" ]; then
 	mkdir "$WD"
 fi
 
+# TODO Skip ANTS if its outputs exist?
+
 # Register the template head to the subject head
 ANTS 3 -m CC["$SubjectHead","$TemplateHead",1,5] -t SyN[0.25] -r Gauss[3,0] -o "$WD"/antsreg -i 60x50x20 --use-Histogram-Matching  --number-of-affine-iterations 10000x10000x10000x10000x10000 --MI-option 32x16000
 
+echo "Finished running ANTS, now running antsApplyTransforms"
+
 # Apply resulting transformation to template L/R mask to generate subject L/R mask
 antsApplyTransforms -d 3 \
-        --output "$OutputMaskFile" \  # LRmask.nii.gz \
+        --output "$OutputMaskFile" \
         --reference-image "$SubjectHead" \
         --transform "$WD"/antsregWarp.nii.gz "$WD"/antsregAffine.txt \
         --input "$TemplateMask" \
 	--interpolation NearestNeighbor
 
 #delete wd
-rm -r "$WD"
+# rm -r "$WD"
