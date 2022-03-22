@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-03-10
+Updated: 2022-03-22
 """
 
 # Import standard libraries
@@ -692,11 +692,14 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     # If the output image(s) exist(s) and j_args[common][overwrite] is False,
     # then skip the entire FSL command and tell the user
     outputs = list()
-    for i in range(len(to_run)):
-        if to_run[i].strip('-') in ("o", "omat", "out"):
-            outputs.append(to_run[i + 1])
-    if ((not j_args["common"]["overwrite"]) and outputs and
-            [os.path.exists(output) for output in outputs]):
+    skip_cmd = False
+    if not j_args["common"]["overwrite"]:
+        for i in range(len(to_run)):
+            if to_run[i].strip('-') in ("o", "omat", "out"):
+                outputs.append(to_run[i + 1])
+        if outputs and all([os.path.exists(output) for output in outputs]):
+            skip_cmd = True
+    if skip_cmd:
         if j_args["common"]["verbose"]:
             logger.info("Skipping FSL {} command because its output image(s) "
                         "listed below exist(s) and overwrite=False.\n{}"
@@ -917,7 +920,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
 
         # Skip the j_args sections for stages not being run
         if section_name in stage_names and section_name in after_end:
-            to_delete.append(section_name)
+            if section_name in j_args:
+                to_delete.append(section_name)
 
         # Only include resource_management if we're in SLURM/SBATCH job(s)
         elif not (section_name == "resource_management"
