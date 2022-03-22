@@ -705,7 +705,8 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
                         "listed below exist(s) and overwrite=False.\n{}"
                         .format(fsl_fn_name, "\n".join(outputs)))
 
-    else:  # Otherwise, just run the FSL command
+    # Otherwise, just run the FSL command
+    else:
         if j_args["common"]["verbose"]:
             logger.info("Now running FSL command:\n{}"
                         .format(" ".join(to_run)))
@@ -982,7 +983,7 @@ def warn_user_of_conditions(warning, logger, **to_check):
     for condition, problem in to_check.items():
         if condition:
             problems.append(problem)
-    logger.warn(warning.format(" and ".join(problems)))
+    logger.warning(warning.format(" and ".join(problems)))
 
 
 def will_run_stage(a_stage, start_stage, end_stage, all_stage_names):

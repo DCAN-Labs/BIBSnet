@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-03-10
+Updated: 2022-03-22
 """
 
 # Import standard libraries
@@ -52,19 +52,10 @@ from src.utilities import (
 
 
 def main():
-    # Time how long the script takes and get command-line arguments from user 
-    start_time = datetime.now()
+    start_time = datetime.now()  # Time how long the script takes
+    logger = make_logger()  # Make object to log error/warning/status messages
 
-    # Make logger to log status updates, warnings, and other important info
-    logging.basicConfig(stream = sys.stdout,
-                        format = "\n%(levelname)s %(asctime)s: %(message)s",
-                        level = logging.INFO)  # TODO Will it only print logger.info? What should we do for errors/warnings?
-    logging.basicConfig(stream = sys.stderr,
-                        format = "\n%(levelname)s %(asctime)s: %(message)s",
-                        level = logging.ERROR)
-    logger = logging.getLogger(os.path.basename(sys.argv[0]))
-
-    # Get and validate parameters from .JSON file
+    # Get and validate command-line arguments and parameters from .JSON file
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
               run_XCPD]
     json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
@@ -86,6 +77,18 @@ def main():
 
     # Show user how long the pipeline took and end the pipeline here
     exit_with_time_info(start_time)
+
+
+def make_logger():
+    """
+    Make logger to log status updates, warnings, and other important info
+    :return: logging.Logger
+    """
+    fmt = "\n%(levelname)s %(asctime)s: %(message)s"
+    logging.basicConfig(stream=sys.stdout, format=fmt, level=logging.INFO)  
+    logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.ERROR)
+    logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.WARNING)
+    return logging.getLogger(os.path.basename(sys.argv[0]))
 
 
 def get_params_from_JSON(stage_names, logger):
@@ -194,9 +197,7 @@ def read_age_from_participants_tsv(j_args, logger):
     :param j_args: Dictionary containing all args from parameter .JSON file
     :return: Int, the subject's age (in months) listed in participants.tsv
     """
-    columns = {"age": "str", "participant_id": "str", "session": "str"}
-
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
+    columns = {x: "str" for x in ("age", "session", "participant_id")}
 
     # Read in participants.tsv
     part_tsv_df = pd.read_csv(
@@ -212,10 +213,10 @@ def read_age_from_participants_tsv(j_args, logger):
     # Get and return the age_months value from participants.tsv
     subj_row = part_tsv_df[  # TODO Run ensure_prefixed on the sub_ID_col?
         part_tsv_df[sub_ID_col] == j_args["common"]["participant_label"]
-    ]
+    ]  # select where "participant_id" matches
     subj_row = subj_row[  # TODO Run ensure_prefixed on the ses_ID_col?
         subj_row[ses_ID_col] == j_args["common"]["session"]
-    ] # select where "participant_id" and "session" match
+    ]  # select where "session" matches
     if j_args["common"]["verbose"]:
         logger.info("Subject details from participants.tsv row:\n{}"
                     .format(subj_row))
@@ -297,9 +298,7 @@ def run_postBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    # sub_ses = get_subj_ses(j_args)
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
-    # sub_ses = "{}_{}".format(subj_ID, session)
+    sub_ses = get_subj_ID_and_session(j_args)
 
     # Template selection values
     age_months = j_args["common"]["age_months"]
@@ -352,7 +351,6 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):  # 
     tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
 
     # Grab the first resized T2w from preBIBSnet to use for L/R registration
-    # first_subject_head = j_args["transformed_images"]["T1w"]
     first_subject_head = glob(os.path.join(
         j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
         "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
