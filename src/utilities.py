@@ -44,41 +44,44 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, output_var, t):
     :param output_var: String (with {} in it), a key in xfm_ACPC_args mapped to
                        the T1w and T2w valid output image file path strings 
     :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
-    :return: String, valid path to newly-made output image file
+    :return: Dictionary mapping .mat file names (without extensions) to their
+             respective paths
     """
     # Get paths to ACPC alignment's ref image, output dir, and output images
     mni_ref_img_path = xfm_ACPC_args["ref_ACPC"].format(t)
     work_dir = xfm_ACPC_args["out_dir"]  # Working directory for ACPC alignment
     input_img = xfm_ACPC_args["T{}w_img".format(t)]  # Cropped img, ACPC input
-    in_work_dir = lambda fname: os.path.join(work_dir, fname)  # work_dir is a preBIBSnet working directory
+
     output_img =  xfm_ACPC_args[output_var.format(t)]
+
+    mats = {fname: os.path.join(work_dir, "T{}w_{}.mat".format(t, fname))
+            for fname in ("roi2std", "full2std", "full2roi", "rigidbody2std")}
 
     run_FSL_sh_script(j_args, logger, "flirt", "-interp", "spline",  
                       "-ref", mni_ref_img_path, "-in", input_img,
-                      "-omat", in_work_dir("roi2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
-                      "-out", in_work_dir("acpc_final.nii.gz"),
+                      "-omat", mats["roi2std"],
+                      "-out", os.path.join(work_dir, "acpc_final.nii.gz"),
                       "-searchrx", "-45", "45", "-searchry", "-30", "30",
                       "-searchrz", "-30", "30")
 
     # Invert roi2full to get full2roi
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", roi2full,
-                      "-omat", in_work_dir("full2roi.mat"))
+                      "-omat", mats["full2roi"])
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
-        j_args, logger, "convert_xfm", "-omat", in_work_dir("full2std.mat"),
-        "-concat", in_work_dir("roi2std.mat"), in_work_dir("full2roi.mat")
+        j_args, logger, "convert_xfm", "-omat", mats["full2std"],
+        "-concat", mats["roi2std"], mats["full2roi"]
     )
 
     # Transform 12 dof matrix to 6 dof approximation matrix
-    output_matrix = in_work_dir("rigidbody2std.mat")
-    run_FSL_sh_script(j_args, logger, "aff2rigid", in_work_dir("full2std.mat"),  # TODO Name this differently to save T1w and T2w outputs separately
-                      output_matrix)
+    output_mx = mats["rigidbody2std"]
+    run_FSL_sh_script(j_args, logger, "aff2rigid", mats["full2std"], output_mx)
 
     # Apply ACPC alignment to the data
-    run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",
+    run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",  
                       "-i", input_img, "-r", mni_ref_img_path,
-                      "--premat=" + output_matrix,  # TODO Name this differently to save T1w and T2w outputs separately
-                      "-o", output_img)
+                      "--premat=" + output_mx, "-o", output_img)
+    return mats
 
 
 def always_true(*_):
@@ -196,8 +199,9 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     """
     sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
     msg = "{} chirality correction on {}"
-    nifti_output_file_path = os.path.join(chiral_out_dir,
-                                          j_args["BIBSnet"]["aseg_outfile"]) 
+    nifti_output_file_path = os.path.join(
+        chiral_out_dir, "corrected_" + os.path.basename(nifti_input_file_path)
+    )# j_args["BIBSnet"]["aseg_outfile"]) 
 
     logger.info(msg.format("Running", nifti_input_file_path))
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
@@ -235,12 +239,13 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     concat_output = os.path.join(chiral_out_dir, "{}_concatenated.mat"  # TODO Give this a more descriptive name?
                                                  .format("_".join(sub_ses)))
     roi2full_path = os.path.join(j_args["optional_out_dirs"]["preBIBSnet"],
-                                 *sub_ses, "cropped", "T1w",  # TODO Ask about this: Will we have to average the different T1w/roi2full.mat and T2w/roi2full.mat files?
+                                 *sub_ses, "cropped", "T1w",  # T1w because preBIBSnet mapped T2w to T1w space
                                  "roi2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet 
     transformed_output = os.path.join(chiral_out_dir, "resize_to_T1w.mat")
+    # TODO If ACPC was chosen as optimal, then concatenate .mat files: 
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
-                      transformed_output, "-inverse",
-                      j_args["optimal_resized"]["T1w"])  # NOTE postBIBSnet ran until here and then crashed on 2022-03-10
+                      transformed_output, "-inverse", 
+                      os.path.join() ) # j_args["optimal_resized"]["T1w"])  # TODO Add (as last arg) path to final transformation .mat file from preBIBSnet # NOTE postBIBSnet ran until here and then crashed on 2022-03-10 and 2022-03-22
 
     # Invert transformed_T1w_out and transform it back to its original space  # TODO Do we need to invert T1w and T2w?
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat", concat_output,
@@ -412,21 +417,6 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     return preBIBSnet_paths
 
 
-def get_and_print_time_since(event_name, event_time, logger):
-    """
-    Print and return a string showing how much time has passed since the
-    current running script reached a certain part of its process
-    :param event_name: String to print after "Time elapsed since "
-    :param event_time: datetime object representing a time in the past
-    :return: String with an easily human-readable message showing how much time
-             has passed since {event_time} when {event_name} happened.
-    """
-    timestamp = ("Time elapsed since {}: {}"
-                 .format(event_name, datetime.now() - event_time))
-    logger.info(timestamp)
-    return timestamp
-
-
 def get_default_ext_command(cmd_name):
     """
     Try to get valid path to external software command file without user input
@@ -522,6 +512,19 @@ def glob_and_copy(dest_dirpath, *path_parts_to_glob):
         shutil.copy(file_src, dest_dirpath)
 
 
+def log_stage_finished(stage_name, event_time, logger):
+    """
+    Print and return a string showing how much time has passed since the
+    current running script reached a certain part of its process
+    :param stage_name: String, name of event that just finished
+    :param stage_start: datetime object representing when {stage_name} started
+    :return: String with an easily human-readable message showing how much time
+             has passed since {stage_start} when {stage_name} started.
+    """
+    logger.info("{0} finished. Time elapsed since {0} started: {1}"
+                .format(stage_name, datetime.now() - event_time))
+
+
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, logger):
     """
     Check whether the cost function shows that only the registration-T2-to-T1
@@ -583,27 +586,29 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars):
              registered image file paths
     """
     # Make T2w-to-T1w matrix
-    t2_to_t1_matrix = os.path.join(xfm_vars["out_dir"], "T2toT1.mat") 
+    registration_outputs = {"xfm_T1w": xfm_vars["ident_mx"],
+                            "xfm_T2w": os.path.join(xfm_vars["out_dir"],
+                                                   "T2toT1.mat")}
     run_FSL_sh_script(j_args, logger, "flirt", "-ref", xfm_vars["T1w_img"],
-                      "-in", xfm_vars["T2w_img"], "-omat", t2_to_t1_matrix)
+                      "-in", xfm_vars["T2w_img"], "-omat",
+                      registration_outputs["xfm_T2w"])
 
     # Make transformed T1ws and T2ws
-    xfms_matrices = {"T1w": xfm_vars["ident_mx"], "T2w": t2_to_t1_matrix}
-    transformed_images = dict()
-    for img in xfms_matrices.keys():
+    for t in (1, 2):
+        img = "T{}w".format(t)
         tmpl = img + "_template"
-        transformed_images[tmpl] = os.path.join(
+        registration_outputs[tmpl] = os.path.join(
             xfm_vars["out_dir"], "{}_to_BIBS_template.mat".format(img)
         )
-        transformed_images[img] = xfm_vars["output_{}_img".format(img)]
+        registration_outputs[img] = xfm_vars["output_{}_img".format(img)]
 
-        run_FSL_sh_script(
+        run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
             j_args, logger, "flirt", "-in", xfm_vars["{}_img".format(img)],
             "-ref", xfm_vars["ref_reg"], "-applyisoxfm", 
-            xfm_vars["resolution"], "-init", xfms_matrices[img],
-            "-o", transformed_images[img], "-omat", transformed_images[tmpl]
+            xfm_vars["resolution"], "-init", registration_outputs["xfm_" + img],
+            "-o", registration_outputs[img], "-omat", registration_outputs[tmpl]
         )
-    return transformed_images
+    return registration_outputs
 
 
 def reshape_volume_to_array(array_img):
@@ -636,45 +641,121 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
     """
     # Build dictionaries of variables used for image transformations with and
     # without ACPC alignment
-    xfm_vars = {"out_dir": os.path.join(output_dir, "xfms"), "resolution": "1",
-                "ident_mx": ident_mx, **ref_images} # "ref_img": ref_img_path,
-    xfm_ACPC_args = xfm_vars.copy()
+    xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
+                         "resolution": "1", "ident_mx": ident_mx,
+                         **ref_images} # "ref_img": ref_img_path,
+    xfm_ACPC_args = xfm_non_ACPC_vars.copy()
     xfm_ACPC_args["out_dir"] = os.path.join(output_dir, "ACPC_align")
     out_var = "output_T{}w_img"
     for t, img_path in cropped_imgs.items():
-        xfm_vars["T{}w_img".format(t)] = img_path
+        xfm_non_ACPC_vars["T{}w_img".format(t)] = img_path
+        xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], os.path.basename(img_path)
+        )
         xfm_ACPC_args["T{}w_img".format(t)] = img_path
-        out_img = os.path.join(xfm_vars["out_dir"],
-                               "{}" + os.path.basename(img_path))
-        xfm_vars[out_var.format(t)] = out_img.format("")
-        xfm_ACPC_args[out_var.format(t)] = out_img.format("ACPC_")
+        xfm_ACPC_args[out_var.format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], "ACPC_" + os.path.basename(img_path)
+        )
     if j_args["common"]["verbose"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
-        logger.info(msg_xfm.format("non-", xfm_vars))
+        logger.info(msg_xfm.format("non-", xfm_non_ACPC_vars))
         logger.info(msg_xfm.format("", xfm_ACPC_args))
 
     # Make output directories for transformed images
-    for each_xfm_vars_dict in (xfm_vars, xfm_ACPC_args):
+    for each_xfm_vars_dict in (xfm_non_ACPC_vars, xfm_ACPC_args):
         os.makedirs(each_xfm_vars_dict["out_dir"], exist_ok=True)
 
     # Comparison of T2w to T1w registration approaches
     # Do direct T1w-T2w alignment
-    xfm_imgs_non_ACPC = registration_T2w_to_T1w(j_args, logger, xfm_vars)
+    xfm_imgs_non_ACPC = registration_T2w_to_T1w(j_args, logger,
+                                                xfm_non_ACPC_vars)
     for t in (1, 2):
         if j_args["common"]["verbose"]:
-            logger.info("Now resizing " + str(xfm_vars["T{}w_img".format(t)]))
+            logger.info("Now resizing " 
+                        + str(xfm_non_ACPC_vars["T{}w_img".format(t)]))
         
         # Run ACPC alignment
-        align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, out_var, t)
+        xfm_ACPC_args["mats_T{}w".format(t)] = align_ACPC_1_img(
+            j_args, logger, xfm_ACPC_args, roi2full, out_var, t
+        )
 
     # T1w-T2w alignment of ACPC-aligned images
     xfm_ACPC_and_registered_imgs = registration_T2w_to_T1w(j_args, logger,
                                                            xfm_ACPC_args)   # TODO Save ACPC T1w and T2w images output from this function to j_args[optional_out_dirs][preBIBSnet]/resized/ACPC_align/ dir
 
-    # Return the best of the 2 resized images
-    return optimal_realigned_imgs(xfm_imgs_non_ACPC,
-                                  xfm_ACPC_and_registered_imgs, logger)
+    # ACPC
+    preBIBS_ACPC_out = dict()
+    preBIBS_nonACPC_out = dict()
+    for t in (1, 2):
+        preBIBS_ACPC_out["T{}w".format(t)] = os.path.join(
+            xfm_ACPC_args["out_dir"],
+            "preBIBSnet_final_000{}.nii.gz".format(t-1)
+        )
 
+        # Do convert_xfm to combine 3 .mat files (align_ACPC_1_img's rigidbody2std.mat, ACPC registration_T2w_to_T1w's T2toT1.mat (for T2w, and identity matrix for T1w?), and then ACPC registration_T2w_to_T1w's T2_to_BIBS_template.mat)
+        preBIBS_ACPC_out["T{}w_concat_mat".format(t)] = os.path.join(
+            xfm_ACPC_args["out_dir"], "T{}w_final.mat".format(t)
+        )
+
+        # Concatenate rigidbody2std.mat, registration (identity/T2toT1.mat),
+        # and T?_to_BIBS_template in 2 steps: First concatenate rigidbody2std
+        # with registration, then concatenate the output .mat with the template
+        penultimat = os.path.join(xfm_ACPC_args["out_dir"],
+                                  "T{}w_penultimate.mat".format(t))
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm", "-omat", penultimat,
+            "-concat", xfm_ACPC_args["mats_T{}w".format(t)]["rigidbody2std"],
+            xfm_ACPC_and_registered_imgs["xfm_T{}w".format(t)]
+        )
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm", "-omat",
+            preBIBS_ACPC_out["T{}w_concat_mat".format(t)],
+            "-concat", penultimat,
+            xfm_ACPC_and_registered_imgs["T{}w_template".format(t)] 
+        )
+
+        # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
+        # applywarp output is optimal_realigned_imgs input
+        # Apply registration and ACPC alignment to the T1ws and the T2ws
+        run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
+                          "--interp=spline", "-i", cropped_imgs[t], "-r",
+                          xfm_ACPC_args["ref_ACPC"].format(t),
+                          "--premat=" + preBIBS_ACPC_out["T{}w_concat_mat".format(t)],
+                          "-o", preBIBS_ACPC_out["T{}w".format(t)])
+
+    # Non-ACPC  # TODO MODULARIZE (put this into a function and call it once for ACPC and once for non to eliminate redundancy)
+        preBIBS_nonACPC_out["T{}w".format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"],
+            "preBIBSnet_final_000{}.nii.gz".format(t-1)
+        )
+        
+        # Do convert_xfm to combine 2 .mat files (non-ACPC registration_T2w_to_T1w's T2toT1.mat, and then non-ACPC registration_T2w_to_T1w's T2_to_BIBS_template.mat)
+        preBIBS_nonACPC_out["T{}w_concat_mat".format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], "T{}w_final.mat".format(t)
+        )
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm", "-omat",
+            preBIBS_nonACPC_out["T{}w_concat_mat".format(t)],
+            "-concat", xfm_imgs_non_ACPC["xfm_T{}w".format(t)],
+            xfm_imgs_non_ACPC["T{}w_template".format(t)], 
+        )
+
+        # Do the applywarp FSL command from align_ACPC_1_img (for T2w and not T1w, for non-ACPC)
+        # applywarp output is optimal_realigned_imgs input
+        # Apply registration to the T1ws and the T2ws
+        run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
+                          "--interp=spline", "-i", cropped_imgs[t], "-r",
+                          xfm_non_ACPC_vars["ref_ACPC"].format(t),
+                          "--premat=" + preBIBS_nonACPC_out["T{}w_concat_mat".format(t)],
+                          "-o", preBIBS_nonACPC_out["T{}w".format(t)])
+
+    # Outputs: 1 .mat file for ACPC and 1 for non-ACPC (only retain the -to-T1w .mat file after this point)
+    # TODO in postBIBSnet, reuse the -to-T1w.mat transform files (these will be the only transforms required) by inverting them
+
+    # Return the best of the 2 resized images
+    return optimal_realigned_imgs(preBIBS_nonACPC_out,
+                                  preBIBS_ACPC_out, logger)
+  
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     """
@@ -730,7 +811,7 @@ def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
         if running:
             stage_start = datetime.now()
             stage(params_for_every_stage, logger)
-            get_and_print_time_since(name + " started", stage_start, logger)
+            log_stage_finished(name, stage_start, logger)
         if name == end:
             running = False
 
@@ -765,15 +846,15 @@ def valid_output_dir(path):
                     lambda y: os.makedirs(y, exist_ok=True))
 
 
-def valid_output_dir_or_false(path):
+def valid_output_dir_or_none(path):
     """
     Try to make a folder for new files at path, unless "path" is just False.
     Throw exception if that fails
     :param path: String which should be either a valid (not necessarily real)
-                 folder path or False
-    :return: Either False or a validated absolute path to real writeable folder
+                 folder path or None
+    :return: Either None or a validated absolute path to real writeable folder
     """
-    return path if path is False else valid_output_dir(path)
+    return path if path is None else valid_output_dir(path)
 
 
 def valid_positive_float(to_validate):
@@ -793,6 +874,17 @@ def valid_readable_dir(path):
     """
     return validate(path, os.path.isdir, valid_readable_file,
                     "Cannot read directory at '{}'")
+
+
+def valid_output_dir_or_none(path):
+    """
+    Try to find an existing directory at path, unless "path" is just False.
+    Throw exception if that fails
+    :param path: String which should be either a valid existing folder path
+                 or None
+    :return: Either None or a validated absolute path to real writeable folder
+    """
+    return path if path is None else valid_readable_dir(path)
 
 
 def valid_readable_file(path):
@@ -907,7 +999,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
                        "float_0_to_1": valid_float_0_to_1,
                        "new_directory_path": valid_output_dir,
                        "new_file_path": always_true,  # TODO Make "valid_output_filename" function?
-                       "optional_new_dirpath": valid_output_dir_or_false,
+                       "optional_new_dirpath": valid_output_dir_or_none,
+                       "optional_real_dirpath": valid_output_dir_or_none,
                        "positive_float": valid_positive_float,
                        "positive_int": valid_whole_number, 
                        "str": always_true}

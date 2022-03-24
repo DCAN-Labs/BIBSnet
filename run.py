@@ -157,6 +157,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
 
     # Save paths to files used by multiple stages:
+
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
     sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
     out_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
@@ -230,7 +231,6 @@ def run_preBIBSnet(j_args, logger):
     :return: j_args, but with preBIBSnet working directory names added
     """
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
@@ -264,7 +264,7 @@ def run_preBIBSnet(j_args, logger):
         tw = "T{}w".format(t)
         out_fpath = j_args["optimal_resized"][tw]
         if not os.path.exists(out_fpath):  # j_args["common"]["overwrite"] or 
-            os.symlink(transformed_images[tw], out_fpath, )
+            os.symlink(transformed_images[tw], out_fpath)
 
     logger.info("PreBIBSnet has completed")
     return j_args
@@ -276,6 +276,8 @@ def run_BIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """    # TODO Test BIBSnet functionality once it's containerized
+    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
+    
     # Import BIBSnet functionality from BIBSnet/run.py
     parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
     logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
@@ -283,10 +285,23 @@ def run_BIBSnet(j_args, logger):
     from BIBSnet.run import run_nnUNet_predict
 
     # Run BIBSnet
+    dir_BIBS = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                            *sub_ses, "{}put")
+    
+    # Activate conda environment to get paths for nnU-Net  # TODO Find a better way to do this (and/or replace hardcoded paths)
+    os.environ["nnUNet_raw_data_base"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/"
+    os.environ["nnUNet_preprocessed"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
+    os.environ["RESULTS_FOLDER"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
+    """
+    module load gcc cuda/11.2
+    source /panfs/roc/msisoft/anaconda/anaconda3-2018.12/etc/profile.d/conda.sh
+    conda activate /home/support/public/torch_cudnn8.2
+    """  # TODO 
+
     run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
                         "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
-                        "input": j_args["BIBSnet"]["input_dir"],  # TODO Change any redundant BIBSnet parameters in the parameter file, e.g. remove "input_dir" and just use a preBIBSnet output dir path
-                        "output": j_args["BIBSnet"]["output_dir"],
+                        "input": dir_BIBS.format("in"),
+                        "output": dir_BIBS.format("out"),
                         "task": str(j_args["BIBSnet"]["task"])})
     logger.info("BIBSnet has completed")
     return j_args
@@ -308,15 +323,15 @@ def run_postBIBSnet(j_args, logger):
 
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
-        j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger
+        j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
     )
     logger.info("Left/right image registration completed")
-    chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,
+    chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
                                               j_args, logger)
     logger.info("The BIBSnet segmentation has had its chirality checked and "
                 "registered if needed")
 
-    masks = make_asegderived_mask(chiral_out_dir)  # NOTE Mask must be in native T1 space too
+    masks = make_asegderived_mask(j_args, chiral_out_dir)  # NOTE Mask must be in native T1 space too
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
@@ -337,7 +352,7 @@ def run_postBIBSnet(j_args, logger):
     return j_args
 
 
-def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):  # subj_ID, session, 
+def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param sub_ses: List with either only the subject ID str or the session too
@@ -348,9 +363,10 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):  # 
     # Paths for left & right registration
     chiral_in_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
-    tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
+    tmpl_mask = os.path.join(chiral_in_dir, "brainmasks",
+                             "{}mo_template_brainmask.nii.gz")
 
-    # Grab the first resized T2w from preBIBSnet to use for L/R registration
+    # Grab the first resized T?w from preBIBSnet to use for L/R registration
     first_subject_head = glob(os.path.join(
         j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
         "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
@@ -369,10 +385,20 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):  # 
     if (j_args["common"]["overwrite"] or not
             os.path.exists(left_right_mask_nifti_fpath)):
         logger.info(msg.format("Running", first_subject_head))
-        subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
-                               tmpl_head.format(age_months, t1or2),
-                               tmpl_mask.format(age_months),
-                               left_right_mask_nifti_fpath))
+        try:
+            # SubjectHead TemplateHead TemplateMask OutputMaskFile
+            subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
+                                   tmpl_head.format(age_months, t1or2),
+                                   tmpl_mask.format(age_months),
+                                   left_right_mask_nifti_fpath))
+
+        # Tell the user if ANTS crashes due to a memory error
+        except subprocess.CalledProcessError as e:
+            if e.returncode == 143:
+                logger.error(msg.format("ANTS", first_subject_head)
+                             + " failed because it ran without enough memory."
+                             " Try running it again, but with more memory.\n")
+            sys.exit(e)
     else:
         logger.info(msg.format("Skipping",  "{} because output already exists at {}".format(
             first_subject_head, left_right_mask_nifti_fpath
@@ -390,7 +416,7 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     :return: String, valid path to existing directory containing newly created
              chirality correction outputs
     """
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
+    sub_ses = get_subj_ID_and_session(j_args)
 
     # Define paths to dirs/files used in chirality correction script
     chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
@@ -398,22 +424,29 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     os.makedirs(chiral_out_dir, exist_ok=True)
     segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
                                              "FreeSurferColorLUT.txt")
-    seg_BIBSnet_outfile = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                                       *sub_ses,
-                                       j_args["BIBSnet"]["aseg_outfile"])
+    
+    # Get BIBSnet output file, and if there are multiple, then raise an error
+    outdir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                  *sub_ses, "output", "*")
+    seg_BIBSnet_outfiles = glob(outdir_BIBSnet)
+    if len(seg_BIBSnet_outfiles) != 1:
+        logger.error("There must be exactly one BIBSnet segmentation file in "
+                     "{}\nResume at postBIBSnet stage once this is fixed."
+                     .format(outdir_BIBSnet))
+        sys.exit()
 
     # Select an arbitrary T1w image path to use to get T1w space
     path_T1w = glob(os.path.join(j_args["common"]["bids_dir"],
                                  *sub_ses, "anat", "*_T1w.nii.gz"))[0]
 
     # Run chirality correction script
-    correct_chirality(seg_BIBSnet_outfile, segment_lookup_table_path,
+    correct_chirality(seg_BIBSnet_outfiles[0], segment_lookup_table_path,
                       l_r_mask_nifti_fpath, chiral_out_dir, 
                       path_T1w, j_args, logger)
     return chiral_out_dir
 
 
-def make_asegderived_mask(aseg_dir):
+def make_asegderived_mask(j_args, aseg_dir):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
     :param aseg_dir: String, valid path to existing directory with output files
@@ -421,8 +454,11 @@ def make_asegderived_mask(aseg_dir):
     :return: List of strings; each is a valid path to an aseg mask file
     """
     # Only make masks from chirality-corrected nifti files
-    aseg = glob(os.path.join(aseg_dir, "sub-*_aseg.nii.gz"))  
-    aseg.sort()
+    sub_ses = get_subj_ID_and_session(j_args)
+    aseg = glob(os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                             *sub_ses, "output"))
+    # aseg = glob(os.path.join(aseg_dir, "sub-*_aseg.nii.gz"))  
+    # aseg.sort()
 
     # binarize, fillh, and erode aseg to make mask:
     mask_out_files = list()
@@ -463,6 +499,7 @@ def run_nibabies(j_args, logger):
         nibabies_args.append(as_cli_arg(nibabies_arg))
         nibabies_args.append(j_args["nibabies"][nibabies_arg])
         # TODO Ensure that all common args required by nibabies are added
+        # TODO If an optional_real_dirpath is null/None, don't even include the flag
 
     # Check whether aseg and mask files were produced by BIBSnet
     glob_path = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
@@ -473,6 +510,7 @@ def run_nibabies(j_args, logger):
         derivs = ["--derivatives", j_args["optional_out_dirs"]["BIBSnet"]]
     else:
         derivs = list()
+        # TODO If j_args[nibabies][derivatives] has a path, use that instead
         warn_user_of_conditions(
             ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
              "BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"])),
