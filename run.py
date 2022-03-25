@@ -283,32 +283,34 @@ def run_BIBSnet(j_args, logger):
     :return: j_args, unchanged
     """    # TODO Test BIBSnet functionality once it's containerized
     sub_ses = get_subj_ID_and_session(j_args)
-    
-    # Import BIBSnet functionality from BIBSnet/run.py
-    parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
-    logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
-    sys.path.append(parent_BIBSnet)
-    from BIBSnet.run import run_nnUNet_predict
-
-    # Run BIBSnet
     dir_BIBS = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                             *sub_ses, "{}put")
     
-    # Activate conda environment to get paths for nnU-Net  # TODO Find a better way to do this (and/or replace hardcoded paths)
-    os.environ["nnUNet_raw_data_base"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/"
-    os.environ["nnUNet_preprocessed"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
-    os.environ["RESULTS_FOLDER"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
-    """
-    module load gcc cuda/11.2
-    source /panfs/roc/msisoft/anaconda/anaconda3-2018.12/etc/profile.d/conda.sh
-    conda activate /home/support/public/torch_cudnn8.2
-    """  # TODO 
+    # Skip BIBSnet if overwrite=False and outputs already exist
+    if j_args["common"]["overwrite"] or not glob(dir_BIBS.format("out")):
 
-    run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
-                        "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
-                        "input": dir_BIBS.format("in"),
-                        "output": dir_BIBS.format("out"),
-                        "task": str(j_args["BIBSnet"]["task"])})
+        # Import BIBSnet functionality from BIBSnet/run.py
+        parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+        logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
+        sys.path.append(parent_BIBSnet)
+        from BIBSnet.run import run_nnUNet_predict
+
+        # Activate conda environment to get paths for nnU-Net  # TODO Find a better way to do this (and/or replace hardcoded paths)
+        os.environ["nnUNet_raw_data_base"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/"
+        os.environ["nnUNet_preprocessed"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
+        os.environ["RESULTS_FOLDER"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
+        """
+        module load gcc cuda/11.2
+        source /panfs/roc/msisoft/anaconda/anaconda3-2018.12/etc/profile.d/conda.sh
+        conda activate /home/support/public/torch_cudnn8.2
+        """  # TODO 
+
+        # Run BIBSnet
+        run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
+                            "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
+                            "input": dir_BIBS.format("in"),
+                            "output": dir_BIBS.format("out"),
+                            "task": str(j_args["BIBSnet"]["task"])})
     logger.info("BIBSnet has completed")
     return j_args
 
@@ -474,10 +476,10 @@ def make_asegderived_mask(j_args, aseg_dir):
         if (j_args["common"]["overwrite"] or not
                 os.path.exists(mask_out_files[-1])):
             maths = fsl.ImageMaths(in_file=aseg_file,  # (anat file)
-                                op_string=("-bin -dilM -dilM -dilM -dilM "
-                                            "-fillh -ero -ero -ero -ero"),
-                                out_file=mask_out_files[-1])
-        maths.run()
+                                   op_string=("-bin -dilM -dilM -dilM -dilM "
+                                              "-fillh -ero -ero -ero -ero"),
+                                   out_file=mask_out_files[-1])
+            maths.run()
     return mask_out_files
 
 
