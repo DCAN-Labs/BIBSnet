@@ -199,8 +199,11 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     """
     sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
     msg = "{} chirality correction on {}"
-    nifti_output_file_path = os.path.join(
+    nifti_corrected_file_path = os.path.join(
         chiral_out_dir, "corrected_" + os.path.basename(nifti_input_file_path)
+    )# j_args["BIBSnet"]["aseg_outfile"]) 
+    nifti_output_file_path = os.path.join(
+        chiral_out_dir, "final_" + os.path.basename(nifti_input_file_path)
     )# j_args["BIBSnet"]["aseg_outfile"]) 
 
     logger.info(msg.format("Running", nifti_input_file_path))
@@ -231,29 +234,32 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                     check_and_correct_region(
                         chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
-    nib.save(fixed_img, nifti_output_file_path)
+    nib.save(fixed_img, nifti_corrected_file_path)
 
     # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
-    dummy_copy = "_dummy".join(split_2_exts(nifti_output_file_path))
-    copy_and_rename_file(nifti_output_file_path, dummy_copy)
-    concat_output = os.path.join(chiral_out_dir, "{}_concatenated.mat"  # TODO Give this a more descriptive name?
+    dummy_copy = "_dummy".join(split_2_exts(nifti_corrected_file_path))
+    copy_and_rename_file(nifti_corrected_file_path, dummy_copy)
+    concat_preBIBSnet_xfms = os.path.join(chiral_out_dir, "{}_concatenated.mat"  # TODO Give this a more descriptive name?
                                                  .format("_".join(sub_ses)))
     roi2full_path = os.path.join(j_args["optional_out_dirs"]["preBIBSnet"],
                                  *sub_ses, "cropped", "T1w",  # T1w because preBIBSnet mapped T2w to T1w space
                                  "roi2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet 
-    transformed_output = os.path.join(chiral_out_dir, "resize_to_T1w.mat")
-    # TODO If ACPC was chosen as optimal, then concatenate .mat files: 
+    xfm_resize_to_T1w_mat = os.path.join(chiral_out_dir, "resize_to_T1w.mat")
+    preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+                                  *sub_ses, "preBIBSnet_T1w_final.mat")
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
-                      transformed_output, "-inverse", 
-                      os.path.join() ) # j_args["optimal_resized"]["T1w"])  # TODO Add (as last arg) path to final transformation .mat file from preBIBSnet # NOTE postBIBSnet ran until here and then crashed on 2022-03-10 and 2022-03-22
+                      xfm_resize_to_T1w_mat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet # NOTE postBIBSnet ran until here and then crashed on 2022-03-10 and 2022-03-22
 
-    # Invert transformed_T1w_out and transform it back to its original space  # TODO Do we need to invert T1w and T2w?
-    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat", concat_output,
-                      "-concat", roi2full_path, transformed_output)
+    # Invert transformed_T1w_out and transform it back to its original space
+    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
+                      concat_preBIBSnet_xfms,
+                      "-concat", roi2full_path, xfm_resize_to_T1w_mat)
     logger.info("Transforming {} image back to its original space"
                 .format(dummy_copy))
-    run_FSL_sh_script(j_args, logger, "flirt", dummy_copy, t1w_path,
-                      "-applyxfm", "-init", concat_output,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
+    
+    run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm", "-ref", t1w_path,
+                      "-in", dummy_copy,   # TODO Add "-in" and "-ref" ?
+                      "-init", concat_preBIBSnet_xfms, # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
                       "-o", nifti_output_file_path)
     logger.info(msg.format("Finished", nifti_input_file_path))
 

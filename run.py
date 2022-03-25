@@ -10,7 +10,8 @@ Updated: 2022-03-22
 
 # Import standard libraries
 import argparse
-from datetime import datetime 
+from datetime import datetime
+from genericpath import exists 
 from glob import glob
 import logging
 from nipype.interfaces import fsl
@@ -182,11 +183,7 @@ def ensure_j_args_has_bids_subdir(j_args, *subdirnames):
                         mapped by j_args[optional_out_dirs] to the subdir path.
     :return: j_args, but with the (now-existing) subdirectory path
     """
-    if dict_has(j_args["optional_out_dirs"], "derivatives"):
-        parent = j_args["optional_out_dirs"]["derivatives"]
-    else:
-        parent = j_args["common"]["bids_dir"]
-    subdir_path = os.path.join(parent, *subdirnames)
+    subdir_path = os.path.join(j_args["common"]["bids_dir"], *subdirnames)
     j_args["optional_out_dirs"] = ensure_dict_has(j_args["optional_out_dirs"],
                                                   subdirnames[-1], subdir_path)
     os.makedirs(j_args["optional_out_dirs"][subdirnames[-1]], exist_ok=True)
@@ -230,6 +227,7 @@ def run_preBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, but with preBIBSnet working directory names added
     """
+    sub_ses = get_subj_ID_and_session(j_args)
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
@@ -262,9 +260,17 @@ def run_preBIBSnet(j_args, logger):
     # Make a symlink in BIBSnet input dir to transformed_images[T1w]
     for t in (1, 2):
         tw = "T{}w".format(t)
-        out_fpath = j_args["optimal_resized"][tw]
-        if not os.path.exists(out_fpath):  # j_args["common"]["overwrite"] or 
-            os.symlink(transformed_images[tw], out_fpath)
+        out_nii_fpath = j_args["optimal_resized"][tw]
+    # TODO Unredundantify the blocks below
+        os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
+        if not os.path.exists(out_nii_fpath):  # j_args["common"]["overwrite"] or 
+            os.symlink(transformed_images[tw], out_nii_fpath)
+    concat_mat = transformed_images["T1w_concat_mat"]
+    out_mat_fpath = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+                                 *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat))
+    os.makedirs(os.path.dirname(out_mat_fpath), exist_ok=True)
+    if not os.path.exists(out_mat_fpath):
+        os.symlink(concat_mat, out_mat_fpath)
 
     logger.info("PreBIBSnet has completed")
     return j_args
@@ -276,7 +282,7 @@ def run_BIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """    # TODO Test BIBSnet functionality once it's containerized
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session =
+    sub_ses = get_subj_ID_and_session(j_args)
     
     # Import BIBSnet functionality from BIBSnet/run.py
     parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
@@ -335,15 +341,14 @@ def run_postBIBSnet(j_args, logger):
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
-    derivs_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                              j_args["common"]["participant_label"],
-                              j_args["common"]["session"])
+    derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"],
+                              "precomputed", *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
     for eachfile in os.scandir(chiral_out_dir):
-        if "aseg" in os.path.basename(chiral_out_dir):
-            copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")
+        if "final" in os.path.basename(eachfile):
+            copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")  # TODO Can these be symlinks?
     for each_mask in masks:  # There should only be 1, for the record
-        copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")
+        copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")  # TODO Can these be symlinks?
         
     # TODO Get dataset_description.json and put it in derivs_dir
     # TODO Add padding? No, this is no longer necessary due to RobustFOV
@@ -455,8 +460,8 @@ def make_asegderived_mask(j_args, aseg_dir):
     """
     # Only make masks from chirality-corrected nifti files
     sub_ses = get_subj_ID_and_session(j_args)
-    aseg = glob(os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                             *sub_ses, "output"))
+    aseg = glob(os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+                             *sub_ses, "chirality_correction", "final*.nii.gz"))  # TODO Does this glob need to be more specific?
     # aseg = glob(os.path.join(aseg_dir, "sub-*_aseg.nii.gz"))  
     # aseg.sort()
 
@@ -466,10 +471,12 @@ def make_asegderived_mask(j_args, aseg_dir):
         mask_out_files.append(os.path.join(
             aseg_dir, "{}_mask.nii.gz".format(aseg_file.split(".nii.gz")[0])
         ))
-        maths = fsl.ImageMaths(in_file=aseg_file,  # (anat file)
-                               op_string=("-bin -dilM -dilM -dilM -dilM "
-                                          "-fillh -ero -ero -ero -ero"),
-                               out_file=mask_out_files[-1])
+        if (j_args["common"]["overwrite"] or not
+                os.path.exists(mask_out_files[-1])):
+            maths = fsl.ImageMaths(in_file=aseg_file,  # (anat file)
+                                op_string=("-bin -dilM -dilM -dilM -dilM "
+                                            "-fillh -ero -ero -ero -ero"),
+                                out_file=mask_out_files[-1])
         maths.run()
     return mask_out_files
 
