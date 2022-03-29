@@ -247,8 +247,8 @@ def run_preBIBSnet(j_args, logger):
     reference_imgs = {
         "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz"),
-        "ref_reg": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
-                                "1mo", "sub-00006_T1w_acpc_dc_restore.nii.gz")
+        "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
+                                     "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
     }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     transformed_images = resize_images(

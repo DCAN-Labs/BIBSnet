@@ -57,10 +57,11 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, output_var, t):
     mats = {fname: os.path.join(work_dir, "T{}w_{}.mat".format(t, fname))
             for fname in ("roi2std", "full2std", "full2roi", "rigidbody2std")}
 
+    acpc_final_img = os.path.join(work_dir, "T{}w_acpc_final.nii.gz".format(t))
     run_FSL_sh_script(j_args, logger, "flirt", "-interp", "spline",  
                       "-ref", mni_ref_img_path, "-in", input_img,
                       "-omat", mats["roi2std"],
-                      "-out", os.path.join(work_dir, "acpc_final.nii.gz"),
+                      "-out", acpc_final_img,
                       "-searchrx", "-45", "45", "-searchry", "-30", "30",
                       "-searchrz", "-30", "30")
 
@@ -258,8 +259,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                 .format(dummy_copy))
     
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm", "-ref", t1w_path,
-                      "-in", dummy_copy,   # TODO Add "-in" and "-ref" ?
-                      "-init", concat_preBIBSnet_xfms, # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
+                      "-in", dummy_copy, "-init", concat_preBIBSnet_xfms, # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
                       "-o", nifti_output_file_path)
     logger.info(msg.format("Finished", nifti_input_file_path))
 
@@ -610,7 +610,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars):
 
         run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
             j_args, logger, "flirt", "-in", xfm_vars["{}_img".format(img)],
-            "-ref", xfm_vars["ref_reg"], "-applyisoxfm", 
+            "-ref", xfm_vars["ref_non_ACPC"], "-applyisoxfm", 
             xfm_vars["resolution"], "-init", registration_outputs["xfm_" + img],
             "-o", registration_outputs[img], "-omat", registration_outputs[tmpl]
         )
@@ -698,7 +698,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
             "preBIBSnet_final_000{}.nii.gz".format(t-1)
         )
 
-        # Do convert_xfm to combine 3 .mat files (align_ACPC_1_img's rigidbody2std.mat, ACPC registration_T2w_to_T1w's T2toT1.mat (for T2w, and identity matrix for T1w?), and then ACPC registration_T2w_to_T1w's T2_to_BIBS_template.mat)
+        # Do convert_xfm to combine 3 .mat files (align_ACPC_1_img's rigidbody2std.mat, ACPC registration_T2w_to_T1w's T2toT1.mat (for T2w, and identity matrix for T1w?), and then the identity matrix instead of ACPC registration_T2w_to_T1w's T2_to_BIBS_template.mat)
         preBIBS_ACPC_out["T{}w_concat_mat".format(t)] = os.path.join(
             xfm_ACPC_args["out_dir"], "T{}w_final.mat".format(t)
         )
@@ -716,8 +716,8 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm", "-omat",
             preBIBS_ACPC_out["T{}w_concat_mat".format(t)],
-            "-concat", penultimat,
-            xfm_ACPC_and_registered_imgs["T{}w_template".format(t)] 
+            "-concat", penultimat, xfm_ACPC_args["ident_mx"]  # TODO Check if the identity matrix works here
+            # xfm_ACPC_and_registered_imgs["T{}w_template".format(t)] 
         )
 
         # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
