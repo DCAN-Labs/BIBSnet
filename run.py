@@ -5,13 +5,12 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-03-22
+Updated: 2022-03-29
 """
 
 # Import standard libraries
 import argparse
 from datetime import datetime
-from genericpath import exists 
 from glob import glob
 import logging
 from nipype.interfaces import fsl
