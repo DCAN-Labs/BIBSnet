@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-03-29
+Updated: 2022-04-05
 """
 
 # Import standard libraries
@@ -45,9 +45,9 @@ from src.utilities import (
     as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
     create_anatomical_average, crop_image, dict_has, ensure_dict_has,
     exit_with_time_info, extract_from_json, get_and_make_preBIBSnet_work_dirs,
-    get_stage_name, get_subj_ID_and_session, get_subj_ses, resize_images,
-    run_all_stages, valid_readable_json, validate_parameter_types,
-    valid_readable_dir, warn_user_of_conditions
+    get_optional_args_in, get_stage_name, get_subj_ID_and_session,
+    resize_images, run_all_stages, valid_readable_json,
+    validate_parameter_types, valid_readable_dir, warn_user_of_conditions
 )
 
 
@@ -501,6 +501,9 @@ def run_nibabies(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
+    # Exclude any parameter whose value is null/None
+    # nibabies_args = get_optional_args_in(j_args["nibabies"])  # TODO
+
     # Get nibabies options from parameter file and turn them into flags
     nibabies_args = [j_args["common"]["age_months"], ]
     for nibabies_arg in ["cifti_output", "work_dir"]:
@@ -541,15 +544,18 @@ def run_XCPD(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    subprocess.check_call((   # TODO Ensure that all "common" and "XCPD" args required by XCPD are added
+    # Exclude any parameter whose value is null/None
+    xcpd_args = get_optional_args_in(j_args["XCPD"])
+    
+    subprocess.check_call([ #    # TODO Ensure that all "common" args required by XCPD are added
         "singularity", "run", "--cleanenv",
         "-B", j_args["optional_out_dirs"]["nibabies"] + ":/data:ro",
         "-B", j_args["optional_out_dirs"]["XCPD"] + ":/out",
         "-B", j_args["XCPD"]["work_dir"] + ":/work",
         "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-abcd_unstable01102022.sif",  # TODO Make this an import and/or a parameter
-        "/data", "/out", "--cifti", "-w", "/work", "--participant-label",
-        j_args["common"]["participant_label"]
-    ))
+        "/data", "/out", "--participant-label",
+        j_args["common"]["participant_label"], *xcpd_args
+    ])
     logger.info("XCP-D has completed")
     return j_args
 

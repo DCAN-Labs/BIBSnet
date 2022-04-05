@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-03-29
+Updated: 2022-04-05
 """
 
 # Import standard libraries
@@ -30,6 +30,9 @@ RIGHT = "Right-"
 # Other constants: Directory containing the main pipeline script, and 
 # SLURM-/SBATCH-related arguments' default names
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
+
+
+# NOTE All functions below are in alphabetical order.
 
 
 def align_ACPC_1_img(j_args, logger, xfm_ACPC_args, roi2full, output_var, t):
@@ -466,6 +469,24 @@ def get_id_to_region_mapping(mapping_file_name, separator=None):
     return id_to_region
 
 
+def get_optional_args_in(a_dict):
+    """
+    :param a_dict: Dictionary with validated parameters,
+                   all of which are used by this function
+    :return: List of most a_dict optional arguments and their values
+    """
+    optional_args = list()
+    for arg in a_dict.keys():
+        if a_dict[arg]:
+            optional_args.append(as_cli_arg(arg))
+            if isinstance(a_dict[arg], list):
+                for el in a_dict[arg]:
+                    optional_args.append(str(el))
+            elif not isinstance(a_dict[arg], bool):
+                optional_args.append(str(a_dict[arg]))
+    return optional_args
+
+
 def get_stage_name(stage_fn):
     """ 
     :param stage_fn: Function to run one stage of CABINET. Its name must start
@@ -597,7 +618,9 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars):
                                                    "T2toT1.mat")}
     run_FSL_sh_script(j_args, logger, "flirt", "-ref", xfm_vars["T1w_img"],
                       "-in", xfm_vars["T2w_img"], "-omat",
-                      registration_outputs["xfm_T2w"])
+                      registration_outputs["xfm_T2w"], '-cost', 'mutualinfo',
+                      '-searchrx', '-15', '15', '-searchry', '-15', '15',
+                      '-searchrz', '-15', '15', '-dof', '6')  # Added changes suggested by Luci on 2022-03-30
 
     # Make transformed T1ws and T2ws
     for t in (1, 2):
@@ -1011,6 +1034,12 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
                        "positive_int": valid_whole_number, 
                        "str": always_true}
 
+    required_for_stage = {
+        "nibabies": ["cifti_output", "fd_radius", "work_dir"],
+        "XCPD": ["cifti", "combineruns", "fd_thresh",
+                 "head_radius", "input_type", "work_dir"]
+    }
+
     # Get a list of all stages after the last stage to run
     after_end = stage_names[stage_names.index(j_args["stage_names"]["end"])+1:]
 
@@ -1029,8 +1058,14 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
 
             # Validate every parameter in the section
             for arg_name, arg_type in section_dict.items():
-                validate_1_parameter(j_args, arg_name, arg_type, section_name,
-                                    type_validators, param_json, parser)
+
+                # Ignore XCP-D and nibabies parameters that are null
+                arg_value = j_args[section_name][arg_name]
+                if not (arg_value is None and
+                        section_name in ("nibabies", "XCPD") and
+                        arg_value not in required_for_stage[section_name]):
+                    validate_1_parameter(j_args, arg_name, arg_type, section_name,
+                                         type_validators, param_json, parser)
             
     # Remove irrelevant parameters
     for section_name in to_delete:
@@ -1055,15 +1090,16 @@ def validate_1_parameter(j_args, arg_name, arg_type, section_name,
                "of {} (Problem: {})")  # Message for if to_validate is invalid
     try:
         # Run a type validation function unless arg_type is a list
-        {str: type_validators[arg_type],
-
+        if isinstance(arg_type, str):
+            type_validators[arg_type](to_validate)
+            
         # Verify that the parameter is a valid member of a choices list
-         list: lambda pm: pm if pm in arg_type else parser.error(
-            err_msg.format(pm, arg_name, section_name, param_json,
-                            "Valid {} values: {}"
-                            .format(arg_name, ", ".join(arg_type)))
-         )
-        }[type(arg_type)](to_validate)
+        elif isinstance(arg_type, list) and to_validate not in arg_type:
+            parser.error(
+                err_msg.format(to_validate, arg_name, section_name, param_json,
+                               "Valid {} values: {}"
+                               .format(arg_name, ", ".join(arg_type)))
+            )
 
     # If type validation fails then inform the user which parameter
     # has an invalid type and what the valid types are

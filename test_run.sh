@@ -22,8 +22,7 @@ if [ "$#" -eq 1 ]; then
     echo Deactivated cabinet conda environment
 
     # Set paths to run BIBSnet
-    path_BIBSnet="/home/faird/shared/code/internal/pipelines/bibsnet/"
-    # export PATH="${PATH}:/home/faird/shared/code/internal/pipelines/bibsnet/"
+    export path_BIBSnet="/home/faird/shared/code/internal/pipelines/bibsnet/"
     export nnUNet_raw_data_base="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/"
     export nnUNet_preprocessed="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
     export RESULTS_FOLDER="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
@@ -37,7 +36,7 @@ if [ "$#" -eq 1 ]; then
     # Get BIBSnet parameters from parameter file
 
     # Run BIBSnet
-    python3 -c "import os; import sys; import json; import subprocess; sys.path.append('${path_BIBSnet}'); from BIBSnet.run import run_nnUNet_predict; param_file=open('${param_file}'); params=json.load(param_file); param_file.close(); print(params); sub = 'sub-' + str(params['common']['participant_label']); sub_ses = [sub, 'ses-' + str(params['common']['session'])] if params['common']['session'] else [sub]; print('sub_ses is {}'.format(sub_ses)); print('BIBSnet out_dir is {}'.format(params['optional_out_dirs']['derivatives'])); dir_BIBS = os.path.join(params['optional_out_dirs']['derivatives'], 'BIBSnet', *sub_ses, '{}put'); print('dir_BIBS is {}'.format(dir_BIBS)); run_nnUNet_predict({'model': params['BIBSnet']['model'], 'nnUNet': params['BIBSnet']['nnUNet_predict_path'], 'input': dir_BIBS.format('in'), 'output': dir_BIBS.format('out'), 'task': str(params['BIBSnet']['task'])})"
+    python3 -c "import os; import sys; import json; import subprocess; sys.path.append('${path_BIBSnet}'); from BIBSnet.run import run_nnUNet_predict; param_file=open('${param_file}'); params=json.load(param_file); param_file.close(); print(params); sub = 'sub-' + str(params['common']['participant_label']); sub_ses = [sub, 'ses-' + str(params['common']['session'])] if params['common']['session'] else [sub]; print('sub_ses is {}'.format(sub_ses)); dir_BIBS='/home/feczk001/shared/projects/BIBSnet_testing/{}put_try/'; print('dir_BIBS is {}'.format(dir_BIBS)); params_nnUNet={'model': params['BIBSnet']['model'], 'nnUNet': 'nnUNet_predict', 'input': dir_BIBS.format('in'), 'output': dir_BIBS.format('out'), 'task': str(params['BIBSnet']['task'])}; print('Now running BIBSnet with these parameters: {}'.format(params_nnUNet)); run_nnUNet_predict(params_nnUNet)"  # dir_BIBS = os.path.join(params['optional_out_dirs']['derivatives'], 'BIBSnet', *sub_ses, '{}put', ''); ... 'nnUNet': params['BIBSnet']['nnUNet_predict_path'], 
 
     # Deactivate PyTorch/nnU-Net environment 
     conda deactivate
