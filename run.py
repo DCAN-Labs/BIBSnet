@@ -552,8 +552,8 @@ def run_XCPD(j_args, logger):
         "-B", j_args["optional_out_dirs"]["nibabies"] + ":/data:ro",
         "-B", j_args["optional_out_dirs"]["XCPD"] + ":/out",
         "-B", j_args["XCPD"]["work_dir"] + ":/work",
-        "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-abcd_unstable01102022.sif",  # TODO Make this an import and/or a parameter
-        "/data", "/out", "--participant-label",
+        "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-d_unstable03112022a.sif",  # TODO Make this an import and/or a parameter
+        "/data", "/out", "-w", "/work", "--participant-label", 
         j_args["common"]["participant_label"], *xcpd_args
     ])
     logger.info("XCP-D has completed")

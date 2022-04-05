@@ -1037,7 +1037,7 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
     required_for_stage = {
         "nibabies": ["cifti_output", "fd_radius", "work_dir"],
         "XCPD": ["cifti", "combineruns", "fd_thresh",
-                 "head_radius", "input_type", "work_dir"]
+                 "head_radius", "input_type"]
     }
 
     # Get a list of all stages after the last stage to run
