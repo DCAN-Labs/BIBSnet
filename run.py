@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-05
+Updated: 2022-04-12
 """
 
 # Import standard libraries
@@ -243,7 +243,7 @@ def run_preBIBSnet(j_args, logger):
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
-    reference_imgs = {
+    reference_imgs = {  # TODO Pipeline should verify that these exist before running
         "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz"),
         "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
