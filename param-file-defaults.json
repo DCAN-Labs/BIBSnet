@@ -61,6 +61,7 @@
         "echo_idx": null,
         "error_on_aroma_warnings": null,
         "fd_radius": 45,
+        "fd_spike_threshold": 0.2,
         "fmap_bspline": null,
         "fmap_no_demean": null,
         "force_bbr": null,
@@ -91,7 +92,7 @@
         "stop_on_first_crash": null,
         "use_aroma": null,
         "use_syn_sdc": null,
-        "work_dir": "/give/path",
+        "work_dir": "work",
         "write_graph": null
     },
 
@@ -109,7 +110,7 @@
         "fd_thresh": 0.2,
         "fmri_dir": null,
         "head_radius": 45,
-        "input_type": "fmriprep",
+        "input_type": "fmirprep",
         "lower_bpf": null,
         "motion_filter_order": null,
         "motion_filter_type": null,
@@ -119,6 +120,6 @@
         "singularity_image_path": null,
         "smoothing": null,
         "upper_bpf": null,
-        "work_dir": "give/path"
+        "work_dir": "work"
     }
 }

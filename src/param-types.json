@@ -54,7 +54,7 @@
         "clean_workdir": "bool",
         "config_file": "existing_file_path",
         "debug": ["compcor", "registration", "fieldmaps", "all"],
-        "derivatives": "placeholder",
+        "derivatives": "new_directory_path",
         "dummy_scans": "positive_int",
         "dvars_spike_threshold": "positive_float",
         "echo_idx": "str",
