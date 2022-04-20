@@ -108,7 +108,7 @@
         "fd_thresh": "float_0_to_1",
         "fmri_dir": "existing_directory_path",
         "head_radius": "positive_int",
-        "input_type": ["fmriprep", "dcan", "hpc"],
+        "input_type": ["fmirprep", "dcan", "hpc"],
         "lower_bpf": "float",
         "motion_filter_order": "positive_int",
         "motion_filter_type": ["lp", "notch"],

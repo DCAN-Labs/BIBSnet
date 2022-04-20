@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-12
+Updated: 2022-04-19
 """
 
 # Import standard libraries
@@ -143,6 +143,16 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
                                       cli_args["parameter_json"], parser,
                                       stage_names)
+    
+    # Verify that subject-session directory path exists
+    sub_ses = get_subj_ID_and_session(j_args)
+    sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
+    if not os.path.exists(sub_ses_dir):
+        logger.error("No subject/session directory found at {}\nCheck that "
+                     "the participant_label and session are correctly defined "
+                     "in your parameter .JSON file at {}\n"
+                     .format(sub_ses_dir, cli_args["parameter_json"]))
+        sys.exit(1)  # Crash
 
     # Using dict_has instead of easier ensure_dict_has so that the user only
     # needs a participants.tsv file if they didn't specify age_months
@@ -159,7 +169,6 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Save paths to files used by multiple stages:
 
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
     out_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                            *sub_ses, "input")
     os.makedirs(out_dir, exist_ok=True)
@@ -237,8 +246,8 @@ def run_preBIBSnet(j_args, logger):
     cropped = dict()
     for t in (1, 2):
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
-        roi2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
-                              cropped[t], j_args, logger)
+        crop2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+                               cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images 
@@ -252,7 +261,7 @@ def run_preBIBSnet(j_args, logger):
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     transformed_images = resize_images(
         cropped, preBIBSnet_paths["resized"], reference_imgs, 
-        id_mx, roi2full, j_args, logger
+        id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
     )
     logger.info(completion_msg.format("resized"))
 
@@ -501,11 +510,12 @@ def run_nibabies(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    # Exclude any parameter whose value is null/None
-    # nibabies_args = get_optional_args_in(j_args["nibabies"])  # TODO
+    # Get all XCP-D parameters, excluding any whose value is null/None
+    nibabies_args = get_optional_args_in(j_args["nibabies"])  # TODO
 
     # Get nibabies options from parameter file and turn them into flags
-    nibabies_args = [j_args["common"]["age_months"], ]
+    nibabies_args.append("--age-months")
+    nibabies_args.append(j_args["common"]["age_months"])
     for nibabies_arg in ["cifti_output", "work_dir"]:
         nibabies_args.append(as_cli_arg(nibabies_arg))
         nibabies_args.append(j_args["nibabies"][nibabies_arg])
@@ -522,17 +532,19 @@ def run_nibabies(j_args, logger):
     else:
         derivs = list()
         # TODO If j_args[nibabies][derivatives] has a path, use that instead
+        """
         warn_user_of_conditions(
             ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
              "BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"])),
             logger, mask=mask_glob, aseg=aseg_glob
-        )
+        ) """
     
     # Run nibabies
-    subprocess.check_call([j_args["nibabies"]["script_path"],
+    print()
+    print(" ".join(str(x) for x in [j_args["nibabies"]["singularity_image_path"],  # subprocess.check_call  # TODO
                            j_args["common"]["bids_dir"],
                            j_args["optional_out_dirs"]["nibabies"],
-                           "participant", *derivs, *nibabies_args])
+                           "participant", *derivs, *nibabies_args]))
     logger.info("Nibabies has completed")
     
     return j_args
@@ -544,7 +556,7 @@ def run_XCPD(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    # Exclude any parameter whose value is null/None
+    # Get all XCP-D parameters, excluding any whose value is null/None
     xcpd_args = get_optional_args_in(j_args["XCPD"])
     
     subprocess.check_call([ #    # TODO Ensure that all "common" args required by XCPD are added
@@ -553,7 +565,7 @@ def run_XCPD(j_args, logger):
         "-B", j_args["optional_out_dirs"]["XCPD"] + ":/out",
         "-B", j_args["XCPD"]["work_dir"] + ":/work",
         "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-d_unstable03112022a.sif",  # TODO Make this an import and/or a parameter
-        "/data", "/out", "-w", "/work", "--participant-label", 
+        "/data", "/out", "--participant-label",  # "-w", "/work", 
         j_args["common"]["participant_label"], *xcpd_args
     ])
     logger.info("XCP-D has completed")
