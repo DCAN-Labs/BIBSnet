@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-20
+Updated: 2022-04-25
 """
 
 # Import standard libraries
@@ -13,7 +13,6 @@ import argparse
 from datetime import datetime
 from glob import glob
 import logging
-from re import T
 from nipype.interfaces import fsl
 import os
 import pandas as pd
@@ -299,6 +298,7 @@ def run_BIBSnet(j_args, logger):
     dir_BIBS = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                             *sub_ses, "{}put")
     
+    # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
     # Skip BIBSnet if overwrite=False and outputs already exist
     if j_args["common"]["overwrite"] or not glob(dir_BIBS.format("out")):
 

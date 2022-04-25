@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-20
+Updated: 2022-04-22
 """
 # Import standard libraries
 import argparse
@@ -249,7 +249,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                                  "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet 
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
     preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
-                                  *sub_ses, "preBIBSnet_cropped_T1w_to_BIBS.mat") # "preBIBSnet_T1w_final.mat")
+                                  *sub_ses, "preBIBSnet_crop_T1w_to_BIBS_template.mat") # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
                       seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet # NOTE postBIBSnet ran until here and then crashed on 2022-03-10 and 2022-03-22
 
@@ -661,7 +661,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, acpc):
                 "-in", xfm_vars[reg_input_var.format(t)],
                 "-ref", xfm_vars["ref_non_ACPC"],
                 "-applyisoxfm", xfm_vars["resolution"],
-                "-init", registration_outputs["xfm_T1w"] if t == 1 else registration_outputs["T1w_template"], # TODO Make this clearer/cleaner
+                "-init", registration_outputs["xfm_T{}w".format(t)],
                 "-o", registration_outputs["T{}w".format(t)],  # TODO Does this accidentally overwrite something?
                 "-omat", registration_outputs["T{}w_template".format(t)]
             )
