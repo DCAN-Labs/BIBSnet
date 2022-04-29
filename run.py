@@ -380,7 +380,6 @@ def run_postBIBSnet(j_args, logger):
         copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")  # TODO Can these be symlinks?
         
     # TODO Get dataset_description.json and put it in derivs_dir
-    # TODO Add padding? No, this is no longer necessary due to RobustFOV
 
     logger.info("PostBIBSnet has completed.")
     return j_args

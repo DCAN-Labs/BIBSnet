@@ -313,7 +313,7 @@ def crop_image(input_avg_img, output_crop_img, j_args, logger):
     crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
     run_FSL_sh_script(j_args, logger, "robustfov", "-i", input_avg_img, 
                       "-m", crop2full, "-r", output_crop_img,
-                      "-b", j_args["preBIBSnet"]["brain_z_size"])
+                      "-b", j_args["preBIBSnet"]["brain_z_size"])  # TODO Use head radius for -b
     return crop2full
 
 
@@ -660,7 +660,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
         if not acpc:  # TODO Should this go in its own function?
             run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
                 j_args, logger, "flirt",
-                "-in", xfm_vars[reg_input_var.format(t)],  # Input: Cropped image
+                "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
                 "-ref", xfm_vars["ref_non_ACPC"],
                 "-applyisoxfm", xfm_vars["resolution"],
                 "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
