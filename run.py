@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-12
+Updated: 2022-04-29
 """
 
 # Import standard libraries
@@ -16,6 +16,7 @@ import logging
 from nipype.interfaces import fsl
 import os
 import pandas as pd
+import pdb
 import subprocess
 import sys
 
@@ -83,7 +84,7 @@ def make_logger():
     """
     Make logger to log status updates, warnings, and other important info
     :return: logging.Logger
-    """
+    """  # TODO Incorporate pprint to make printed JSONs/dicts more readable
     fmt = "\n%(levelname)s %(asctime)s: %(message)s"
     logging.basicConfig(stream=sys.stdout, format=fmt, level=logging.INFO)  
     logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.ERROR)
@@ -139,10 +140,27 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]} 
 
+    # Define (and create) default paths in derivatives directory structure for each stage
+    sub_ses = get_subj_ID_and_session(j_args)
+    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")  # TODO Either don't let users change the derivatives dir name or fix the pipeline's ability to let the user rename it (because right now it doesn't work) 
+    for deriv in stage_names:
+        j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)
+        os.makedirs(os.path.join(j_args["optional_out_dirs"][deriv], *sub_ses),
+                    exist_ok=True)  # Make all subject-session output dirs
+
     # Verify that every parameter in the parameter .JSON file is a valid input
     j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
                                       cli_args["parameter_json"], parser,
                                       stage_names)
+    
+    # Verify that subject-session directory path exists
+    sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
+    if not os.path.exists(sub_ses_dir):
+        logger.error("No subject/session directory found at {}\nCheck that "
+                     "the participant_label and session are correctly defined "
+                     "in your parameter .JSON file at {}\n"
+                     .format(sub_ses_dir, cli_args["parameter_json"]))
+        sys.exit(1)  # Crash
 
     # Using dict_has instead of easier ensure_dict_has so that the user only
     # needs a participants.tsv file if they didn't specify age_months
@@ -151,15 +169,9 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                                                                         logger)
     # TODO Figure out which column in the participants.tsv file has age_months
 
-    # Define (and create) default paths in derivatives directory structure for each stage
-    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")  # TODO Figure out why the script is creating .../derivatives/derivatives/preBIBSnet/...
-    for deriv in stage_names:
-        j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)  #  + "_output_dir")
-
     # Save paths to files used by multiple stages:
 
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    sub_ses = get_subj_ID_and_session(j_args)  # subj_ID, session = 
     out_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                            *sub_ses, "input")
     os.makedirs(out_dir, exist_ok=True)
@@ -226,20 +238,26 @@ def run_preBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, but with preBIBSnet working directory names added
     """
-    sub_ses = get_subj_ID_and_session(j_args)
+    # sub_ses = get_subj_ID_and_session(j_args)
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_average(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
+    # print(preBIBSnet_paths["avg"])  # TODO REMOVE LINE
+    # pdb.set_trace()  # TODO REMOVE LINE
+
     # Crop T1w and T2w images
     cropped = dict()
+    crop2full = dict()
     for t in (1, 2):
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
-        roi2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
-                              cropped[t], j_args, logger)
+        crop2full[t] = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+                                  cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
+
+    # pdb.set_trace()  # TODO REMOVE LINE
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
@@ -250,12 +268,18 @@ def run_preBIBSnet(j_args, logger):
                                      "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
     }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
+
+    # pdb.set_trace()  # TODO REMOVE LINE
+
     transformed_images = resize_images(
         cropped, preBIBSnet_paths["resized"], reference_imgs, 
-        id_mx, roi2full, j_args, logger
+        id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
     )
     logger.info(completion_msg.format("resized"))
+    
+    # pdb.set_trace()  # TODO REMOVE LINE
 
+    # TODO Move this whole block to postBIBSnet, so it copies everything it needs first
     # Make a symlink in BIBSnet input dir to transformed_images[T1w]
     for t in (1, 2):
         tw = "T{}w".format(t)
@@ -264,13 +288,14 @@ def run_preBIBSnet(j_args, logger):
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
         if not os.path.exists(out_nii_fpath):  # j_args["common"]["overwrite"] or 
             os.symlink(transformed_images[tw], out_nii_fpath)
+    """
     concat_mat = transformed_images["T1w_concat_mat"]
     out_mat_fpath = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
                                  *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat))
     os.makedirs(os.path.dirname(out_mat_fpath), exist_ok=True)
     if not os.path.exists(out_mat_fpath):
         os.symlink(concat_mat, out_mat_fpath)
-
+    """
     logger.info("PreBIBSnet has completed")
     return j_args
 
@@ -285,6 +310,7 @@ def run_BIBSnet(j_args, logger):
     dir_BIBS = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
                             *sub_ses, "{}put")
     
+    # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
     # Skip BIBSnet if overwrite=False and outputs already exist
     if j_args["common"]["overwrite"] or not glob(dir_BIBS.format("out")):
 
@@ -322,6 +348,8 @@ def run_postBIBSnet(j_args, logger):
     """
     sub_ses = get_subj_ID_and_session(j_args)
 
+    # TODO Rename BIBSnet output segmentation file to clarify that it's a segmentation (add 'aseg'?)
+
     # Template selection values
     age_months = j_args["common"]["age_months"]
     logger.info("Age of participant: {} months".format(age_months))
@@ -336,7 +364,7 @@ def run_postBIBSnet(j_args, logger):
     chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
                                               j_args, logger)
     logger.info("The BIBSnet segmentation has had its chirality checked and "
-                "registered if needed")
+                "registered if needed. Now making aseg-")
 
     masks = make_asegderived_mask(j_args, chiral_out_dir)  # NOTE Mask must be in native T1 space too
     logger.info("A mask of the BIBSnet segmentation has been produced")
@@ -432,13 +460,13 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
                                              "FreeSurferColorLUT.txt")
     
     # Get BIBSnet output file, and if there are multiple, then raise an error
-    outdir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                                  *sub_ses, "output", "*")
-    seg_BIBSnet_outfiles = glob(outdir_BIBSnet)
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                   *sub_ses, "output", "*.nii.gz")
+    seg_BIBSnet_outfiles = glob(out_BIBSnet_seg)
     if len(seg_BIBSnet_outfiles) != 1:
-        logger.error("There must be exactly one BIBSnet segmentation file in "
+        logger.error("There must be exactly one BIBSnet segmentation file: "
                      "{}\nResume at postBIBSnet stage once this is fixed."
-                     .format(outdir_BIBSnet))
+                     .format(out_BIBSnet_seg))
         sys.exit()
 
     # Select an arbitrary T1w image path to use to get T1w space
@@ -501,11 +529,12 @@ def run_nibabies(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    # Exclude any parameter whose value is null/None
-    # nibabies_args = get_optional_args_in(j_args["nibabies"])  # TODO
+    # Get all XCP-D parameters, excluding any whose value is null/None
+    nibabies_args = get_optional_args_in(j_args["nibabies"])  # TODO
 
     # Get nibabies options from parameter file and turn them into flags
-    nibabies_args = [j_args["common"]["age_months"], ]
+    nibabies_args.append("--age-months")
+    nibabies_args.append(j_args["common"]["age_months"])
     for nibabies_arg in ["cifti_output", "work_dir"]:
         nibabies_args.append(as_cli_arg(nibabies_arg))
         nibabies_args.append(j_args["nibabies"][nibabies_arg])
@@ -522,17 +551,19 @@ def run_nibabies(j_args, logger):
     else:
         derivs = list()
         # TODO If j_args[nibabies][derivatives] has a path, use that instead
+        """
         warn_user_of_conditions(
             ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
              "BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"])),
             logger, mask=mask_glob, aseg=aseg_glob
-        )
+        ) """
     
     # Run nibabies
-    subprocess.check_call([j_args["nibabies"]["script_path"],
+    print()
+    print(" ".join(str(x) for x in [j_args["nibabies"]["singularity_image_path"],  # subprocess.check_call  # TODO
                            j_args["common"]["bids_dir"],
                            j_args["optional_out_dirs"]["nibabies"],
-                           "participant", *derivs, *nibabies_args])
+                           "participant", *derivs, *nibabies_args]))
     logger.info("Nibabies has completed")
     
     return j_args
@@ -544,7 +575,7 @@ def run_XCPD(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, unchanged
     """
-    # Exclude any parameter whose value is null/None
+    # Get all XCP-D parameters, excluding any whose value is null/None
     xcpd_args = get_optional_args_in(j_args["XCPD"])
     
     subprocess.check_call([ #    # TODO Ensure that all "common" args required by XCPD are added
@@ -553,7 +584,7 @@ def run_XCPD(j_args, logger):
         "-B", j_args["optional_out_dirs"]["XCPD"] + ":/out",
         "-B", j_args["XCPD"]["work_dir"] + ":/work",
         "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-d_unstable03112022a.sif",  # TODO Make this an import and/or a parameter
-        "/data", "/out", "-w", "/work", "--participant-label", 
+        "/data", "/out", "--participant-label",  # "-w", "/work", 
         j_args["common"]["participant_label"], *xcpd_args
     ])
     logger.info("XCP-D has completed")
