@@ -660,7 +660,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
         if not acpc:  # TODO Should this go in its own function?
             run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
                 j_args, logger, "flirt",
-                "-in", xfm_vars[reg_input_var.format(t)],  # Input: Cropped image
+                "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
                 "-ref", xfm_vars["ref_non_ACPC"],
                 "-applyisoxfm", xfm_vars["resolution"],
                 "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
