@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-25
+Updated: 2022-04-29
 """
 
 # Import standard libraries
@@ -16,6 +16,7 @@ import logging
 from nipype.interfaces import fsl
 import os
 import pandas as pd
+import pdb
 import subprocess
 import sys
 
@@ -83,7 +84,7 @@ def make_logger():
     """
     Make logger to log status updates, warnings, and other important info
     :return: logging.Logger
-    """
+    """  # TODO Incorporate pprint to make printed JSONs/dicts more readable
     fmt = "\n%(levelname)s %(asctime)s: %(message)s"
     logging.basicConfig(stream=sys.stdout, format=fmt, level=logging.INFO)  
     logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.ERROR)
@@ -141,7 +142,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
 
     # Define (and create) default paths in derivatives directory structure for each stage
     sub_ses = get_subj_ID_and_session(j_args)
-    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")
+    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")  # TODO Either don't let users change the derivatives dir name or fix the pipeline's ability to let the user rename it (because right now it doesn't work) 
     for deriv in stage_names:
         j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)
         os.makedirs(os.path.join(j_args["optional_out_dirs"][deriv], *sub_ses),
@@ -244,13 +245,19 @@ def run_preBIBSnet(j_args, logger):
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_average(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
+    # print(preBIBSnet_paths["avg"])  # TODO REMOVE LINE
+    # pdb.set_trace()  # TODO REMOVE LINE
+
     # Crop T1w and T2w images
     cropped = dict()
+    crop2full = dict()
     for t in (1, 2):
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
-        crop2full = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
-                               cropped[t], j_args, logger)
+        crop2full[t] = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+                                  cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
+
+    # pdb.set_trace()  # TODO REMOVE LINE
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
@@ -261,11 +268,16 @@ def run_preBIBSnet(j_args, logger):
                                      "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
     }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
+
+    # pdb.set_trace()  # TODO REMOVE LINE
+
     transformed_images = resize_images(
         cropped, preBIBSnet_paths["resized"], reference_imgs, 
         id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
     )
     logger.info(completion_msg.format("resized"))
+    
+    # pdb.set_trace()  # TODO REMOVE LINE
 
     # TODO Move this whole block to postBIBSnet, so it copies everything it needs first
     # Make a symlink in BIBSnet input dir to transformed_images[T1w]
