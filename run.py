@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-29
+Updated: 2022-05-01
 """
 
 # Import standard libraries
@@ -17,6 +17,7 @@ from nipype.interfaces import fsl
 import os
 import pandas as pd
 import pdb
+import shutil
 import subprocess
 import sys
 
@@ -43,12 +44,12 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
-    as_cli_attr, as_cli_arg, copy_and_rename_file, correct_chirality,
-    create_anatomical_average, crop_image, dict_has, ensure_dict_has,
-    exit_with_time_info, extract_from_json, get_and_make_preBIBSnet_work_dirs,
-    get_optional_args_in, get_stage_name, get_subj_ID_and_session,
-    resize_images, run_all_stages, valid_readable_json,
-    validate_parameter_types, valid_readable_dir, warn_user_of_conditions
+    as_cli_attr, as_cli_arg, correct_chirality,
+    create_anatomical_average, crop_image, dict_has, dilate_LR_mask,
+    ensure_dict_has, exit_with_time_info, extract_from_json,
+    get_and_make_preBIBSnet_work_dirs, get_optional_args_in, get_stage_name,
+    get_subj_ID_and_session, resize_images, run_all_stages,
+    valid_readable_json, validate_parameter_types, valid_readable_dir
 )
 
 
@@ -287,7 +288,7 @@ def run_preBIBSnet(j_args, logger):
     # TODO Unredundantify the blocks below
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
         if not os.path.exists(out_nii_fpath):  # j_args["common"]["overwrite"] or 
-            os.symlink(transformed_images[tw], out_nii_fpath)
+            shutil.copy2(transformed_images[tw], out_nii_fpath)  # os.symlink(
     """
     concat_mat = transformed_images["T1w_concat_mat"]
     out_mat_fpath = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
@@ -359,25 +360,35 @@ def run_postBIBSnet(j_args, logger):
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
         j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
-    )
+    )  # TODO Add Luci's function to dilate the L/R mask after running this, and feed its output into chirality correction
     logger.info("Left/right image registration completed")
-    chiral_out_dir = run_chirality_correction(left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
-                                              j_args, logger)
-    logger.info("The BIBSnet segmentation has had its chirality checked and "
-                "registered if needed. Now making aseg-")
+    dilated_LRmask_fpath = dilate_LR_mask(
+        os.path.join(j_args["optional_out_dirs"]["postBIBSnet"], *sub_ses),
+        left_right_mask_nifti_fpath
+    )
+    logger.info("Finished dilating left/right segmentation mask")
 
-    masks = make_asegderived_mask(j_args, chiral_out_dir)  # NOTE Mask must be in native T1 space too
+    nii_outfpath = run_chirality_correction(dilated_LRmask_fpath, # left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
+                                            j_args, logger)
+    chiral_out_dir = os.path.dirname(nii_outfpath)
+    logger.info("The BIBSnet segmentation has had its chirality checked and "
+                "registered if needed. Now making aseg-derived mask.")
+
+    # TODO Skip mask creation if outputs already exist and not j_args[common][overwrite]
+    aseg_mask = make_asegderived_mask(j_args, chiral_out_dir, nii_outfpath)  # NOTE Mask must be in native T1 space too
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
     derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"],
                               "precomputed", *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
+    copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
+    """
     for eachfile in os.scandir(chiral_out_dir):
-        if "final" in os.path.basename(eachfile):
+        if "native" in os.path.basename(eachfile):
             copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")  # TODO Can these be symlinks?
-    for each_mask in masks:  # There should only be 1, for the record
-        copy_to_derivatives_dir(each_mask, derivs_dir, sub_ses, "brain_mask")  # TODO Can these be symlinks?
+    """
+    copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
         
     # TODO Get dataset_description.json and put it in derivs_dir
 
@@ -396,8 +407,7 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
     # Paths for left & right registration
     chiral_in_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
-    tmpl_mask = os.path.join(chiral_in_dir, "brainmasks",
-                             "{}mo_template_brainmask.nii.gz")
+    tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz") # "brainmasks", {}mo_template_brainmask.nii.gz")
 
     # Grab the first resized T?w from preBIBSnet to use for L/R registration
     first_subject_head = glob(os.path.join(
@@ -436,7 +446,7 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
         logger.info(msg.format("Skipping",  "{} because output already exists at {}".format(
             first_subject_head, left_right_mask_nifti_fpath
         )))
-    logger.info(msg.format("Finished", first_subject_head))
+    logger.info(msg.format("Finished", first_subject_head))  # TODO Only print this message if not skipped (and do the same for all other stages)
     return left_right_mask_nifti_fpath
 
 
@@ -473,40 +483,31 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
                                  *sub_ses, "anat", "*_T1w.nii.gz"))[0]
 
     # Run chirality correction script
-    correct_chirality(seg_BIBSnet_outfiles[0], segment_lookup_table_path,
-                      l_r_mask_nifti_fpath, chiral_out_dir, 
-                      path_T1w, j_args, logger)
-    return chiral_out_dir
+    nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0], segment_lookup_table_path,
+                                     l_r_mask_nifti_fpath, chiral_out_dir, 
+                                     path_T1w, j_args, logger)
+    return nii_outfpath  # chiral_out_dir
 
 
-def make_asegderived_mask(j_args, aseg_dir):
+def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
     :param aseg_dir: String, valid path to existing directory with output files
                      from chirality correction
     :return: List of strings; each is a valid path to an aseg mask file
     """
-    # Only make masks from chirality-corrected nifti files
-    sub_ses = get_subj_ID_and_session(j_args)
-    aseg = glob(os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
-                             *sub_ses, "chirality_correction", "final*.nii.gz"))  # TODO Does this glob need to be more specific?
-    # aseg = glob(os.path.join(aseg_dir, "sub-*_aseg.nii.gz"))  
-    # aseg.sort()
-
     # binarize, fillh, and erode aseg to make mask:
-    mask_out_files = list()
-    for aseg_file in aseg:
-        mask_out_files.append(os.path.join(
-            aseg_dir, "{}_mask.nii.gz".format(aseg_file.split(".nii.gz")[0])
-        ))
-        if (j_args["common"]["overwrite"] or not
-                os.path.exists(mask_out_files[-1])):
-            maths = fsl.ImageMaths(in_file=aseg_file,  # (anat file)
-                                   op_string=("-bin -dilM -dilM -dilM -dilM "
-                                              "-fillh -ero -ero -ero -ero"),
-                                   out_file=mask_out_files[-1])
-            maths.run()
-    return mask_out_files
+    output_mask_fpath = os.path.join(
+        aseg_dir, "{}_mask.nii.gz".format(nii_outfpath.split(".nii.gz")[0])
+    )
+    if (j_args["common"]["overwrite"] or not
+            os.path.exists(output_mask_fpath)):
+        maths = fsl.ImageMaths(in_file=nii_outfpath,  # (anat file)
+                                op_string=("-bin -dilM -dilM -dilM -dilM "
+                                            "-fillh -ero -ero -ero -ero"),
+                                out_file=output_mask_fpath)
+        maths.run()
+    return output_mask_fpath
 
 
 def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_pt):
@@ -517,7 +518,7 @@ def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_pt):
     :param sub_ses: List with either only the subject ID str or the session too
     :param new_fname_pt: String to add to the end of the new filename
     """
-    copy_and_rename_file(file_to_copy, os.path.join(derivs_dir, (
+    shutil.copy2(file_to_copy, os.path.join(derivs_dir, (
         "{}_space-orig_desc-{}.nii.gz".format("_".join(sub_ses), new_fname_pt)
     )))
 

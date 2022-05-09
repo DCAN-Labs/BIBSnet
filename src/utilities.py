@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-04-29
+Updated: 2022-05-01
 """
 # Import standard libraries
 import argparse
@@ -14,7 +14,7 @@ import nibabel as nib
 from nipype.interfaces import fsl
 import numpy as np
 import os
-import pdb  # TODO Remove this line, which is used for debugging by adding pdb.set_trace() before a problematic line
+import pdb  # TODO Remove this line(?), which is used for debugging by adding pdb.set_trace() before a problematic line
 import shutil
 import subprocess
 import sys
@@ -180,17 +180,6 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
         new_data[chirality][floor_ceiling][scanner_bore] = flipped_id
 
 
-def copy_and_rename_file(old_file, new_file):
-    """
-    Rename a file and copy it to a new location
-    :param old_file: String, valid path to an existing file to copy
-    :param new_file: String, valid path to what will be a copy of old_file
-    """
-    # shutil.move()
-    # os.rename(shutil.copy2(old_file, os.path.dirname(new_file)), new_file)
-    shutil.copy2(old_file, new_file)
-
-
 def correct_chirality(nifti_input_file_path, segment_lookup_table,
                       left_right_mask_nifti_file, chiral_out_dir,
                       t1w_path, j_args, logger):
@@ -210,7 +199,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
         chiral_out_dir, "corrected_" + os.path.basename(nifti_input_file_path)
     )# j_args["BIBSnet"]["aseg_outfile"]) 
     nifti_output_file_path = os.path.join(
-        chiral_out_dir, "final_" + os.path.basename(nifti_input_file_path)
+        chiral_out_dir, "native_" + os.path.basename(nifti_input_file_path)
     )# j_args["BIBSnet"]["aseg_outfile"]) 
 
     logger.info(msg.format("Running", nifti_input_file_path))
@@ -243,11 +232,13 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_corrected_file_path)
 
+    # TODO Make everything below its own function called "reverse_registration" or "revert_to_native" or something
+
     # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
     dummy_copy = "_dummy".join(split_2_exts(nifti_corrected_file_path))
-    copy_and_rename_file(nifti_corrected_file_path, dummy_copy)
-    concat_preBIBSnet_xfms = os.path.join(chiral_out_dir, "{}_concatenated.mat"  # TODO Give this a more descriptive name?
-                                                 .format("_".join(sub_ses)))
+    shutil.copy2(nifti_corrected_file_path, dummy_copy)
+    # concat_preBIBSnet_xfms = os.path.join(chiral_out_dir, "{}_concatenated.mat".format("_".join(sub_ses)))  # TODO Give this a more descriptive name? Or just delete it?
+                                                 
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
     preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
                                   *sub_ses, "preBIBSnet_crop_T1w_to_BIBS_template.mat") # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
@@ -256,8 +247,9 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
 
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm", "-ref", t1w_path,
                       "-in", dummy_copy, "-init", seg_to_T1w_nat, # concat_preBIBSnet_xfms,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
-                      "-o", nifti_output_file_path)
+                      "-o", nifti_output_file_path, "-interp", "nearestneighbour")
     logger.info(msg.format("Finished", nifti_input_file_path))
+    return nifti_output_file_path
 
 
 def create_anatomical_average(avg_params):
@@ -324,6 +316,107 @@ def dict_has(a_dict, a_key):
     :return: True if and only if a_key is mapped to something truthy in a_dict
     """
     return a_key in a_dict and a_dict[a_key]
+
+
+def dilate_LR_mask(sub_LRmask_dir, anatfile):
+    """
+    Taken from https://github.com/DCAN-Labs/SynthSeg/blob/master/SynthSeg/dcan/img_processing/chirality_correction/dilate_LRmask.py
+    :param sub_LRmask_dir: String, valid path to placeholder
+    :param anatfile: String, valid path to placeholder
+    """
+    os.chdir(sub_LRmask_dir)
+    if not os.path.exists('lrmask_dil_wd'):
+        os.mkdir('lrmask_dil_wd')
+
+    # anatfile = 'LRmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
+                           out_file='lrmask_dil_wd/Lmask.nii.gz')
+    maths.run()
+
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
+                           out_file='lrmask_dil_wd/Rmask.nii.gz')
+    maths.run()
+
+    maths.run()
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
+                           out_file='lrmask_dil_wd/Mmask.nii.gz')
+    maths.run()
+
+    # dilate, fill, and erode each mask in order to get rid of holes
+    # (also binarize L and M images in order to perform binary operations)
+    anatfile = 'lrmask_dil_wd/Lmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -fillh -ero',
+                           out_file='lrmask_dil_wd/L_mask_holes_filled.nii.gz')
+    maths.run()
+
+    anatfile = 'lrmask_dil_wd/Rmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file='lrmask_dil_wd/R_mask_holes_filled.nii.gz')
+    maths.run()
+
+    anatfile = 'lrmask_dil_wd/Mmask.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file='lrmask_dil_wd/M_mask_holes_filled.nii.gz')
+    maths.run()
+
+    # Reassign values of 2 and 3 to R and M masks (L mask already a value of 1)
+    anatfile = 'lrmask_dil_wd/R_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 2',
+                           out_file='lrmask_dil_wd/R_mask_holes_filled_label2.nii.gz')
+    maths.run()
+
+    anatfile = 'lrmask_dil_wd/M_mask_holes_filled.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 3',
+                           out_file='lrmask_dil_wd/M_mask_holes_filled_label3.nii.gz')
+    maths.run()
+
+    # recombine new L, R, and M mask files
+    anatfile_left = 'lrmask_dil_wd/L_mask_holes_filled.nii.gz'
+    anatfile_right = 'lrmask_dil_wd/R_mask_holes_filled_label2.nii.gz'
+    anatfile_mid = 'lrmask_dil_wd/M_mask_holes_filled_label3.nii.gz'
+    maths = fsl.ImageMaths(in_file=anatfile_left, op_string='-add {}'.format(anatfile_right),
+                           out_file='lrmask_dil_wd/recombined_mask_LR.nii.gz')
+    maths.run()
+
+    maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add lrmask_dil_wd/recombined_mask_LR.nii.gz',
+                           out_file='lrmask_dil_wd/dilated_LRmask.nii.gz')
+    maths.run()
+
+    ## Fix incorrect values resulting from recombining dilated components
+    orig_LRmask_img = nib.load('LRmask.nii.gz')
+    orig_LRmask_data = orig_LRmask_img.get_fdata()
+
+    fill_LRmask_img = nib.load('lrmask_dil_wd/dilated_LRmask.nii.gz')
+    fill_LRmask_data = fill_LRmask_img.get_fdata()
+
+    # Flatten numpy arrays
+    orig_LRmask_data_2D = orig_LRmask_data.reshape((182, 39676), order='C')
+    orig_LRmask_data_1D = orig_LRmask_data_2D.reshape(7221032, order='C')
+
+    fill_LRmask_data_2D = fill_LRmask_data.reshape((182, 39676), order='C')
+    fill_LRmask_data_1D = fill_LRmask_data_2D.reshape(7221032, order='C')
+
+    # grab index values of voxels with a value greater than 2.0 in filled L/R mask
+    voxel_check = np.where(fill_LRmask_data_1D > 2.0)
+
+    # Replace possible overlapping label values with corresponding label values from initial mask
+    for i in voxel_check[:]:
+        fill_LRmask_data_1D[i] = orig_LRmask_data_1D[i]
+
+    # reshape numpy array
+    fill_LRmask_data_2D = fill_LRmask_data_1D.reshape((182, 39676), order='C')
+    fill_LRmask_data_3D = fill_LRmask_data_2D.reshape((182, 218, 182), order='C')
+
+    # save new numpy array as image
+    empty_header = nib.Nifti1Header()
+    out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
+    out_fpath = os.path.join(sub_LRmask_dir, 'LRmask_dil.nii.gz')
+    nib.save(out_img, out_fpath)
+
+    #remove working directory with intermediate outputs
+    #shutil.rmtree('lrmask_dil_wd')
+
+    return out_fpath
 
 
 def ensure_dict_has(a_dict, a_key, new_value):
@@ -568,7 +661,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     # Create symlinks with the same name regardless of which is chosen, so 
     # postBIBSnet can use the correct/chosen .mat file
     concat_mat = optimal_resize["T1w_crop2BIBS_mat"]
-    out_mat_fpath = os.path.join(
+    out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
         j_args["optional_out_dirs"]["postBIBSnet"],
         *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
     )
@@ -857,6 +950,8 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     :param fsl_fn_name: String naming the FSL function which is an
                         executable file in j_args[common][fsl_bin_path]
     """
+    # TODO Run FSL commands using the Python fsl.ImageMaths /etc functions instead of subprocess
+
     # FSL command to (maybe) run in a subprocess
     to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_fn_name)
               ] + [str(f) for f in fsl_args]
