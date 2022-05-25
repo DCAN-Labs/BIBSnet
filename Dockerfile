@@ -46,14 +46,14 @@ ENV RESULTS_FOLDER="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet
 COPY trained_models/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet
 RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && unzip -qq Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip
-COPY run.py /home/cabinet/run.py && \
-    src /home/cabinet/src && \
-    bin /home/cabinet/bin && \
-    param-file-defaults.json /home/cabinet/param-file-defaults.json && \
-    param-file-template.json /home/cabinet/param-file-template.json && \
-    requirements.txt  /home/cabinet/requirements.txt && \
-    xcp_arguments.txt   xcp_arguments.txt 
+COPY run.py /home/cabinet/run.py
+COPY src /home/cabinet/src
+COPY bin /home/cabinet/bin
+COPY param-file-defaults.json /home/cabinet/param-file-defaults.json
+COPY param-file-template.json /home/cabinet/param-file-template.json
+COPY requirements.txt  /home/cabinet/requirements.txt 
 
-RUN cd /home/cabinet/ && chmod 555 run.py
+RUN cd /home/cabinet/ && pip install -r requirements.txt 
+RUN cd /home/cabinet/ && chmod 555 -R run.py bin src param-file-defaults.json param-file-template.json
 
 ENTRYPOINT ["/home/cabinet/run.py"]
