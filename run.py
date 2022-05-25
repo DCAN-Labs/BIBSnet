@@ -100,6 +100,7 @@ def get_params_from_JSON(stage_names, logger):
     """
     msg_json = "Valid path to existing readable parameter .json file."
     parser = argparse.ArgumentParser()
+    # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
     parser.add_argument(
         "parameter_json", type=valid_readable_json,
         help=("{} See README.md for more information on parameters."
@@ -318,15 +319,29 @@ def run_BIBSnet(j_args, logger):
         # Import BIBSnet functionality from BIBSnet/run.py
         parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
-        sys.path.append("/home/cabinet/SW/BIBSnet")
+        sys.path.append(parent_BIBSnet)
         from BIBSnet.run import run_nnUNet_predict
+        
+        
+        # TODO test functionality of importing BIBSNet function via params json (j_args)
+        #parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+        #logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
+        #sys.path.append("/home/cabinet/SW/BIBSnet")
+        #from BIBSnet.run import run_nnUNet_predict
 
         # Run BIBSnet
         run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
-                            "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
-                            "input": dir_BIBS.format("in"),
-                            "output": dir_BIBS.format("out"),
-                            "task": str(j_args["BIBSnet"]["task"])})
+                    "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
+                    "input": dir_BIBS.format("in"),
+                    "output": dir_BIBS.format("out"),
+                    "task": str(j_args["BIBSnet"]["task"])})
+    
+        # TODO hardcoded below call to run_nnUNet_predict. Will likely want to change and integrate into j_args
+        #run_nnUNet_predict({"model": "3d_fullres",
+        #                    "nnUNet": "/opt/conda/bin/nnUNet_predict",
+        #                    "input": dir_BIBS.format("in"),
+        #                    "output": dir_BIBS.format("out"),
+        #                    "task": str(512)})
     logger.info("BIBSnet has completed")
     return j_args
 
