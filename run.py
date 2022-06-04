@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-01
+Updated: 2022-05-31
 """
 
 # Import standard libraries
@@ -44,12 +44,12 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
-    as_cli_attr, as_cli_arg, correct_chirality,
-    create_anatomical_average, crop_image, dict_has, dilate_LR_mask,
-    ensure_dict_has, exit_with_time_info, extract_from_json,
-    get_and_make_preBIBSnet_work_dirs, get_optional_args_in, get_stage_name,
-    get_subj_ID_and_session, resize_images, run_all_stages,
-    valid_readable_json, validate_parameter_types, valid_readable_dir
+    as_cli_attr, as_cli_arg, correct_chirality, create_anatomical_average,
+    crop_image, dict_has, dilate_LR_mask, exit_with_time_info,
+    extract_from_json, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
+    get_stage_name, get_subj_ID_and_session, make_given_or_default_dir,
+    resize_images, run_all_stages, valid_readable_json,
+    validate_parameter_types, valid_readable_dir, will_run_stage
 )
 
 
@@ -67,11 +67,6 @@ def main():
                     .format(json_args))
 
     # Run every stage that the parameter file says to run
-    # TODO For every function that creates a file, log that the file was
-    # created -- or if the pipeline crashed -- and in later runs check that
-    # status log and start from where the pipeline last left off
-      # Log should include when each stage finished, and if the stage didn't,
-      # *then* it should check which intermediate function the stage crashed in
     run_all_stages(STAGES, json_args["stage_names"]["start"],
                    json_args["stage_names"]["end"], json_args, logger)
     # TODO default to running all stages if not specified by the user
@@ -107,7 +102,6 @@ def get_params_from_JSON(stage_names, logger):
               .format(msg_json))
         # TODO: Add description of every parameter to the README, and maybe also to this --help message
         # TODO: Mention which arguments are required and which are optional (with defaults)
-        # TODO: Add nnU-Net parameters (once they're decided on)
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
@@ -132,6 +126,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     """
     :param cli_args: Dictionary containing all command-line input arguments
     :param stage_names: List of strings naming stages to run (in order)
+    :param logger: logging.Logger object to show messages and raise warnings
     :return: Dictionary of validated parameters from parameter .JSON file
     """
     # Get command-line input arguments and use them to get .JSON parameters
@@ -141,14 +136,12 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                       "slurm": bool(cli_args[script_dir_attr])}
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]} 
+    sub_ses = get_subj_ID_and_session(j_args)
 
     # Define (and create) default paths in derivatives directory structure for each stage
-    sub_ses = get_subj_ID_and_session(j_args)
-    j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives")  # TODO Either don't let users change the derivatives dir name or fix the pipeline's ability to let the user rename it (because right now it doesn't work) 
-    for deriv in stage_names:
-        j_args = ensure_j_args_has_bids_subdir(j_args, "derivatives", deriv)
-        os.makedirs(os.path.join(j_args["optional_out_dirs"][deriv], *sub_ses),
-                    exist_ok=True)  # Make all subject-session output dirs
+    default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
+    j_args = ensure_j_args_has_bids_subdirs(j_args, stage_names, sub_ses,
+                                            default_derivs_dir)
 
     # Verify that every parameter in the parameter .JSON file is a valid input
     j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
@@ -158,11 +151,10 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Verify that subject-session directory path exists
     sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
     if not os.path.exists(sub_ses_dir):
-        logger.error("No subject/session directory found at {}\nCheck that "
+        parser.error("No subject/session directory found at {}\nCheck that "
                      "the participant_label and session are correctly defined "
                      "in your parameter .JSON file at {}\n"
                      .format(sub_ses_dir, cli_args["parameter_json"]))
-        sys.exit(1)  # Crash
 
     # Using dict_has instead of easier ensure_dict_has so that the user only
     # needs a participants.tsv file if they didn't specify age_months
@@ -174,13 +166,17 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Save paths to files used by multiple stages:
 
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    out_dir = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                           *sub_ses, "input")
-    os.makedirs(out_dir, exist_ok=True)
+    in_dir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                  *sub_ses, "input")
+    os.makedirs(in_dir_BIBSnet, exist_ok=True)
     j_args["optimal_resized"] = {"T{}w".format(t): os.path.join(
-                                     out_dir, "{}_optimal_resized_000{}.nii.gz"
-                                              .format("_".join(sub_ses), t-1)
+                                     in_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
+                                                     .format("_".join(sub_ses), t-1)
                                  ) for t in (1, 2)}
+
+    # Check that all required input files exist for the stages to run
+    verify_CABINET_inputs_exist(sub_ses, j_args, parser)
+    logger.info("All required input files exist.")
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
@@ -188,7 +184,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     return j_args
 
 
-def ensure_j_args_has_bids_subdir(j_args, *subdirnames):
+def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param subdirnames: Unpacked list of strings. Each names 1 part of a path
@@ -196,11 +192,59 @@ def ensure_j_args_has_bids_subdir(j_args, *subdirnames):
                         mapped by j_args[optional_out_dirs] to the subdir path.
     :return: j_args, but with the (now-existing) subdirectory path
     """
-    subdir_path = os.path.join(j_args["common"]["bids_dir"], *subdirnames)
-    j_args["optional_out_dirs"] = ensure_dict_has(j_args["optional_out_dirs"],
-                                                  subdirnames[-1], subdir_path)
-    os.makedirs(j_args["optional_out_dirs"][subdirnames[-1]], exist_ok=True)
+    j_args["optional_out_dirs"] = make_given_or_default_dir(
+        j_args["optional_out_dirs"], "derivatives", default_parent
+    )
+    for deriv in derivs:
+        subdir_path = os.path.join(j_args["optional_out_dirs"]["derivatives"],
+                                   deriv)
+        j_args["optional_out_dirs"] = make_given_or_default_dir(
+            j_args["optional_out_dirs"], deriv, subdir_path
+        )
+        os.makedirs(os.path.join(j_args["optional_out_dirs"][deriv], *sub_ses),
+                    exist_ok=True)  # Make all subject-session output dirs
     return j_args
+
+
+def verify_CABINET_inputs_exist(sub_ses, j_args, parser):
+    """
+    Given a stage, verify that all of the necessary inputs for that stage exist 
+    :param a_stage: String naming a stage
+    :param sub_ses: List with either only the subject ID str or the session too
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    # Define globbable paths to prereq files for the script to check
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                   *sub_ses, "output", "*.nii.gz")
+    subject_heads = [os.path.join(
+            j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
+            "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
+        ) for t1or2 in (1, 2)]
+    out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                      "*{}*.nii.gz".format(x))
+                         for x in ("aseg", "mask")]
+
+    # Map each stage's name to its required input files
+    stage_prerequisites = {"preBIBSnet": list(),
+                           "BIBSnet": [fpath for fpath in
+                                       j_args["optimal_resized"].values()],
+                           "postBIBSnet": [out_BIBSnet_seg, *subject_heads],
+                           "nibabies": out_paths_BIBSnet,
+                           "XCPD": []}
+
+    # For each stage that will be run, verify that its prereq input files exist
+    all_stages = [s for s in stage_prerequisites.keys()]
+    for stage in all_stages:
+        if will_run_stage(stage, j_args["stage_names"]["start"],
+                          j_args["stage_names"]["end"], all_stages):
+            missing_files = list()
+            for globbable in stage_prerequisites[stage]:
+                if not glob(globbable):
+                    missing_files.append(globbable)
+            if missing_files:
+                parser.error("The file(s) below are needed to run the {} stage, "
+                            "but they do not exist.\n{}\n"
+                            .format(stage, "\n".join(missing_files)))
 
 
 def read_age_from_participants_tsv(j_args, logger):
@@ -247,9 +291,6 @@ def run_preBIBSnet(j_args, logger):
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_average(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
-    # print(preBIBSnet_paths["avg"])  # TODO REMOVE LINE
-    # pdb.set_trace()  # TODO REMOVE LINE
-
     # Crop T1w and T2w images
     cropped = dict()
     crop2full = dict()
@@ -259,19 +300,14 @@ def run_preBIBSnet(j_args, logger):
                                   cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
 
-    # pdb.set_trace()  # TODO REMOVE LINE
-
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
     reference_imgs = {  # TODO Pipeline should verify that these exist before running
         "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz"),
-        "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
-                                     "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
+        # "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
     }
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
-
-    # pdb.set_trace()  # TODO REMOVE LINE
 
     transformed_images = resize_images(
         cropped, preBIBSnet_paths["resized"], reference_imgs, 
@@ -279,25 +315,14 @@ def run_preBIBSnet(j_args, logger):
     )
     logger.info(completion_msg.format("resized"))
     
-    # pdb.set_trace()  # TODO REMOVE LINE
-
     # TODO Move this whole block to postBIBSnet, so it copies everything it needs first
     # Make a symlink in BIBSnet input dir to transformed_images[T1w]
     for t in (1, 2):
         tw = "T{}w".format(t)
         out_nii_fpath = j_args["optimal_resized"][tw]
-    # TODO Unredundantify the blocks below
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
         if not os.path.exists(out_nii_fpath):  # j_args["common"]["overwrite"] or 
-            shutil.copy2(transformed_images[tw], out_nii_fpath)  # os.symlink(
-    """
-    concat_mat = transformed_images["T1w_concat_mat"]
-    out_mat_fpath = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
-                                 *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat))
-    os.makedirs(os.path.dirname(out_mat_fpath), exist_ok=True)
-    if not os.path.exists(out_mat_fpath):
-        os.symlink(concat_mat, out_mat_fpath)
-    """
+            shutil.copy2(transformed_images[tw], out_nii_fpath)
     logger.info("PreBIBSnet has completed")
     return j_args
 
@@ -354,8 +379,6 @@ def run_postBIBSnet(j_args, logger):
     """
     sub_ses = get_subj_ID_and_session(j_args)
 
-    # TODO Rename BIBSnet output segmentation file to clarify that it's a segmentation (add 'aseg'?)
-
     # Template selection values
     age_months = j_args["common"]["age_months"]
     logger.info("Age of participant: {} months".format(age_months))
@@ -365,14 +388,15 @@ def run_postBIBSnet(j_args, logger):
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
         j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
-    )  # TODO Add Luci's function to dilate the L/R mask after running this, and feed its output into chirality correction
+    )
     logger.info("Left/right image registration completed")
+
+    # Dilate the L/R mask and feed the dilated mask into chirality correction
     dilated_LRmask_fpath = dilate_LR_mask(
         os.path.join(j_args["optional_out_dirs"]["postBIBSnet"], *sub_ses),
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
-
     nii_outfpath = run_chirality_correction(dilated_LRmask_fpath, # left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
                                             j_args, logger)
     chiral_out_dir = os.path.dirname(nii_outfpath)
