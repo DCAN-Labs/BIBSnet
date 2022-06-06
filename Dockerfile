@@ -57,7 +57,6 @@ RUN apt-get update -qq \
     --exclude "fsl/data/standard/tissuepriors" \
     --exclude "fsl/doc" \
     --exclude "fsl/etc/default_flobs.flobs" \
-    --exclude "fsl/etc/fslconf" \
     --exclude "fsl/etc/js" \
     --exclude "fsl/etc/luts" \
     --exclude "fsl/etc/matlab" \
@@ -67,30 +66,6 @@ RUN apt-get update -qq \
     --exclude "fsl/src" \
     --exclude "fsl/tcl" \
     --exclude "fsl/bin/FSLeyes" \
-    && find /opt/fsl-6.0.5.1/bin -type f -not \( \
-        -name "applywarp" -or \
-        -name "bet" -or \
-        -name "bet2" -or \
-        -name "convert_xfm" -or \
-        -name "fast" -or \
-        -name "flirt" -or \
-        -name "fsl_regfilt" -or \
-        -name "fslhd" -or \
-        -name "fslinfo" -or \
-        -name "fslmaths" -or \
-        -name "fslmerge" -or \
-        -name "fslroi" -or \
-        -name "fslsplit" -or \
-        -name "fslstats" -or \
-        -name "imtest" -or \
-        -name "mcflirt" -or \
-        -name "melodic" -or \
-        -name "prelude" -or \
-        -name "remove_ext" -or \
-        -name "robustfov" -or \
-        -name "susan" -or \
-        -name "topup" -or \
-        -name "zeropad" \) -delete \
     && find /opt/fsl-6.0.5.1/data/standard -type f -not -name "MNI152_T1_2mm_brain.nii.gz" -delete
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/fsl-6.0.5.1/bin:$PATH" \
