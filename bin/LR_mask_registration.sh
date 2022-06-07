@@ -15,7 +15,7 @@ TemplateHead=$1;shift
 TemplateMask=$1;shift
 OutputMaskFile=$1;shift
 
-module load ants
+#module load ants
 WD=$(dirname $OutputMaskFile)/wd
 if [ ! -d "$WD" ]; then
 	mkdir "$WD"
