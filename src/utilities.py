@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-31
+Updated: 2022-06-09
 """
 # Import standard libraries
 import argparse
@@ -936,21 +936,21 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # registration_T2w_to_T1w's cropT2tocropT1.mat, and then non-ACPC
         # registration_T2w_to_T1w's crop_T1_to_BIBS_template.mat)
         preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-            xfm_non_ACPC_vars["out_dir"], "crop_T{}w_to_BIBS_template.mat".format(t)
+            xfm_non_ACPC_vars["out_dir"], "full_crop_T{}w_to_BIBS_template.mat".format(t)
         )
-        full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
-                                        "full2cropT1w.mat")
+        full2crop_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
+                                     "full2cropT{}w.mat".format(t))
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm",
-            "-omat", full2cropT1w_mat,
+            "-omat", full2crop_mat.format(t),
             "-concat", xfm_ACPC_vars["mats_T{}w".format(t)]["full2crop"], 
             xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
         )
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm",
             "-omat", preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)],
-            "-concat", full2cropT1w_mat, # xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)],
-            xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)]
+            "-concat", full2crop_mat.format(t),
+            xfm_imgs_non_ACPC["T1w_crop2BIBS_mat"]
         )
         # Do the applywarp FSL command from align_ACPC_1_img (for T2w and not T1w, for non-ACPC)
         # applywarp output is optimal_realigned_imgs input
