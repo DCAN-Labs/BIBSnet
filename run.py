@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-31
+Updated: 2022-06-10
 """
 
 # Import standard libraries
@@ -105,7 +105,7 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=stage_names, default=stage_names[0]
+        choices=stage_names, default=stage_names[0]   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -234,17 +234,22 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, parser):
 
     # For each stage that will be run, verify that its prereq input files exist
     all_stages = [s for s in stage_prerequisites.keys()]
-    for stage in all_stages:
-        if will_run_stage(stage, j_args["stage_names"]["start"],
-                          j_args["stage_names"]["end"], all_stages):
-            missing_files = list()
-            for globbable in stage_prerequisites[stage]:
-                if not glob(globbable):
-                    missing_files.append(globbable)
-            if missing_files:
-                parser.error("The file(s) below are needed to run the {} stage, "
-                            "but they do not exist.\n{}\n"
-                            .format(stage, "\n".join(missing_files)))
+
+    # required_files = stage_prerequisites[j_args["stage_names"]["start"]]
+    start_ix = all_stages.index(j_args["stage_names"]["start"]) 
+    for stage in all_stages[:start_ix+1]:
+
+        # if stage == j_args["stage_names"]["start"]:
+        # if will_run_stage(stage, j_args["stage_names"]["start"], j_args["stage_names"]["end"], all_stages):
+
+        missing_files = list()
+        for globbable in stage_prerequisites[stage]:
+            if not glob(globbable):
+                missing_files.append(globbable)
+        if missing_files:
+            parser.error("The file(s) below are needed to run the {} stage, "
+                        "but they do not exist.\n{}\n"
+                        .format(stage, "\n".join(missing_files)))
 
 
 def read_age_from_participants_tsv(j_args, logger):
