@@ -118,7 +118,9 @@ RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && unzip -q
 COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
 COPY bin /home/cabinet/bin
-COPY data /home/cabinet/data
+#COPY data /home/cabinet/data
+RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && unzip -qq /home/cabinet/data/temp_data.zip && rm /home/cabinet/data/temp_data.zip
+
 COPY param-file-defaults.json /home/cabinet/param-file-defaults.json
 COPY param-file-template.json /home/cabinet/param-file-template.json
 COPY requirements.txt  /home/cabinet/requirements.txt 
