@@ -75,9 +75,19 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
         "-concat", mats["full2crop"], mats["crop2acpc"]
     )
 
+    run_FSL_sh_script(  # TODO This successfully created an ACPC-aligned image on 2022-06-14 (?); the problem was using the MNI reference image multiple times and the solution is using the input image as a reference image
+        j_args, logger, "applywarp", "--rel", "--interp=spline",  
+        "-i", input_img, "-r", input_img, # mni_ref_img_path,
+        "--premat=" + mats["full2acpc"], "-o", os.path.join(
+            os.path.dirname(output_img), "T{}w_full2acpc_UNUSED.nii.gz".format(t)
+        )
+    )
+
     # Transform 12 dof matrix to 6 dof approximation matrix
     run_FSL_sh_script(j_args, logger, "aff2rigid", mats["full2acpc"],
-                      mats["acpc2rigidbody"])
+                      mats["acpc2rigidbody"])  # TODO rename this to "full2rigidbody"?
+
+    # run_FSL_sh_script(j_args, logger, "convert_xfm", "-concat", mats["full2acpc"], mats["acpc2rigidbody"])  # TODO Concatenate to make full2rigidbody and return *that*? No, that triple-crops?
 
     # run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", mats["rigidbody2acpc"], "-omat", mats["acpc2rigidbody"])
 
@@ -86,8 +96,9 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
     # if j_args["common"]["debug"]:
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",  
                       "-i", input_img, "-r", mni_ref_img_path,
-                      "--premat=" + mats["acpc2rigidbody"], "-o", output_img)
-    # pdb.set_trace()  # TODO Add "debug" flag?
+                      "--premat=" + mats["acpc2rigidbody"], "-o", output_img)  # TODO This is overcropped 2022-06-14
+
+    pdb.set_trace()  # TODO Add "debug" flag?  # TODO COMMENT OUT
     return mats
 
 
@@ -730,7 +741,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     """
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
-    logger.info("Input images for T1w registration:\nT1w: {}\nT2w: {}"
+    logger.info("Input images for registration:\nT1w: {}\nT2w: {}"
                 .format(xfm_vars[reg_input_var.format(1)],
                         xfm_vars[reg_input_var.format(2)]))
 
@@ -790,7 +801,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     if not acpc:
         run_FSL_sh_script(*nonACPC_xfm_params_T[2])
 
-    # pdb.set_trace()  # TODO Add "debug" flag?
+    pdb.set_trace()  # TODO Add "debug" flag?  # TODO COMMENT OUT
     return registration_outputs
 
 
@@ -875,7 +886,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
 
         # Run ACPC alignment
         xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
-            j_args, logger, xfm_ACPC_vars, crop2full[t], "reg_input_T{}w_img", t
+            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t 
         )
 
     # T1w-T2w alignment of ACPC-aligned images
@@ -899,15 +910,19 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # the output .mat with the template
         acpc2rigidbody = xfm_ACPC_vars["mats_T{}w".format(t)]["acpc2rigidbody"]
         to_rigidbody_final_mat = os.path.join(xfm_ACPC_vars["out_dir"], 
-                                              "T2w_to_rigidbody.mat"
-                                              ) if t == 2 else acpc2rigidbody
+                                              "T{}w_to_rigidbody.mat"
+                                              ).format(t) # if t == 2 else acpc2rigidbody
+        if t == 1:
+            shutil.copy2(acpc2rigidbody, to_rigidbody_final_mat)
+
         # final_mat differs between T1w and T2w because T2w has to go into T1w
         # space before ACPC and T1w does not 
-        if t == 2:
+        else: # if t == 2:
             run_FSL_sh_script( 
                 j_args, logger, "convert_xfm", "-omat", to_rigidbody_final_mat,
-                "-concat", xfm_ACPC_and_registered_imgs["cropT{}tocropT1".format(t)],
-                acpc2rigidbody
+                "-concat", acpc2rigidbody,
+                xfm_ACPC_and_registered_imgs["cropT{}tocropT1".format(t)]
+                  # NOTE The order to concatenate these in was in question 2022-06-14
             )
 
         crop2BIBS_mat_symlink = os.path.join(xfm_ACPC_vars["out_dir"],
@@ -921,7 +936,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # Apply registration and ACPC alignment to the T1ws and the T2ws
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel", 
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)],
-                          "-r", xfm_ACPC_vars["ref_ACPC"].format(t),
+                          "-r", averaged_imgs["T{}w_avg".format(t)], # xfm_ACPC_vars["ref_ACPC"].format(t),
                           "--premat=" + crop2BIBS_mat_symlink, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
                           "-o", preBIBS_ACPC_out["T{}w".format(t)])
         # pdb.set_trace()  # TODO Add "debug" flag?
@@ -964,7 +979,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
     # Outputs: 1 .mat file for ACPC and 1 for non-ACPC (only retain the -to-T1w .mat file after this point)
 
     # Return the best of the 2 resized images
-    # pdb.set_trace()  # TODO Add "debug" flag?
+    pdb.set_trace()  # TODO Add "debug" flag?  # TODO COMMENT OUT
     return optimal_realigned_imgs(preBIBS_nonACPC_out,
                                   preBIBS_ACPC_out, j_args, logger)
   
