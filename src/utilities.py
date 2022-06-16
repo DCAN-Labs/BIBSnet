@@ -848,7 +848,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
         # Run ACPC alignment
         xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
             j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t,
-            averaged_imgs[t]
+            averaged_imgs["T{}w_avg".format(t)]
         )
 
     # T1w-T2w alignment of ACPC-aligned images
