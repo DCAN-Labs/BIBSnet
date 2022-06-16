@@ -34,7 +34,8 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 # NOTE All functions below are in alphabetical order.
 
 
-def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
+def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
+                     averaged_image):
     """ 
     Functionality copied from the DCAN Infant Pipeline:
     github.com/DCAN-Labs/dcan-infant-pipeline/blob/master/PreFreeSurfer/scripts/ACPCAlignment_with_crop.sh
@@ -85,7 +86,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
     # Apply ACPC alignment to the data
     # Create a resampled image (ACPC aligned) using spline interpolation (?)  # TODO Remove this command if it's unneeded
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",  
-                      "-i", input_img, "-r", mni_ref_img_path,
+                      "-i", averaged_image, "-r", mni_ref_img_path,  # Changed input_img to average_image 2022-06-16
                       "--premat=" + mats["acpc2rigidbody"], "-o", output_img)
     # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
@@ -846,7 +847,8 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
 
         # Run ACPC alignment
         xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
-            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t
+            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t,
+            averaged_imgs[t]
         )
 
     # T1w-T2w alignment of ACPC-aligned images
