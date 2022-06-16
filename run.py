@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-01
+Updated: 2022-06-16
 """
 
 # Import standard libraries
@@ -262,18 +262,14 @@ def run_preBIBSnet(j_args, logger):
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
-    reference_imgs = {  # TODO Pipeline should verify that these exist before running
-        "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
-                                 "INFANT_MNI_T{}_1mm.nii.gz"),
-        "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data",
-                                     "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
-    }
+    reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
+                                 "INFANT_MNI_T{}_1mm.nii.gz") # TODO Pipeline should verify that these exist before running
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
 
     # pdb.set_trace()  # TODO REMOVE LINE
 
     transformed_images = resize_images(
-        cropped, preBIBSnet_paths["resized"], reference_imgs, 
+        cropped, preBIBSnet_paths["resized"], reference_img, 
         id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
     )
     logger.info(completion_msg.format("resized"))

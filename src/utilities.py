@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-01
+Updated: 2022-06-16
 """
 # Import standard libraries
 import argparse
@@ -50,7 +50,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
              respective paths
     """
     # Get paths to ACPC ref image, output dir, output images, and .mat files
-    mni_ref_img_path = xfm_ACPC_vars["ref_ACPC"].format(t)
+    mni_ref_img_path = xfm_ACPC_vars["ref_img"].format(t)
     work_dir = xfm_ACPC_vars["out_dir"]  # Working directory for ACPC alignment
     input_img = xfm_ACPC_vars["crop_T{}w_img".format(t)]  # Cropped img, ACPC input
     output_img =  xfm_ACPC_vars[output_var.format(t)]  # ACPC-aligned image
@@ -72,7 +72,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
         j_args, logger, "convert_xfm", "-omat", mats["full2acpc"],
-        "-concat", mats["full2crop"], mats["crop2acpc"]
+        "-concat", mats["crop2acpc"], mats["full2crop"]
     )
 
     # Transform 12 dof matrix to 6 dof approximation matrix
@@ -718,7 +718,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
     # reg_input_var = "reg_input_T{}w_img"
-    logger.info("Input images for T1w registration:\nT1w: {}\nT2w: {}"
+    logger.info("Input images for registration:\nT1w: {}\nT2w: {}"
                 .format(xfm_vars[reg_input_var.format(1)],
                         xfm_vars[reg_input_var.format(2)]))
 
@@ -754,7 +754,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
             run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
                 j_args, logger, "flirt",
                 "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
-                "-ref", xfm_vars["ref_non_ACPC"],
+                "-ref", xfm_vars["ref_img"].format(t),
                 "-applyisoxfm", xfm_vars["resolution"],
                 "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
                 "-o", registration_outputs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
@@ -773,7 +773,7 @@ def reshape_volume_to_array(array_img):
     return image_data.flatten()
 
 
-def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
+def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
                   crop2full, averaged_imgs, j_args, logger):
     """
     Resize the images to match the dimensions of images trained in the model,
@@ -798,19 +798,20 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
     # without ACPC alignment
     xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
                          "resolution": "1", "ident_mx": ident_mx,
-                         **ref_images} # "ref_img": ref_img_path,
+                         "ref_img": ref_image}
     xfm_ACPC_vars = xfm_non_ACPC_vars.copy()
     xfm_ACPC_vars["out_dir"] = os.path.join(output_dir, "ACPC_align")
     out_var = "output_T{}w_img"
+    reg_in_var = "reg_input_T{}w_img"
 
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
 
         # Non-ACPC input to registration
         # for keyname in ("crop_", "reg_input_"):
-        reg_in_var = "reg_input_T{}w_img".format(t)
+        
         xfm_non_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path  # TODO This may be unused
-        xfm_non_ACPC_vars[reg_in_var] = crop_img_path
+        xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
 
         # Non-ACPC outputs to registration
         outfname = "T{}w_registered_to_T1w".format(t) + img_ext
@@ -820,7 +821,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
 
         # ACPC inputs to align and registration
         xfm_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path
-        xfm_ACPC_vars[reg_in_var] = os.path.join(
+        xfm_ACPC_vars[reg_in_var.format(t)] = os.path.join(
             xfm_ACPC_vars["out_dir"], "ACPC_aligned_T{}w".format(t) + img_ext
         )
         xfm_ACPC_vars[out_var.format(t)] = os.path.join(
@@ -845,7 +846,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
 
         # Run ACPC alignment
         xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
-            j_args, logger, xfm_ACPC_vars, crop2full[t], "reg_input_T{}w_img", t
+            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t
         )
 
     # T1w-T2w alignment of ACPC-aligned images
@@ -892,7 +893,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # Apply registration and ACPC alignment to the T1ws and the T2ws
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel", 
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)],  # TODO Why is it still using the cropped image? Is averaged_imgs not defined properly? No, I think that just confused a couple commands # TODO
-                          "-r", xfm_ACPC_vars["ref_ACPC"].format(t),
+                          "-r", xfm_ACPC_vars["ref_img"].format(t),
                           "--premat=" + crop2BIBS_mat_symlink, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
                           "-o", preBIBS_ACPC_out["T{}w".format(t)])
         # pdb.set_trace()  # TODO Add "debug" flag?
@@ -928,7 +929,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # Apply registration to the T1ws and the T2ws
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)], # cropped_imgs[t],
-                          "-r", xfm_non_ACPC_vars["ref_ACPC"].format(t),
+                          "-r", xfm_non_ACPC_vars["ref_img"].format(t),
                           "--premat=" + preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)],  # full2BIBS_mat, # 
                           "-o", preBIBS_nonACPC_out["T{}w".format(t)])
 
