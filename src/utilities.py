@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-06-16
+Updated: 2022-06-17
 """
 # Import standard libraries
 import argparse
@@ -14,7 +14,7 @@ import nibabel as nib
 from nipype.interfaces import fsl
 import numpy as np
 import os
-import pdb  # TODO Remove this line(?), which is used for debugging by adding pdb.set_trace() before a problematic line
+import pdb
 import shutil
 import subprocess
 import sys
@@ -78,13 +78,13 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
 
     # Transform 12 dof matrix to 6 dof approximation matrix
     run_FSL_sh_script(j_args, logger, "aff2rigid", mats["full2acpc"],
-                      mats["acpc2rigidbody"])   # TODO Should we rename "rigidbody" everywhere?
-                      # TODO More importantly, do we need to invert rigidbody2acpc first, so it becomes full2acpc2rigidbody?
+                      mats["acpc2rigidbody"])
 
     # run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", mats["rigidbody2acpc"], "-omat", mats["acpc2rigidbody"])
 
     # Apply ACPC alignment to the data
-    # Create a resampled image (ACPC aligned) using spline interpolation (?)  # TODO Remove this command if it's unneeded
+    # Create a resampled image (ACPC aligned) using spline interpolation  # TODO Only run this command in debug mode
+    # if j_args["common"]["debug"]:
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",  
                       "-i", averaged_image, "-r", mni_ref_img_path,  # Changed input_img to average_image 2022-06-16
                       "--premat=" + mats["acpc2rigidbody"], "-o", output_img)
@@ -238,16 +238,15 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
     dummy_copy = "_dummy".join(split_2_exts(nifti_corrected_file_path))
     shutil.copy2(nifti_corrected_file_path, dummy_copy)
-    # concat_preBIBSnet_xfms = os.path.join(chiral_out_dir, "{}_concatenated.mat".format("_".join(sub_ses)))  # TODO Give this a more descriptive name? Or just delete it?
-                                                 
+
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
     preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
                                   *sub_ses, "preBIBSnet_crop_T1w_to_BIBS_template.mat") # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
-                      seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet # NOTE postBIBSnet ran until here and then crashed on 2022-03-10 and 2022-03-22
+                      seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
 
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm", "-ref", t1w_path,
-                      "-in", dummy_copy, "-init", seg_to_T1w_nat, # concat_preBIBSnet_xfms,  # TODO -applyxfm might need to be changed to -applyisoxfm with resolution
+                      "-in", dummy_copy, "-init", seg_to_T1w_nat,
                       "-o", nifti_output_file_path, "-interp", "nearestneighbour")
     logger.info(msg.format("Finished", nifti_input_file_path))
     return nifti_output_file_path
@@ -639,6 +638,19 @@ def log_stage_finished(stage_name, event_time, logger):
                 .format(stage_name, datetime.now() - event_time))
 
 
+def make_given_or_default_dir(dirs_dict, dirname_key, default_dirpath):
+    """
+    :param dirs_dict: Dictionary which must map dirname_key to a valid path
+    :param dirname_key: String which dirs_dict must map to a valid path
+    :param default_dirpath: String, valid directory path to map dirname_key to
+                            unless dirname_key's already mapped to another path
+    :return: dirs_dict, but with dirname_key mapped to a valid directory path
+    """
+    dirs_dict = ensure_dict_has(dirs_dict, dirname_key, default_dirpath)
+    os.makedirs(dirs_dict[dirname_key], exist_ok=True)
+    return dirs_dict
+
+
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, logger):
     """
     Check whether the cost function shows that only the registration-T2-to-T1
@@ -662,6 +674,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     # Create symlinks with the same name regardless of which is chosen, so 
     # postBIBSnet can use the correct/chosen .mat file
     concat_mat = optimal_resize["T1w_crop2BIBS_mat"]
+    # TODO Rename T2w_crop2BIBS.mat to T2w_crop_to_T1w_to_BIBS.mat or something
     out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
         j_args["optional_out_dirs"]["postBIBSnet"],
         *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
@@ -670,7 +683,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     print("\nNow linking {0} to {1}\n{0} does {2}exist\n{1} does {3}exist\n".format(concat_mat, out_mat_fpath, "" if os.path.exists(concat_mat) else "not ", "" if os.path.exists(out_mat_fpath) else "not "))
     """
     if not os.path.exists(out_mat_fpath):
-        os.symlink(concat_mat, out_mat_fpath)  # TODO Why hasn't the postBIBSnet dir (that the symlink should be created in) been created yet
+        os.symlink(concat_mat, out_mat_fpath)
     return optimal_resize
                                        
 
@@ -718,8 +731,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     """
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
-    # reg_input_var = "reg_input_T{}w_img"
-    logger.info("Input images for registration:\nT1w: {}\nT2w: {}"
+    logger.info("Input images for T1w registration:\nT1w: {}\nT2w: {}"
                 .format(xfm_vars[reg_input_var.format(1)],
                         xfm_vars[reg_input_var.format(2)]))
 
@@ -727,7 +739,19 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],
                             "cropT2tocropT1": os.path.join(xfm_vars["out_dir"], "cropT2tocropT1.mat")}
 
-    for t in (1, 2):  # TODO Greg made a cleaner version of this entire loop on 2022-04-21 and saved it to his scraps.txt -- waiting to change order based off of Luci's feedback
+    """
+    ACPC Order:
+    1. T1w Save cropped and aligned T1w image 
+    2. T2w Make T2w-to-T1w matrix
+
+    NonACPC Order:
+    1. T1w Make transformed
+    2. T2w Make T2w-to-T1w matrix
+    3. T2w Make transformed
+    """
+    nonACPC_xfm_params_T = dict()
+    for t in (1, 2):
+        # Define paths to registration output files
         registration_outputs["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
             xfm_vars["out_dir"], "crop_T{}w_to_BIBS_template.mat".format(t)
         )
@@ -810,8 +834,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
 
         # Non-ACPC input to registration
         # for keyname in ("crop_", "reg_input_"):
-        
-        xfm_non_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path  # TODO This may be unused
+        xfm_non_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path  # TODO This variable appears to be unused for non-ACPC
         xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
 
         # Non-ACPC outputs to registration
@@ -854,7 +877,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
     # T1w-T2w alignment of ACPC-aligned images
     xfm_ACPC_and_registered_imgs = registration_T2w_to_T1w(
         j_args, logger, xfm_ACPC_vars, reg_in_var, acpc=True
-    )   # TODO Save ACPC T1w and T2w images output from this function to j_args[optional_out_dirs][preBIBSnet]/resized/ACPC_align/ dir
+    )
 
     # TODO End function here and start a new function below? Maybe put everything above in "register_all_preBIBSnet_imgs" and everything below in "apply_final_preBIBSnet_xfm" ?
 
@@ -880,8 +903,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
             run_FSL_sh_script( 
                 j_args, logger, "convert_xfm", "-omat", to_rigidbody_final_mat,
                 "-concat", xfm_ACPC_and_registered_imgs["cropT{}tocropT1".format(t)],
-                acpc2rigidbody,  # Flipped the order of these two on 2022-04-28
-                # TODO Check whether these are concatenated in the wrong order, and whether we should use T1w's acpc2rigidbody
+                acpc2rigidbody
             )
 
         crop2BIBS_mat_symlink = os.path.join(xfm_ACPC_vars["out_dir"],
@@ -936,7 +958,6 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
                           "-o", preBIBS_nonACPC_out["T{}w".format(t)])
 
     # Outputs: 1 .mat file for ACPC and 1 for non-ACPC (only retain the -to-T1w .mat file after this point)
-    # TODO in postBIBSnet, reuse the -to-T1w.mat transform files (these will be the only transforms required) by inverting them
 
     # Return the best of the 2 resized images
     # pdb.set_trace()  # TODO Add "debug" flag?
@@ -965,7 +986,7 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     skip_cmd = False
     if not j_args["common"]["overwrite"]:
         for i in range(len(to_run)):
-            if to_run[i].strip('-') in ("o", "omat", "out"):  # TODO Add -m to skip robustFOV if -m is always an output flag
+            if to_run[i].strip('-') in ("o", "omat", "out", "m"):  # -m to skip robustFOV
                 outputs.append(to_run[i + 1])
         if outputs and all([os.path.exists(output) for output in outputs]):
             skip_cmd = True
@@ -1108,8 +1129,7 @@ def valid_template_filename(fname):
                     lambda y: y, "'{}' is not an .fsf file name")
 
 
-# TODO For nibabies --output-spaces type validation, see https://fmriprep.org/en/latest/spaces.html
-# TODO Use --clean-env flag to prevent contamination of Singularity run by outside environment variables?
+# TODO Use --clean-env flag to prevent contamination of any Singularity run by outside environment variables
 #   https://3.basecamp.com/5032058/buckets/21517584/messages/4545156874
 
 
@@ -1178,7 +1198,7 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
                        "existing_json_file_path": valid_readable_json,
                        "float_0_to_1": valid_float_0_to_1,
                        "new_directory_path": valid_output_dir,
-                       "new_file_path": always_true,  # TODO Make "valid_output_filename" function?
+                       "new_file_path": always_true,  # TODO Make "valid_output_filename" function to ensure that filenames don't have spaces or slashes, and maaaaybe to ensure that the new file's parent directory exists?
                        "optional_new_dirpath": valid_output_dir_or_none,
                        "optional_real_dirpath": valid_output_dir_or_none,
                        "positive_float": valid_positive_float,

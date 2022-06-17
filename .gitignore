@@ -13,3 +13,4 @@ param-file-example.json
 /src/img_processing/recombined_mask_LR.nii.gz
 /src/img_processing/Rmask.nii.gz
 /data/
+**/trained_models
