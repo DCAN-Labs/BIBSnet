@@ -410,8 +410,9 @@ def run_postBIBSnet(j_args, logger):
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
-    derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"],
-                              "precomputed", *sub_ses, "anat")
+    precomputed_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
+                                   "precomputed")
+    derivs_dir = os.path.join(precomputed_dir, *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
     copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
     """
@@ -420,9 +421,13 @@ def run_postBIBSnet(j_args, logger):
             copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")  # TODO Can these be symlinks?
     """
     copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
-        
-    # TODO Get dataset_description.json and put it in derivs_dir
 
+    # Copy dataset_description.json into precomputed directory for nibabies
+    new_data_desc_json = os.path.join(precomputed_dir, "dataset_description.json")
+    if j_args["common"]["overwrite"] or not os.path.exists(new_data_desc_json):
+        shutil.copy2(os.path.join(SCRIPT_DIR, "data",
+                                  "dataset_description.json"), new_data_desc_json)
+        
     logger.info("PostBIBSnet has completed.")
     return j_args
 
