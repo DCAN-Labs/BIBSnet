@@ -614,6 +614,29 @@ def get_subj_ses(j_args):
     return "_".join(get_subj_ID_and_session(j_args))
 
 
+def get_template_age_closest_to(age, templates_dir):
+    template_ages = list()
+    template_ranges = dict()
+
+    # Get list of all int ages (in months) that have template files
+    for tmpl_path in glob(os.path.join(templates_dir,
+                                        "*mo_template_LRmask.nii.gz")):
+        tmpl_age = os.path.basename(tmpl_path).split("mo", 1)[0]
+        if "-" in tmpl_age: # len(tmpl_age) <3:
+            for each_age in tmpl_age.split("-"):
+                template_ages.append(int(each_age))
+                template_ranges[template_ages[-1]] = tmpl_age
+            # template_ages.append(int(tmpl_age.split("-")))
+        else:
+            template_ages.append(int(tmpl_age))
+    
+    # Get template age closest to subject age, then return template age
+    closest_age = template_ages[np.argmin(np.abs(np.array(template_ages)-age))]
+    return (template_ranges[closest_age] if closest_age
+            in template_ranges else str(closest_age)) #final_template_age
+    # template_ages = [os.path.basename(f).split("mo", 1)[0] for f in glob(globber)]
+
+
 def glob_and_copy(dest_dirpath, *path_parts_to_glob):
     """
     Collect all files matching a glob string, then copy those files
