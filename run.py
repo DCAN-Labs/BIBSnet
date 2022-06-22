@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-06-17
+Updated: 2022-06-22
 """
 # Import standard libraries
 import argparse
@@ -137,6 +137,16 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                              "end": cli_args["end"]} 
     sub_ses = get_subj_ID_and_session(j_args)
 
+    # TODO Check whether the script is being run from a container...
+    # - Docker: stackoverflow.com/a/25518538
+    # - Singularity: stackoverflow.com/a/71554776
+    # ...and if it is, then assign default values to these j_args, overwriting user's values:
+    # j_args[common][fsl_bin_path]
+    # j_args[BIBSnet][nnUNet_predict_path]
+    # j_args[BIBSnet][code_dir]
+    # Also, check whether the Docker/Singularity environment variables show up in os.environ for us to use here
+    # print(vars(os.environ))
+
     # Define (and create) default paths in derivatives directory structure for each stage
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
     j_args = ensure_j_args_has_bids_subdirs(j_args, stage_names, sub_ses,
@@ -162,15 +172,19 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                                                                         logger)
     # TODO Figure out which column in the participants.tsv file has age_months
 
+    # Create BIBSnet in/out directories
+    dir_BIBSnet = dict()
+    for io in ("in", "out"):
+        dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                       *sub_ses, "{}put".format(io))
+        os.makedirs(dir_BIBSnet[io], exist_ok=True)
+
     # Save paths to files used by multiple stages:
 
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    in_dir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                                  *sub_ses, "input")
-    os.makedirs(in_dir_BIBSnet, exist_ok=True)
     j_args["optimal_resized"] = {"T{}w".format(t): os.path.join(
-                                     in_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
-                                                     .format("_".join(sub_ses), t-1)
+                                     dir_BIBSnet["in"], "{}_optimal_resized_000{}.nii.gz"
+                                                        .format("_".join(sub_ses), t-1)
                                  ) for t in (1, 2)}
 
     # Check that all required input files exist for the stages to run
@@ -361,7 +375,8 @@ def run_BIBSnet(j_args, logger):
                               "input": dir_BIBS.format("in"),
                               "output": dir_BIBS.format("out"),
                               "task": str(j_args["BIBSnet"]["task"])}
-            run_nnUNet_predict(**inputs_BIBSnet)
+            os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
+            run_nnUNet_predict(inputs_BIBSnet)
         except subprocess.CalledProcessError as e:
             # BIBSnet will crash even after correctly creating a segmentation,
             # so only crash CABINET if that segmentation is not made.
