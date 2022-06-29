@@ -12,7 +12,7 @@ This software provides the utility of creating a [nnU-Net](https://github.com/MI
 
 ## Installation
 
-We highly recommend using the container to run CABINET.
+Developers can benefit from running the application outside of the container for testing. For users interested in producing segmentations, we recommend one use the container instead
 
 ### Container
 
