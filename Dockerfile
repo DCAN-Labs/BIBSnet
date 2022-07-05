@@ -127,5 +127,6 @@ COPY requirements.txt  /home/cabinet/requirements.txt
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
 RUN cd /home/cabinet/ && chmod 555 -R run.py bin src param-file-defaults.json param-file-template.json
+RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task512_BCP_ABCD_Neonates_SynthSegDownsample/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json /home/cabinet/data/dataset_description.json
 
 ENTRYPOINT ["/home/cabinet/run.py"]
