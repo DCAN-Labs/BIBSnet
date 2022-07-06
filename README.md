@@ -9,7 +9,7 @@ This software provides the utility of creating a [nnU-Net](https://github.com/MI
 4. [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html) (FUTURE)
 5. [XCP-D](https://xcp-d.readthedocs.io/en/latest/) (FUTURE)
 
-<img width="500" alt="CABINET_stages" src="https://user-images.githubusercontent.com/102316699/177599666-bae9b12e-1f2b-4b6d-8939-ba91dbb4b131.png">
+<img width="1000" alt="CABINET_stages" src="https://user-images.githubusercontent.com/102316699/177599666-bae9b12e-1f2b-4b6d-8939-ba91dbb4b131.png">
 
 ## Installation
 
