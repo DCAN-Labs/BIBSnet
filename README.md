@@ -9,7 +9,7 @@ This software provides the utility of creating a [nnU-Net](https://github.com/MI
 4. [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html) (FUTURE)
 5. [XCP-D](https://xcp-d.readthedocs.io/en/latest/) (FUTURE)
 
-[<img src="https://user-images.githubusercontent.com/102316699/177625091-19c67608-58d7-4e78-9802-40be01551ad4.png" width="800"/>](https://user-images.githubusercontent.com/102316699/177625091-19c67608-58d7-4e78-9802-40be01551ad4.png)
+![CABINET - Stages for MRI Processing (1)](https://user-images.githubusercontent.com/102316699/177628771-5c5acc67-4940-4df5-9d1a-b7c7c064e434.png)
 
 ## Installation
 
