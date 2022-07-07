@@ -57,6 +57,51 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
                             you are running the script as a SLURM/SBATCH job.
 
 #TODO EXPLAIN PARAM FILE FIELDS
+### Paramater file fields
+     {
+    "common": {
+        "age_months": 4,
+        "bids_dir": "/home/feczk001/shared/projects/BIBSnet_testing/input",
+        "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
+        "overwrite": true,
+        "participant_label": "380056",
+        "session": "4mo",
+        "task_id": null,
+        "verbose": true
+    },
+
+    "optional_out_dirs": {
+        "derivatives": "/home/feczk001/shared/projects/BIBSnet_testing/input/derivatives",
+        "preBIBSnet": null,
+        "BIBSnet": null,
+        "postBIBSnet": null,
+        "nibabies": null,
+        "XCPD": null
+    },
+
+    "resource_management": {
+        "mem_mb": null,
+        "n_cpus": null,
+        "nipype_plugin_file": null,
+        "nthreads": null,
+        "omp_nthreads": null,
+        "resource_monitor": null
+    },
+
+    "preBIBSnet": {
+        "brain_z_size": 150,
+        "averaged_dir": "averaged",
+        "cropped_dir": "cropped",
+        "resized_dir": "resized"
+    },
+
+    "BIBSnet": {
+        "model": "3d_fullres",
+        "nnUNet_predict_path": "/home/support/public/torch_cudnn8.2/bin/nnUNet_predict",
+        "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet",
+        "singularity_image_path": "/home/feczk001/gconan/placeholder.txt",
+        "task": "512"
+    },
 
 ### Container
 
