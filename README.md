@@ -61,12 +61,12 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 
      {
     "common": {
-        "age_months": 4,
-        "bids_dir": "/home/feczk001/shared/projects/BIBSnet_testing/input",
-        "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
-        "overwrite": true,
-        "participant_label": "380056",
-        "session": "4mo",
+        "age_months": *participant's age in months* **ex: 4**,
+        "bids_dir": *"/path/to/bids/directory"*,
+        "fsl_bin_path": **ex: "/panfs/roc/msisoft/fsl/6.0.2/bin/"**,
+        "overwrite": *option to overwrite previous derviatives* **ex: true**,
+        "participant_label": *participant-ID#* **ex: "380056"**,
+        "session": *session ID* **ex: "4mo"**,
         "task_id": null,
         "verbose": true
     },
