@@ -57,7 +57,7 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
                             you are running the script as a SLURM/SBATCH job.
 
 #TODO EXPLAIN PARAM FILE FIELDS
-### Paramater file fields
+Paramater file fields: segmentation container
      {
     "common": {
         "age_months": 4,
