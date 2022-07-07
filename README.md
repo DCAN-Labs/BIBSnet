@@ -57,22 +57,22 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
                             you are running the script as a SLURM/SBATCH job.
 
 #TODO EXPLAIN PARAM FILE FIELDS
-#### Paramater file fields: segmentation container
+#### Example paramater file fields: segmentation container
 
-     {
+    {
     "common": {
-        "age_months": *participant's age in months* **ex: 4**,
-        "bids_dir": *"/path/to/bids/directory"*,
-        "fsl_bin_path": **ex: "/panfs/roc/msisoft/fsl/6.0.2/bin/"**,
-        "overwrite": *option to overwrite previous derviatives* **ex: true**,
-        "participant_label": *participant-ID#* **ex: "380056"**,
-        "session": *session ID* **ex: "4mo"**,
+        "age_months": change,
+        "bids_dir": "path/to/bids/input",
+        "fsl_bin_path": "/opt/fsl-6.0.5.1/bin/",
+        "overwrite": true,
+        "participant_label": "sub-ID#",
+        "session": "ses-ID",
         "task_id": null,
         "verbose": true
     },
 
     "optional_out_dirs": {
-        "derivatives": "/home/feczk001/shared/projects/BIBSnet_testing/input/derivatives",
+        "derivatives": "path/to/output",
         "preBIBSnet": null,
         "BIBSnet": null,
         "postBIBSnet": null,
@@ -90,7 +90,7 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
     },
 
     "preBIBSnet": {
-        "brain_z_size": 150,
+        "brain_z_size": change,
         "averaged_dir": "averaged",
         "cropped_dir": "cropped",
         "resized_dir": "resized"
@@ -98,8 +98,8 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 
     "BIBSnet": {
         "model": "3d_fullres",
-        "nnUNet_predict_path": "/home/support/public/torch_cudnn8.2/bin/nnUNet_predict",
-        "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet",
+        "nnUNet_predict_path": "/opt/conda/bin/nnUNet_predict",
+        "code_dir": "/home/cabinet/SW/BIBSnet",
         "singularity_image_path": "/home/feczk001/gconan/placeholder.txt",
         "task": "512"
     },
