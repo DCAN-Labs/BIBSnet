@@ -1,8 +1,9 @@
-# CABINET:
+# CABINET
 
 This software provides the utility of creating a [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html). 
 
 ## Stages
+
 1. PreBIBSnet
 2. BIBSnet
 3. PostBIBSnet
@@ -45,46 +46,47 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
     optional arguments:
       -h, --help            show this help message and exit
       -start, --starting-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
-      -end, --ending-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
+      -end, --ending-stage     {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
       --script-dir SCRIPT_DIR
                             Valid path to the existing parent directory of this
                             run.py script. Include this argument if and only if
                             you are running the script as a SLURM/SBATCH job.
 
 #### Example paramater file fields: segmentation container
+
 ##### "common": parameters used by multiple stages within CABINET
 
-- `"age_months"`: positive integer, the participants age in months. For example, `5` would mean the participant is 5 months old
-- `"bids_dir"`: string, valid absolute path to existing BIDS base study directory. Example: `"path/to/bids/input"`
-- `"fsl_bin_path"`: string, valid absolute path to existing `bin` directory in [FreeSurferLearner (FSL)](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
-- `"overwrite"`: boolean, `true` to overwrite any previous CABINET outputs in the derivatives sub-directories, or `false` to skip creating any CABINET output files that already exist in the derivatives sub-directories 
+- `"age_months"`: positive integer, the participant's age in months. For example, `5` would mean the participant is 5 months old
+- `"bids_dir"`: string, a valid absolute path to existing BIDS base study directory. Example: `"path/to/bids/input"`
+- `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FreeSurferLearner (FSL)](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
+- `"overwrite"`: boolean, `true` to overwrite any previous CABINET outputs in the derivatives sub-directories, or `false` to skip creating any CABINET output files that already exist in the sub-directories of `derivatives`
 - `"participant_label"`: string, the participant's unique subject identifier. Example: `"ABC12345"`
-- `"session"`: string, the name of the session to processes particpant data for. This parameter may be combined with `"age_months"` in the future. Example: `"ses-ID"`
-- `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non task data. Example: `nback`
-- `"verbose"`: boolean, `true` to print detailed information and every command being run by CABINET. `false` to not print this information
+- `"session"`: string, the name of the session to processes particapant data for. This parameter may be combined with `"age_months"` in the future. Example: `"10mo"`
+- `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback`
+- `"verbose"`: boolean, `true` to print detailed information and every command being run by CABINET or `false` to not print this information
    
 ##### "optional_out_dirs": path to and names of CABINET output directories 
-- `"derivatives"`:  string, valid path to the directory to save the eventual CABINET outputs to. Example: `"/path/to/output/derivatives"`
-- `"preBIBSnet"`: string, valid path to preBIBSnet output directory, or `null` to save preBIBSnet outputs into `preBIBSnet` sub-directory in `derivatives` directory. 
-- `"BIBSnet"`: string, valid path to BIBSnet output directory, or `null` to save BIBSnet outputs into `BIBSnet` sub-directory in `derivatives` directory.,
-- `"postBIBSnet"`: string, valid path to postBIBSnet output directory, or `null` to save postBIBSnet outputs into `postBIBSnet` sub-directory in `derivatives` directory.,
-- `"nibabies"`: string, valid path to nibabies output directory, or `null` to save nibabies outputs into `nibabies` sub-directory in `derivatives` directory.,
-- `"XCPD"`: string, valid path to XCPD output directory, or `null` to save XCPD outputs into `XCPD` sub-directory in `derivatives` directory.
+- `"derivatives"`:  string, a valid path to the directory to save the eventual CABINET outputs to. Example: `"/path/to/output/derivatives"`
+- `"preBIBSnet"`: string, a valid path to preBIBSnet output directory, or `null` to save preBIBSnet outputs into `preBIBSnet` sub-directory in `derivatives` directory. 
+- `"BIBSnet"`: string, a valid path to BIBSnet output directory, or `null` to save BIBSnet outputs into `BIBSnet` sub-directory in `derivatives` directory.
+- `"postBIBSnet"`: string, a valid path to postBIBSnet output directory, or `null` to save postBIBSnet outputs into `postBIBSnet` sub-directory in `derivatives` directory.
+- `"nibabies"`: string, a valid path to nibabies output directory, or `null` to save nibabies outputs into `nibabies` sub-directory in `derivatives` directory.
+- `"XCPD"`: string, a valid path to XCPD output directory, or `null` to save XCPD outputs into `XCPD` sub-directory in `derivatives` directory.
 
 ##### "resource_management": parameters to determine resource use when running parallel scripts. These parameters are only needed for nibabies and XCPD.
         
 ##### "preBIBSnet": parameters used only for the preBIBSnet stage 
-- `"brain_z_size"`: positive integer, the size of the participant's brain along the z axis in mm. Example; `110`
-- `"averaged_dir"`: string, naming the directory to save averaged brain image into. Example: `"averaged"`
-- `"cropped_dir"`: string, naming the directory to save cropped brain image into. Example: `"cropped"`
-- `"resized_dir"`: string, naming the directory to save resized brain image into. Example: `"resized"`
+- `"brain_z_size"`: positive integer, the size of the participant's brain along the z axis in mm. Example: `110`
+- `"averaged_dir"`: string naming the directory to save averaged brain image into. Example: `"averaged"`
+- `"cropped_dir"`: string naming the directory to save cropped brain image into. Example: `"cropped"`
+- `"resized_dir"`: string naming the directory to save resized brain image into. Example: `"resized"`
 
 ##### "BIBSnet": parameters used only for the BIBSnet stage
-- `"model"`: string, model to run. Example: `"3d_fullres"`
-- `"nnUNet_predict_path"`: string, valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
-- `"code_dir"`: string, valid path to directory containing BIBSnet python wrapper `run.py`. Example: `"/home/cabinet/SW/BIBSnet"`
-- `"singularity_image_path"`: string, valid path to BIBSnet singularity image `.sif` file: Example: `"/home/cabinet/user/bibsnet.sif"`
-- `"task"`: string, the name of the BIBSnet task performed by the participant to processes data for. Examples: `"512"`
+- `"model"`: string, the model to run. Example: `"3d_fullres"`
+- `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
+- `"code_dir"`: string, a valid path to directory containing BIBSnet python wrapper `run.py`. Example: `"/home/cabinet/SW/BIBSnet"`
+- `"singularity_image_path"`: string, a valid path to BIBSnet singularity image `.sif` file: Example: `"/home/cabinet/user/bibsnet.sif"`
+- `"task"`: string naming the BIBSnet task performed by the participant to processes data for. Examples: `"512"`
 
 ##### "nibabies": [see here](https://nibabies.readthedocs.io/en/latest/index.html)
 
