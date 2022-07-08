@@ -44,8 +44,8 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 
     optional arguments:
       -h, --help            show this help message and exit
-      -start {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}, --starting-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
-      -end {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}, --ending-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
+      -start, --starting-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
+      -end, --ending-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
       --script-dir SCRIPT_DIR
                             Valid path to the existing parent directory of this
                             run.py script. Include this argument if and only if
@@ -95,9 +95,11 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 
 The job typically takes about 45 minutes, 20 tasks, and one node with 40 gb of memory to run effectively. Less memory could result in holes in the segmentation produced by BIBSnet.
 
+This has been primarily tested in Singularity. We are less able to provide technical support for Docker execution.
+
 #### Docker
 
-    docker run --rm -e DOCKER_VERSION_8395080871=20.10.6 -it \
+    docker run --rm -it \
     -v /path/to/input:/input \
     -v /path/to/output:/out \
     -v /path/to/param_file.json:param_file.json \
