@@ -1,4 +1,4 @@
-# CABINET : Connectome XCP-D (ABCD-XCP) Infant nnuNET
+# CABINET:
 
 This software provides the utility of creating a [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html). 
 
