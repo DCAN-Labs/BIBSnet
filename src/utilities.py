@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-06-09
+Updated: 2022-06-17
 """
 # Import standard libraries
 import argparse
@@ -34,7 +34,8 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 # NOTE All functions below are in alphabetical order.
 
 
-def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
+def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
+                     averaged_image):
     """ 
     Functionality copied from the DCAN Infant Pipeline:
     github.com/DCAN-Labs/dcan-infant-pipeline/blob/master/PreFreeSurfer/scripts/ACPCAlignment_with_crop.sh
@@ -50,7 +51,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
              respective paths
     """
     # Get paths to ACPC ref image, output dir, output images, and .mat files
-    mni_ref_img_path = xfm_ACPC_vars["ref_ACPC"].format(t)
+    mni_ref_img_path = xfm_ACPC_vars["ref_img"].format(t)
     work_dir = xfm_ACPC_vars["out_dir"]  # Working directory for ACPC alignment
     input_img = xfm_ACPC_vars["crop_T{}w_img".format(t)]  # Cropped img, ACPC input
     output_img =  xfm_ACPC_vars[output_var.format(t)]  # ACPC-aligned image
@@ -72,7 +73,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
         j_args, logger, "convert_xfm", "-omat", mats["full2acpc"],
-        "-concat", mats["full2crop"], mats["crop2acpc"]
+        "-concat", mats["crop2acpc"], mats["full2crop"]
     )
 
     run_FSL_sh_script(  # TODO This successfully created an ACPC-aligned image on 2022-06-14 (?); the problem was using the MNI reference image multiple times and the solution is using the input image as a reference image
@@ -95,10 +96,9 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t):
     # Create a resampled image (ACPC aligned) using spline interpolation  # TODO Only run this command in debug mode
     # if j_args["common"]["debug"]:
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel", "--interp=spline",  
-                      "-i", input_img, "-r", mni_ref_img_path,
-                      "--premat=" + mats["acpc2rigidbody"], "-o", output_img)  # TODO This is overcropped 2022-06-14
-
-    pdb.set_trace()  # TODO Add "debug" flag?  # TODO COMMENT OUT
+                      "-i", averaged_image, "-r", mni_ref_img_path,  # Changed input_img to average_image 2022-06-16
+                      "--premat=" + mats["acpc2rigidbody"], "-o", output_img)
+    # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
 
 
@@ -624,6 +624,29 @@ def get_subj_ses(j_args):
     return "_".join(get_subj_ID_and_session(j_args))
 
 
+def get_template_age_closest_to(age, templates_dir):
+    template_ages = list()
+    template_ranges = dict()
+
+    # Get list of all int ages (in months) that have template files
+    for tmpl_path in glob(os.path.join(templates_dir,
+                                        "*mo_template_LRmask.nii.gz")):
+        tmpl_age = os.path.basename(tmpl_path).split("mo", 1)[0]
+        if "-" in tmpl_age: # len(tmpl_age) <3:
+            for each_age in tmpl_age.split("-"):
+                template_ages.append(int(each_age))
+                template_ranges[template_ages[-1]] = tmpl_age
+            # template_ages.append(int(tmpl_age.split("-")))
+        else:
+            template_ages.append(int(tmpl_age))
+    
+    # Get template age closest to subject age, then return template age
+    closest_age = template_ages[np.argmin(np.abs(np.array(template_ages)-age))]
+    return (template_ranges[closest_age] if closest_age
+            in template_ranges else str(closest_age)) #final_template_age
+    # template_ages = [os.path.basename(f).split("mo", 1)[0] for f in glob(globber)]
+
+
 def glob_and_copy(dest_dirpath, *path_parts_to_glob):
     """
     Collect all files matching a glob string, then copy those files
@@ -770,38 +793,32 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
             xfm_vars["out_dir"], "T{}w_to_BIBS.nii.gz".format(t)
         )
 
-        # Define parameters in FSL commands making transformed images
-        nonACPC_xfm_params_T[t] = (
-            j_args, logger, "flirt",
-            "-in", (xfm_vars[reg_input_var.format(t)] if t == 1
-                    else registration_outputs["T2w"]),  # Input: Cropped image
-            "-ref", xfm_vars["ref_ACPC"].format(1),
-            "-applyisoxfm", xfm_vars["resolution"],
-            "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
-            "-o", registration_outputs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
-            "-omat", registration_outputs["T{}w_crop2BIBS_mat".format(t)]
-        )
+        if t == 2:  # Make T2w-to-T1w matrix
+            run_FSL_sh_script(j_args, logger, "flirt",
+                            "-ref", xfm_vars[reg_input_var.format(1)],
+                            "-in", xfm_vars[reg_input_var.format(2)],
+                            "-omat", registration_outputs["cropT2tocropT1"],
+                            "-out", registration_outputs["T2w"],
+                            '-cost', 'mutualinfo',
+                            '-searchrx', '-15', '15', '-searchry', '-15', '15',
+                            '-searchrz', '-15', '15', '-dof', '6')  # Added changes suggested by Luci on 2022-03-30
 
-    # Make transformed T1w image
-    if acpc:
-        shutil.copy2(xfm_vars[reg_input_var.format(1)],
-                     registration_outputs["T1w"])
-    else:
-        run_FSL_sh_script(*nonACPC_xfm_params_T[1])
+        elif acpc:  # Save cropped and aligned T1w image 
+            shutil.copy2(xfm_vars[reg_input_var.format(1)],
+                         registration_outputs["T1w"])
 
-    # Make transformed T2w image
-    run_FSL_sh_script(j_args, logger, "flirt",
-                      "-ref", xfm_vars[reg_input_var.format(1)],
-                      "-in", xfm_vars[reg_input_var.format(2)],
-                      "-omat", registration_outputs["cropT2tocropT1"],
-                      "-out", registration_outputs["T2w"],
-                      '-cost', 'mutualinfo',
-                      '-searchrx', '-15', '15', '-searchry', '-15', '15',
-                      '-searchrz', '-15', '15', '-dof', '6')
-    if not acpc:
-        run_FSL_sh_script(*nonACPC_xfm_params_T[2])
-
-    pdb.set_trace()  # TODO Add "debug" flag?  # TODO COMMENT OUT
+        # Make transformed T1ws and T2ws
+        if not acpc:  # TODO Should this go in its own function?
+            run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
+                j_args, logger, "flirt",
+                "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
+                "-ref", xfm_vars["ref_img"].format(t),
+                "-applyisoxfm", xfm_vars["resolution"],
+                "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
+                "-o", registration_outputs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
+                "-omat", registration_outputs["T{}w_crop2BIBS_mat".format(t)]
+            )
+    # pdb.set_trace()  # TODO Add "debug" flag?
     return registration_outputs
 
 
@@ -814,7 +831,7 @@ def reshape_volume_to_array(array_img):
     return image_data.flatten()
 
 
-def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
+def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
                   crop2full, averaged_imgs, j_args, logger):
     """
     Resize the images to match the dimensions of images trained in the model,
@@ -839,7 +856,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
     # without ACPC alignment
     xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
                          "resolution": "1", "ident_mx": ident_mx,
-                         **ref_images} # "ref_img": ref_img_path,
+                         "ref_img": ref_image}
     xfm_ACPC_vars = xfm_non_ACPC_vars.copy()
     xfm_ACPC_vars["out_dir"] = os.path.join(output_dir, "ACPC_align")
     out_var = "output_T{}w_img"
@@ -886,7 +903,8 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
 
         # Run ACPC alignment
         xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
-            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t 
+            j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t,
+            averaged_imgs["T{}w_avg".format(t)]
         )
 
     # T1w-T2w alignment of ACPC-aligned images
@@ -936,7 +954,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # Apply registration and ACPC alignment to the T1ws and the T2ws
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel", 
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)],
-                          "-r", averaged_imgs["T{}w_avg".format(t)], # xfm_ACPC_vars["ref_ACPC"].format(t),
+                          "-r", xfm_ACPC_vars["ref_img"].format(t),
                           "--premat=" + crop2BIBS_mat_symlink, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
                           "-o", preBIBS_ACPC_out["T{}w".format(t)])
         # pdb.set_trace()  # TODO Add "debug" flag?
@@ -972,7 +990,7 @@ def resize_images(cropped_imgs, output_dir, ref_images, ident_mx,
         # Apply registration to the T1ws and the T2ws
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)], # cropped_imgs[t],
-                          "-r", xfm_non_ACPC_vars["ref_ACPC"].format(t),
+                          "-r", xfm_non_ACPC_vars["ref_img"].format(t),
                           "--premat=" + preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)],  # full2BIBS_mat, # 
                           "-o", preBIBS_nonACPC_out["T{}w".format(t)])
 

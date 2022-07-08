@@ -5,9 +5,8 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-05-31
+Updated: 2022-06-22
 """
-
 # Import standard libraries
 import argparse
 from datetime import datetime
@@ -47,9 +46,9 @@ from src.utilities import (
     as_cli_attr, as_cli_arg, correct_chirality, create_anatomical_average,
     crop_image, dict_has, dilate_LR_mask, exit_with_time_info,
     extract_from_json, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
-    get_stage_name, get_subj_ID_and_session, make_given_or_default_dir,
-    resize_images, run_all_stages, valid_readable_json,
-    validate_parameter_types, valid_readable_dir, will_run_stage
+    get_stage_name, get_subj_ID_and_session, get_template_age_closest_to,
+    make_given_or_default_dir, resize_images, run_all_stages,
+    valid_readable_json, validate_parameter_types, valid_readable_dir
 )
 
 
@@ -95,6 +94,7 @@ def get_params_from_JSON(stage_names, logger):
     """
     msg_json = "Valid path to existing readable parameter .json file."
     parser = argparse.ArgumentParser()
+    # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
     parser.add_argument(
         "parameter_json", type=valid_readable_json,
         help=("{} See README.md for more information on parameters."
@@ -104,7 +104,7 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=stage_names, default=stage_names[0]
+        choices=stage_names, default=stage_names[0]   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -137,6 +137,16 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                              "end": cli_args["end"]} 
     sub_ses = get_subj_ID_and_session(j_args)
 
+    # TODO Check whether the script is being run from a container...
+    # - Docker: stackoverflow.com/a/25518538
+    # - Singularity: stackoverflow.com/a/71554776
+    # ...and if it is, then assign default values to these j_args, overwriting user's values:
+    # j_args[common][fsl_bin_path]
+    # j_args[BIBSnet][nnUNet_predict_path]
+    # j_args[BIBSnet][code_dir]
+    # Also, check whether the Docker/Singularity environment variables show up in os.environ for us to use here
+    # print(vars(os.environ))
+
     # Define (and create) default paths in derivatives directory structure for each stage
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
     j_args = ensure_j_args_has_bids_subdirs(j_args, stage_names, sub_ses,
@@ -162,15 +172,19 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                                                                         logger)
     # TODO Figure out which column in the participants.tsv file has age_months
 
+    # Create BIBSnet in/out directories
+    dir_BIBSnet = dict()
+    for io in ("in", "out"):
+        dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+                                       *sub_ses, "{}put".format(io))
+        os.makedirs(dir_BIBSnet[io], exist_ok=True)
+
     # Save paths to files used by multiple stages:
 
     # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    in_dir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
-                                  *sub_ses, "input")
-    os.makedirs(in_dir_BIBSnet, exist_ok=True)
     j_args["optimal_resized"] = {"T{}w".format(t): os.path.join(
-                                     in_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
-                                                     .format("_".join(sub_ses), t-1)
+                                     dir_BIBSnet["in"], "{}_optimal_resized_000{}.nii.gz"
+                                                        .format("_".join(sub_ses), t-1)
                                  ) for t in (1, 2)}
 
     # Check that all required input files exist for the stages to run
@@ -233,17 +247,22 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, parser):
 
     # For each stage that will be run, verify that its prereq input files exist
     all_stages = [s for s in stage_prerequisites.keys()]
-    for stage in all_stages:
-        if will_run_stage(stage, j_args["stage_names"]["start"],
-                          j_args["stage_names"]["end"], all_stages):
-            missing_files = list()
-            for globbable in stage_prerequisites[stage]:
-                if not glob(globbable):
-                    missing_files.append(globbable)
-            if missing_files:
-                parser.error("The file(s) below are needed to run the {} stage, "
-                            "but they do not exist.\n{}\n"
-                            .format(stage, "\n".join(missing_files)))
+
+    # required_files = stage_prerequisites[j_args["stage_names"]["start"]]
+    start_ix = all_stages.index(j_args["stage_names"]["start"]) 
+    for stage in all_stages[:start_ix+1]:
+
+        # if stage == j_args["stage_names"]["start"]:
+        # if will_run_stage(stage, j_args["stage_names"]["start"], j_args["stage_names"]["end"], all_stages):
+
+        missing_files = list()
+        for globbable in stage_prerequisites[stage]:
+            if not glob(globbable):
+                missing_files.append(globbable)
+        if missing_files:
+            parser.error("The file(s) below are needed to run the {} stage, "
+                        "but they do not exist.\n{}\n"
+                        .format(stage, "\n".join(missing_files)))
 
 
 def read_age_from_participants_tsv(j_args, logger):
@@ -301,15 +320,12 @@ def run_preBIBSnet(j_args, logger):
 
     # Resize T1w and T2w images 
     # TODO Make ref_img an input parameter if someone wants a different reference image?
-    reference_imgs = {  # TODO Pipeline should verify that these exist before running
-        "ref_ACPC": os.path.join(SCRIPT_DIR, "data", "MNI_templates",
-                                 "INFANT_MNI_T{}_1mm.nii.gz"),
-        # "ref_non_ACPC": os.path.join(SCRIPT_DIR, "data", "test_subject_data", "1mo", "sub-00006_T1w_BIBS_dc_restore.nii.gz")
-    }
+    reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
+                                 "INFANT_MNI_T{}_1mm.nii.gz") # TODO Pipeline should verify that these exist before running
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
 
     transformed_images = resize_images(
-        cropped, preBIBSnet_paths["resized"], reference_imgs, 
+        cropped, preBIBSnet_paths["resized"], reference_img, 
         id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
     )
     logger.info(completion_msg.format("resized"))
@@ -345,23 +361,38 @@ def run_BIBSnet(j_args, logger):
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
         sys.path.append(parent_BIBSnet)
         from BIBSnet.run import run_nnUNet_predict
+        
+        
+        # TODO test functionality of importing BIBSNet function via params json (j_args)
+        #parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+        #logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
+        #sys.path.append("/home/cabinet/SW/BIBSnet")
+        #from BIBSnet.run import run_nnUNet_predict
 
-        # Activate conda environment to get paths for nnU-Net  # TODO Find a better way to do this (and/or replace hardcoded paths)
-        os.environ["nnUNet_raw_data_base"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/"
-        os.environ["nnUNet_preprocessed"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
-        os.environ["RESULTS_FOLDER"]="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
-        """
-        module load gcc cuda/11.2
-        source /panfs/roc/msisoft/anaconda/anaconda3-2018.12/etc/profile.d/conda.sh
-        conda activate /home/support/public/torch_cudnn8.2
-        """  # TODO 
+        try:  # Run BIBSnet
+            inputs_BIBSnet = {"model": j_args["BIBSnet"]["model"],
+                              "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
+                              "input": dir_BIBS.format("in"),
+                              "output": dir_BIBS.format("out"),
+                              "task": str(j_args["BIBSnet"]["task"])}
+            os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
+            run_nnUNet_predict(inputs_BIBSnet)
+        except subprocess.CalledProcessError as e:
+            # BIBSnet will crash even after correctly creating a segmentation,
+            # so only crash CABINET if that segmentation is not made.
+            outfpath = os.path.join(dir_BIBS.format("out"),
+                                    "{}_{}_optimal_resized.nii.gz".format(*sub_ses))
+            if not os.path.exists(outfpath):
+                logger.error("BIBSnet failed to create this segmentation file...\n{}\n...from these inputs:\n{}".format(outfpath, inputs_BIBSnet))
+                sys.exit(e)
 
-        # Run BIBSnet
-        run_nnUNet_predict({"model": j_args["BIBSnet"]["model"],
-                            "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
-                            "input": dir_BIBS.format("in"),
-                            "output": dir_BIBS.format("out"),
-                            "task": str(j_args["BIBSnet"]["task"])})
+    
+        # TODO hardcoded below call to run_nnUNet_predict. Will likely want to change and integrate into j_args
+        #run_nnUNet_predict({"model": "3d_fullres",
+        #                    "nnUNet": "/opt/conda/bin/nnUNet_predict",
+        #                    "input": dir_BIBS.format("in"),
+        #                    "output": dir_BIBS.format("out"),
+        #                    "task": str(512)})
     logger.info("BIBSnet has completed")
     return j_args
 
@@ -377,12 +408,18 @@ def run_postBIBSnet(j_args, logger):
     # Template selection values
     age_months = j_args["common"]["age_months"]
     logger.info("Age of participant: {} months".format(age_months))
-    if age_months > 33:
-        age_months = "34-38"
+
+    # Get template closest to age
+    tmpl_age = get_template_age_closest_to(
+        age_months, os.path.join(SCRIPT_DIR, "data", "chirality_masks")
+    )
+    if j_args["common"]["verbose"]:
+        logger.info("Closest template-age is {} months".format(tmpl_age))
+    # if age_months > 33: age_months = "34-38"
 
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
-        j_args, sub_ses, age_months, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
+        j_args, sub_ses, tmpl_age, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
     )
     logger.info("Left/right image registration completed")
 
@@ -403,8 +440,9 @@ def run_postBIBSnet(j_args, logger):
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
-    derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"],
-                              "precomputed", *sub_ses, "anat")
+    precomputed_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
+                                   "precomputed")
+    derivs_dir = os.path.join(precomputed_dir, *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
     copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
     """
@@ -413,9 +451,13 @@ def run_postBIBSnet(j_args, logger):
             copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")  # TODO Can these be symlinks?
     """
     copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
-        
-    # TODO Get dataset_description.json and put it in derivs_dir
 
+    # Copy dataset_description.json into precomputed directory for nibabies
+    new_data_desc_json = os.path.join(precomputed_dir, "dataset_description.json")
+    if j_args["common"]["overwrite"] or not os.path.exists(new_data_desc_json):
+        shutil.copy2(os.path.join(SCRIPT_DIR, "data",
+                                  "dataset_description.json"), new_data_desc_json)
+        
     logger.info("PostBIBSnet has completed.")
     return j_args
 
@@ -451,13 +493,18 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
     msg = "{} left/right registration on {}"
     if (j_args["common"]["overwrite"] or not
             os.path.exists(left_right_mask_nifti_fpath)):
-        logger.info(msg.format("Running", first_subject_head))
+        # logger.info(msg.format("Running", first_subject_head))
         try:
             # SubjectHead TemplateHead TemplateMask OutputMaskFile
-            subprocess.check_call((LR_REGISTR_PATH, first_subject_head,
-                                   tmpl_head.format(age_months, t1or2),
-                                   tmpl_mask.format(age_months),
-                                   left_right_mask_nifti_fpath))
+            cmd_LR_reg = (LR_REGISTR_PATH, first_subject_head,
+                        tmpl_head.format(age_months, t1or2),
+                        tmpl_mask.format(age_months),
+                        left_right_mask_nifti_fpath)
+            if j_args["common"]["verbose"]:
+                logger.info(msg.format("Now running", "\n".join(
+                    (first_subject_head, " ".join(cmd_LR_reg))
+                )))
+            subprocess.check_call(cmd_LR_reg)
 
         # Tell the user if ANTS crashes due to a memory error
         except subprocess.CalledProcessError as e:
@@ -472,6 +519,7 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
         )))
     logger.info(msg.format("Finished", first_subject_head))  # TODO Only print this message if not skipped (and do the same for all other stages)
     return left_right_mask_nifti_fpath
+    
 
 
 def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
