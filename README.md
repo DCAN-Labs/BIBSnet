@@ -27,11 +27,6 @@ Container hosted here:
 
     docker pull path/to/docker/image
 
-### Application
-
-Set up CABINET environment: requirements.txt
-
-Set up nnU-Net environment:
 
 ## Usage
 
