@@ -240,7 +240,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     shutil.copy2(nifti_corrected_file_path, dummy_copy)
 
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
-    preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+    preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
                                   *sub_ses, "preBIBSnet_crop_T1w_to_BIBS_template.mat") # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
                       seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
@@ -305,7 +305,7 @@ def crop_image(input_avg_img, output_crop_img, j_args, logger):
     crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
     run_FSL_sh_script(j_args, logger, "robustfov", "-i", input_avg_img, 
                       "-m", crop2full, "-r", output_crop_img,
-                      "-b", j_args["preBIBSnet"]["brain_z_size"])  # TODO Use head radius for -b
+                      "-b", j_args["prebibsnet"]["brain_z_size"])  # TODO Use head radius for -b
     return crop2full
 
 
@@ -475,9 +475,9 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
 
     # Get and make working directories to run pre-BIBSnet processing in
     preBIBSnet_paths = {"parent": os.path.join(
-                            j_args["optional_out_dirs"]["preBIBSnet"], *sub_ses
+                            j_args["optional_out_dirs"]["prebibsnet"], *sub_ses
                         )}
-    for jarg, work_dirname in j_args["preBIBSnet"].items():
+    for jarg, work_dirname in j_args["prebibsnet"].items():
 
         # Just get the preBIBSnet parameters that are subdirectories
         split = jarg.split("_")
@@ -579,7 +579,7 @@ def get_stage_name(stage_fn):
                      with "run_", e.g. "run_nibabies" or "run_preBIBSnet"
     :return: String naming the CABINET stage to run
     """
-    return stage_fn.__name__[4:]
+    return stage_fn.__name__[4:].lower()
 
 
 def get_sub_base(j_args, run_num=None):
@@ -699,7 +699,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     concat_mat = optimal_resize["T1w_crop2BIBS_mat"]
     # TODO Rename T2w_crop2BIBS.mat to T2w_crop_to_T1w_to_BIBS.mat or something
     out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
-        j_args["optional_out_dirs"]["postBIBSnet"],
+        j_args["optional_out_dirs"]["postbibsnet"],
         *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
     )
     """
@@ -1216,6 +1216,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :param stage_names: List of strings; each names a stage to run
     """
+    print(stage_names)
+
     # Define functions to validate arguments of each data type
     type_validators = {"bool": bool, "int": int,
                        "existing_directory_path": valid_readable_dir,
@@ -1232,7 +1234,7 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
 
     required_for_stage = {
         "nibabies": ["cifti_output", "fd_radius", "work_dir"],
-        "XCPD": ["cifti", "combineruns", "fd_thresh",
+        "xcpd": ["cifti", "combineruns", "fd_thresh",
                  "head_radius", "input_type"]
     }
 
@@ -1241,7 +1243,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
 
     # Verify parameters in each section
     to_delete = list()
-    for section_name, section_dict in j_types.items():
+    for section_orig_name, section_dict in j_types.items():
+        section_name = section_orig_name.lower()  # TODO Should we change parameter types .JSON file to make section names already lowercase?
 
         # Skip the j_args sections for stages not being run
         if section_name in stage_names and section_name in after_end:
@@ -1251,6 +1254,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
         # Only include resource_management if we're in SLURM/SBATCH job(s)
         elif not (section_name == "resource_management"
                   and not j_args["meta"]["slurm"]):
+
+            print(section_name)
 
             # Validate every parameter in the section
             for arg_name, arg_type in section_dict.items():

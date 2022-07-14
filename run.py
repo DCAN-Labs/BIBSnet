@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-06-22
+Updated: 2022-07-12
 """
 # Import standard libraries
 import argparse
@@ -60,7 +60,7 @@ def main():
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
               run_XCPD]
     json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
-                                     logger)
+                                     logger)  # TODO Un-capitalize "BIBS" everywhere (except import BIBSnet.run?)
     if json_args["common"]["verbose"]:
         logger.info("Parameters from input .JSON file:\n{}"
                     .format(json_args))
@@ -92,23 +92,28 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
-    msg_json = "Valid path to existing readable parameter .json file."
+    msg_stage = ("Name of the stage to run {}. By default, this will be "
+                 "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser()
     # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
     parser.add_argument(
         "parameter_json", type=valid_readable_json,
-        help=("{} See README.md for more information on parameters."
-              .format(msg_json))
-        # TODO: Add description of every parameter to the README, and maybe also to this --help message
-        # TODO: Mention which arguments are required and which are optional (with defaults)
+        help=("Valid path to existing readable parameter .JSON file. See "
+              "README.md and example parameter .JSON files for more "
+              "information on parameters.")
+        # TODO: Add description of all nibabies and XCP-D parameters to the README?
+        # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=stage_names, default=stage_names[0]   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
+        choices=stage_names, default=stage_names[0],   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
+        help=msg_stage.format("first", stage_names[0], ", ".join(stage_names))
+        
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
-        choices=stage_names, default=stage_names[-1]
+        choices=stage_names, default=stage_names[-1],
+        help=msg_stage.format("last", stage_names[-1], ", ".join(stage_names))
     )
     parser.add_argument(
         SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
@@ -135,6 +140,12 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                       "slurm": bool(cli_args[script_dir_attr])}
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]} 
+
+    # Change the BIBS section names to lowercase    # TODO Should we change param files
+    for section_name in ("preBIBSnet", "BIBSnet"):  # to make these already lowercase?
+        section = j_args.pop(section_name)
+        j_args[section_name.lower()] = section
+
     sub_ses = get_subj_ID_and_session(j_args)
 
     # TODO Check whether the script is being run from a container...
@@ -175,7 +186,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Create BIBSnet in/out directories
     dir_BIBSnet = dict()
     for io in ("in", "out"):
-        dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+        dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                        *sub_ses, "{}put".format(io))
         os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
@@ -227,23 +238,23 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, parser):
     :param j_args: Dictionary containing all args from parameter .JSON file
     """
     # Define globbable paths to prereq files for the script to check
-    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                    *sub_ses, "output", "*.nii.gz")
     subject_heads = [os.path.join(
-            j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
+            j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
             "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
         ) for t1or2 in (1, 2)]
-    out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+    out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                       "*{}*.nii.gz".format(x))
                          for x in ("aseg", "mask")]
 
     # Map each stage's name to its required input files
-    stage_prerequisites = {"preBIBSnet": list(),
-                           "BIBSnet": [fpath for fpath in
+    stage_prerequisites = {"prebibsnet": list(),
+                           "bibsnet": [fpath for fpath in
                                        j_args["optimal_resized"].values()],
-                           "postBIBSnet": [out_BIBSnet_seg, *subject_heads],
+                           "postbibsnet": [out_BIBSnet_seg, *subject_heads],
                            "nibabies": out_paths_BIBSnet,
-                           "XCPD": []}
+                           "xcpd": []}
 
     # For each stage that will be run, verify that its prereq input files exist
     all_stages = [s for s in stage_prerequisites.keys()]
@@ -349,7 +360,7 @@ def run_BIBSnet(j_args, logger):
     :return: j_args, unchanged
     """    # TODO Test BIBSnet functionality once it's containerized
     sub_ses = get_subj_ID_and_session(j_args)
-    dir_BIBS = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+    dir_BIBS = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                             *sub_ses, "{}put")
     
     # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
@@ -357,26 +368,27 @@ def run_BIBSnet(j_args, logger):
     if j_args["common"]["overwrite"] or not glob(dir_BIBS.format("out")):
 
         # Import BIBSnet functionality from BIBSnet/run.py
-        parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+        parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
         sys.path.append(parent_BIBSnet)
         from BIBSnet.run import run_nnUNet_predict
         
         
         # TODO test functionality of importing BIBSNet function via params json (j_args)
-        #parent_BIBSnet = os.path.dirname(j_args["BIBSnet"]["code_dir"])
+        #parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         #logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
         #sys.path.append("/home/cabinet/SW/BIBSnet")
         #from BIBSnet.run import run_nnUNet_predict
 
         try:  # Run BIBSnet
-            inputs_BIBSnet = {"model": j_args["BIBSnet"]["model"],
-                              "nnUNet": j_args["BIBSnet"]["nnUNet_predict_path"],
+            inputs_BIBSnet = {"model": j_args["bibsnet"]["model"],
+                              "nnUNet": j_args["bibsnet"]["nnUNet_predict_path"],
                               "input": dir_BIBS.format("in"),
                               "output": dir_BIBS.format("out"),
-                              "task": str(j_args["BIBSnet"]["task"])}
+                              "task": str(j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
             run_nnUNet_predict(inputs_BIBSnet)
+
         except subprocess.CalledProcessError as e:
             # BIBSnet will crash even after correctly creating a segmentation,
             # so only crash CABINET if that segmentation is not made.
@@ -386,6 +398,13 @@ def run_BIBSnet(j_args, logger):
                 logger.error("BIBSnet failed to create this segmentation file...\n{}\n...from these inputs:\n{}".format(outfpath, inputs_BIBSnet))
                 sys.exit(e)
 
+        # Remove unneeded empty directories
+        for unneeded_dir_name in ("nnUNet_cropped_image", "nnUNet_raw_data"):
+            unneeded_dir_path = os.path.join(j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name)
+            logger.info("Deleting unnecessary empty directory at {}"
+                        .format(unneeded_dir_path))
+            if os.path.isdir(unneeded_dir_path):
+                os.removedirs(unneeded_dir_path)
     
         # TODO hardcoded below call to run_nnUNet_predict. Will likely want to change and integrate into j_args
         #run_nnUNet_predict({"model": "3d_fullres",
@@ -477,7 +496,7 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
 
     # Grab the first resized T?w from preBIBSnet to use for L/R registration
     first_subject_head = glob(os.path.join(
-        j_args["optional_out_dirs"]["BIBSnet"], *sub_ses, "input",
+        j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
         "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
     ))[0]
 
@@ -541,7 +560,7 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
                                              "FreeSurferColorLUT.txt")
     
     # Get BIBSnet output file, and if there are multiple, then raise an error
-    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                    *sub_ses, "output", "*.nii.gz")
     seg_BIBSnet_outfiles = glob(out_BIBSnet_seg)
     if len(seg_BIBSnet_outfiles) != 1:
@@ -614,19 +633,19 @@ def run_nibabies(j_args, logger):
         # TODO If an optional_real_dirpath is null/None, don't even include the flag
 
     # Check whether aseg and mask files were produced by BIBSnet
-    glob_path = os.path.join(j_args["optional_out_dirs"]["BIBSnet"],
+    glob_path = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                              "*{}*.nii.gz")
     aseg_glob = glob(glob_path.format("aseg"))
     mask_glob = glob(glob_path.format("mask"))
     if aseg_glob and mask_glob:
-        derivs = ["--derivatives", j_args["optional_out_dirs"]["BIBSnet"]]
+        derivs = ["--derivatives", j_args["optional_out_dirs"]["bibsnet"]]
     else:
         derivs = list()
         # TODO If j_args[nibabies][derivatives] has a path, use that instead
         """
         warn_user_of_conditions(
             ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
-             "BIBSnet.".format(j_args["optional_out_dirs"]["BIBSnet"])),
+             "BIBSnet.".format(j_args["optional_out_dirs"]["bibsnet"])),
             logger, mask=mask_glob, aseg=aseg_glob
         ) """
     
