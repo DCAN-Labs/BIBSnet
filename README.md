@@ -18,15 +18,15 @@ Developers can benefit from running the application outside of the container for
 
 ### Container
 
-Container hosted here: 
+Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
 
 #### Singularity
 
-    singularity pull name_of_singularity_image.sif docker://path/to/docker/image #TODO FILL IN ACTUAL PATH
+    singularity pull name_of_singularity_image.sif docker://dcanumn/cabinet
 
 #### Docker
 
-    docker pull path/to/docker/image
+    docker pull dcanumn/cabinet
 
 
 ## Usage
