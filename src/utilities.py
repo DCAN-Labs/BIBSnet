@@ -240,8 +240,10 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     shutil.copy2(nifti_corrected_file_path, dummy_copy)
 
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
-    preBIBSnet_mat = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
-                                  *sub_ses, "preBIBSnet_crop_T1w_to_BIBS_template.mat") # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
+    preBIBSnet_mat = os.path.join(
+        j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
+        "preBIBSnet_full_crop_T1w_to_BIBS_template.mat"
+    ) # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
                       seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
 

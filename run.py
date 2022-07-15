@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-07-12
+Updated: 2022-07-15
 """
 # Import standard libraries
 import argparse
@@ -444,7 +444,7 @@ def run_postBIBSnet(j_args, logger):
 
     # Dilate the L/R mask and feed the dilated mask into chirality correction
     dilated_LRmask_fpath = dilate_LR_mask(
-        os.path.join(j_args["optional_out_dirs"]["postBIBSnet"], *sub_ses),
+        os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses),
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
@@ -501,7 +501,7 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
     ))[0]
 
     # Make postBIBSnet output directory for this subject/session
-    outdir_LR_reg = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+    outdir_LR_reg = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
                                  *sub_ses)
     os.makedirs(outdir_LR_reg, exist_ok=True)
 
@@ -553,7 +553,7 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # Define paths to dirs/files used in chirality correction script
-    chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postBIBSnet"],
+    chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
                                   *sub_ses, "chirality_correction")  # subj_ID, session, 
     os.makedirs(chiral_out_dir, exist_ok=True)
     segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
