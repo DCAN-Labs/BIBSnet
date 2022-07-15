@@ -9,7 +9,7 @@ body:
   - type: textarea
     id: summary
     attributes:
-      label: A short summary of what you would like to see in *NiBabies*.
+      label: A short summary of what you would like to see in CABINET.
     validations:
       required: true
   - type: dropdown
