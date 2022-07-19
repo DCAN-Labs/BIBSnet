@@ -33,24 +33,32 @@ Container hosted here:
 
 The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
 
+```sh
+usage: run.py [-h] [-start {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}]
+              [-end {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}]
+              [--script-dir SCRIPT_DIR]
+              parameter_json
 
-    usage: run.py [-h] [-start {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}]
-                  [-end {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}]
-                  [--script-dir SCRIPT_DIR]
-                  parameter_json
+positional arguments:
+    parameter_json        Valid path to existing readable parameter .JSON file.
+                          See README.md and example parameter .JSON files for 
+                          more information on parameters.
 
-    positional arguments:
-      parameter_json        Valid path to existing readable parameter .json file.
-                            See README.md for more information on parameters.
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -start, --starting-stage {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
-      -end, --ending-stage     {preBIBSnet,BIBSnet,postBIBSnet,nibabies,XCPD}
-      --script-dir SCRIPT_DIR
-                            Valid path to the existing parent directory of this
-                            run.py script. Include this argument if and only if
-                            you are running the script as a SLURM/SBATCH job.
+optional arguments:
+    -h, --help            show this help message and exit
+    -start {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}, --starting-stage {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}
+                        Name of the stage to run first. By default, this
+                        will be the prebibsnet stage. Valid choices:
+                        prebibsnet, bibsnet, postbibsnet, nibabies, xcpd
+    -end {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}, --ending-stage {prebibsnet,bibsnet,postbibsnet,nibabies,xcpd}
+                        Name of the stage to run last. By default, this will 
+                        be the xcpd stage. Valid choices: prebibsnet, bibsnet,
+                        postbibsnet, nibabies, xcpd
+    --script-dir SCRIPT_DIR
+                        Valid path to the existing parent directory of this
+                        run.py script. Include this argument if and only if
+                        you are running the script as a SLURM/SBATCH job.
+```
 
 #### Example paramater file fields: segmentation container
 
@@ -67,11 +75,11 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
    
 ##### "optional_out_dirs": path to and names of CABINET output directories 
 - `"derivatives"`:  string, a valid path to the directory to save the eventual CABINET outputs to. Example: `"/path/to/output/derivatives"`
-- `"preBIBSnet"`: string, a valid path to preBIBSnet output directory, or `null` to save preBIBSnet outputs into `preBIBSnet` sub-directory in `derivatives` directory. 
-- `"BIBSnet"`: string, a valid path to BIBSnet output directory, or `null` to save BIBSnet outputs into `BIBSnet` sub-directory in `derivatives` directory.
-- `"postBIBSnet"`: string, a valid path to postBIBSnet output directory, or `null` to save postBIBSnet outputs into `postBIBSnet` sub-directory in `derivatives` directory.
+- `"preBIBSnet"`: string, a valid path to preBIBSnet output directory, or `null` to save preBIBSnet outputs into `prebibsnet` sub-directory in `derivatives` directory. 
+- `"BIBSnet"`: string, a valid path to BIBSnet output directory, or `null` to save BIBSnet outputs into `bibsnet` sub-directory in `derivatives` directory.
+- `"postBIBSnet"`: string, a valid path to postBIBSnet output directory, or `null` to save postBIBSnet outputs into `postbibsnet` sub-directory in `derivatives` directory.
 - `"nibabies"`: string, a valid path to nibabies output directory, or `null` to save nibabies outputs into `nibabies` sub-directory in `derivatives` directory.
-- `"XCPD"`: string, a valid path to XCPD output directory, or `null` to save XCPD outputs into `XCPD` sub-directory in `derivatives` directory.
+- `"XCPD"`: string, a valid path to XCPD output directory, or `null` to save XCPD outputs into `xcpd` sub-directory in `derivatives` directory.
 
 ##### "resource_management": parameters to determine resource use when running parallel scripts. These parameters are only needed for nibabies and XCPD.
         
@@ -105,7 +113,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -v /path/to/input:/input \
     -v /path/to/output:/out \
     -v /path/to/param_file.json:param_file.json \
-    docker_image:version /param_file.json -start preBIBSnet -end postBIBSnet
+    docker_image:version /param_file.json -start prebibsnet -end postbibsnet
 
 
 #### Singularity
@@ -115,7 +123,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
     /home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_1_3_2.sif \
-    /param_file.json -end postBIBSnet
+    /param_file.json -end postbibsnet
 
 
 ## 1. PreBIBSnet
