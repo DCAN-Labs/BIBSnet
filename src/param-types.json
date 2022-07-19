@@ -1,22 +1,7 @@
 {
     "common": {
-        "age_months": "positive_int",
-        "bids_dir": "existing_directory_path",
         "fsl_bin_path": "existing_directory_path",
-        "overwrite": "bool",
-        "participant_label": "str",
-        "session": "str",
-        "task_id": "str",
-        "verbose": "bool"
-    },
-
-    "optional_out_dirs": {
-        "derivatives": "optional_new_dirpath",
-        "preBIBSnet": "optional_new_dirpath",
-        "BIBSnet": "optional_new_dirpath",
-        "postBIBSnet": "optional_new_dirpath",
-        "nibabies": "optional_new_dirpath",
-        "XCPD": "optional_new_dirpath"
+        "task_id": "str"
     },
 
     "resource_management": {
@@ -28,14 +13,11 @@
         "resource_monitor": "bool"
     },
 
-    "preBIBSnet": {
-        "brain_z_size": "positive_int",
-        "averaged_dir": "str",
-        "cropped_dir": "str",
-        "resized_dir": "str"
+    "prebibsnet": {
+        "brain_z_size": "positive_int"
     },
     
-    "BIBSnet": {
+    "bibsnet": {
         "code_dir": "existing_directory_path",
         "model": "str",
         "nnUNet_predict_path": "existing_file_path",

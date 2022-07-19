@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-07-08
+Updated: 2022-07-19
 """
 # Import standard libraries
 import argparse
@@ -479,18 +479,11 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     preBIBSnet_paths = {"parent": os.path.join(
                             j_args["optional_out_dirs"]["prebibsnet"], *sub_ses
                         )}
-    for jarg, work_dirname in j_args["prebibsnet"].items():
-
-        # Just get the preBIBSnet parameters that are subdirectories
-        split = jarg.split("_")
-        if split[-1] == "dir":
-
-            # Build path to, and make, preBIBSnet working directories
-            preBIBSnet_paths[split[0]] = os.path.join(
-                preBIBSnet_paths["parent"], work_dirname
-            )
-            os.makedirs(preBIBSnet_paths[split[0]], exist_ok=True)
-            # os.chmod(preBIBSnet_paths[split[0]], 0o775)
+    for work_dirname in ("averaged", "cropped", "resized"):
+        preBIBSnet_paths[work_dirname] = os.path.join(
+            preBIBSnet_paths["parent"], work_dirname
+        )
+        os.makedirs(preBIBSnet_paths[work_dirname], exist_ok=True)
 
     # Build paths to BIDS anatomical input images and (averaged, 
     # nnU-Net-renamed) output images
@@ -1187,6 +1180,16 @@ def valid_whole_number(to_validate):
                     "{} is not a positive integer")
 
 
+def valid_subj_ses_ID(to_validate):
+    """
+    _summary_ 
+    :param to_validate: Object to turn into a valid subject/session ID label
+    :return: String
+    """  # TODO Validate that subject/session exists 
+    return validate(to_validate, lambda _: True, lambda x: x.split("-")[-1],
+                    "{} is not a valid subject/session ID.")
+
+
 def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
     """
     Parent/base function used by different type validation functions. Raises an
@@ -1218,8 +1221,6 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :param stage_names: List of strings; each names a stage to run
     """
-    print(stage_names)
-
     # Define functions to validate arguments of each data type
     type_validators = {"bool": bool, "int": int,
                        "existing_directory_path": valid_readable_dir,
@@ -1256,8 +1257,6 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
         # Only include resource_management if we're in SLURM/SBATCH job(s)
         elif not (section_name == "resource_management"
                   and not j_args["meta"]["slurm"]):
-
-            print(section_name)
 
             # Validate every parameter in the section
             for arg_name, arg_type in section_dict.items():

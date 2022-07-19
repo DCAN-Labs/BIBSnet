@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-07-15
+Updated: 2022-07-19
 """
 # Import standard libraries
 import argparse
@@ -48,7 +48,8 @@ from src.utilities import (
     extract_from_json, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
     get_stage_name, get_subj_ID_and_session, get_template_age_closest_to,
     make_given_or_default_dir, resize_images, run_all_stages,
-    valid_readable_json, validate_parameter_types, valid_readable_dir
+    valid_readable_json, validate_parameter_types, valid_readable_dir,
+    valid_subj_ses_ID, valid_whole_number
 )
 
 
@@ -92,12 +93,35 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
+    default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser()
     # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
+
+    # BIDS-App required positional args, validated later in j_args
     parser.add_argument(
-        "parameter_json", type=valid_readable_json,
+        "bids_dir", type=valid_readable_dir,
+        help=("Valid absolute path to existing base study directory "
+              "containing BIDS-valid input subject data directories. "
+              "Example: /path/to/bids/input/")  # TODO Keep as j_args[common][bids_dir]
+    )
+    parser.add_argument(
+        "output_dir", type=valid_readable_dir,  # TODO Does this dir have to already exist?
+        help=("Valid absolute path to existing derivatives directory to save "
+              "each stage's outputs by subject session into. Example: "
+              "/path/to/output/derivatives/")  # TODO Remove optional_out_dirs from parameter file and just keep output_dir as j_args[common][output_dir]
+    )
+    parser.add_argument(
+        "analysis_level", choices=["participant"],  # TODO Will we ever need to add group-level analysis functionality? Currently this argument does absolutely nothing
+        help=("Processing level. Currently the only choice is 'participant'."
+              "See BIDS-Apps specification.")
+    )
+
+    # Required flag arguments
+    parser.add_argument(
+        "-jargs", "-params", "--parameter-json", dest="parameter_json",
+        type=valid_readable_json, required=True,
         help=("Valid path to existing readable parameter .JSON file. See "
               "README.md and example parameter .JSON files for more "
               "information on parameters.")
@@ -105,15 +129,48 @@ def get_params_from_JSON(stage_names, logger):
         # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
     )
     parser.add_argument(
+        "-participant", "--subject", "-sub", "--participant-label",
+        required=True, dest="participant_label", type=valid_subj_ses_ID,
+        help=("The participant's unique subject identifier, without 'sub-'"
+              "prefix. Example: 'ABC12345'")  # TODO Make CABINET able to accept with OR without 'sub-' prefix
+    )
+
+    # Optional flag arguments
+    parser.add_argument(
+        "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
+        help=("The name of the session to processes participant data for. "
+              "Example: baseline_year1")
+    )
+    parser.add_argument(
+        "-age", "-months", "--age-months", type=valid_whole_number,
+        help=("Positive integer, the participant's age in months. For "
+              "example, -age 5 would mean the participant is 5 months old."
+              "Include this argument unless the age in months is specified in"
+              "the participants.tsv file inside the BIDS input directory.")
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help=("Include this flag to print detailed information and every "
+              "command being run by CABINET to stdout. Otherwise CABINET "
+              "will only print warnings, errors, and minimal output.")
+    )
+    parser.add_argument(
+        "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"
+        dest="overwrite", action="store_true",
+        help=("Include this flag to overwrite any previous CABINET outputs "
+              "in the derivatives sub-directories. Otherwise, by default "
+              "CABINET will skip creating any CABINET output files that "
+              "already exist in the sub-directories of derivatives.")
+    )
+    parser.add_argument(
         "-start", "--starting-stage", dest="start",
-        choices=stage_names, default=stage_names[0],   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
-        help=msg_stage.format("first", stage_names[0], ", ".join(stage_names))
-        
+        choices=stage_names[:3], default=stage_names[0],   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
+        help=msg_stage.format("first", stage_names[0], ", ".join(stage_names[:3]))  # TODO Change to include all stage names; right now it just includes the segmentation pipeline
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
-        choices=stage_names, default=stage_names[-1],
-        help=msg_stage.format("last", stage_names[-1], ", ".join(stage_names))
+        choices=stage_names[:3], default=default_end_stage,
+        help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
     )
     parser.add_argument(
         SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
@@ -138,13 +195,21 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
     j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
                       "slurm": bool(cli_args[script_dir_attr])}
-    j_args["stage_names"] = {"start": cli_args["start"],
-                             "end": cli_args["end"]} 
 
-    # Change the BIBS section names to lowercase    # TODO Should we change param files
-    for section_name in ("preBIBSnet", "BIBSnet"):  # to make these already lowercase?
-        section = j_args.pop(section_name)
-        j_args[section_name.lower()] = section
+    # Add command-line arguments to j_args
+    j_args["stage_names"] = {"start": cli_args["start"],
+                             "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
+    for arg_to_add in ("age_months", "bids_dir", "participant_label",
+                       "overwrite", "session", "verbose"):
+        j_args["common"][arg_to_add] = cli_args[arg_to_add]
+
+    # TODO Remove all references to the optional_out_dirs arguments, and change
+    #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
+    j_args["optional_out_dirs"] = {stagename: None for stagename in stage_names} 
+    j_args["optional_out_dirs"]["derivatives"] = cli_args["output_dir"]
+
+    # TODO Automatically assign j_args[common][fsl_bin_path] and 
+    #      j_args[bibsnet][nnUNet_predict_path] if in the Singularity container
 
     sub_ses = get_subj_ID_and_session(j_args)
 
@@ -172,9 +237,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
     if not os.path.exists(sub_ses_dir):
         parser.error("No subject/session directory found at {}\nCheck that "
-                     "the participant_label and session are correctly defined "
-                     "in your parameter .JSON file at {}\n"
-                     .format(sub_ses_dir, cli_args["parameter_json"]))
+                     "your participant_label and session are correct."
+                     .format(sub_ses_dir))
 
     # Using dict_has instead of easier ensure_dict_has so that the user only
     # needs a participants.tsv file if they didn't specify age_months
@@ -201,6 +265,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Check that all required input files exist for the stages to run
     verify_CABINET_inputs_exist(sub_ses, j_args, parser)
     logger.info("All required input files exist.")
+    if j_args["common"]["verbose"]:
+        logger.info(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
