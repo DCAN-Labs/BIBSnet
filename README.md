@@ -35,7 +35,7 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 
 ### Command-Line Arguments
 
-```sh
+```
     usage: run.py [-h] -jargs PARAMETER_JSON -participant PARTICIPANT_LABEL [-ses SESSION] [-age AGE_MONTHS] [-v]
                 [--overwrite] [-start {prebibsnet,bibsnet,postbibsnet}] [-end {prebibsnet,bibsnet,postbibsnet}]
                 [--script-dir SCRIPT_DIR]
