@@ -22,7 +22,7 @@ Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
 
 #### Singularity
 
-    singularity pull name_of_singularity_image.sif docker://dcanumn/cabinet
+    singularity pull cabinet.sif docker://dcanumn/cabinet
 
 #### Docker
 
