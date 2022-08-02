@@ -12,6 +12,10 @@ This software provides the utility of creating a [nnU-Net](https://github.com/MI
 
 ![CABINET - Stages for MRI Processing](https://user-images.githubusercontent.com/102316699/177638055-14894a92-9cb6-4a70-a649-71f61d47f3d6.png)
 
+## Dependencies 
+
+docker or singularity (depending on what containerization software you will use for execution)
+
 ## Installation
 
 Developers can benefit from running the application outside of the container for testing. For users interested in producing segmentations, we recommend one use the container instead
@@ -22,7 +26,7 @@ Container hosted here:
 
 #### Singularity
 
-    singularity pull name_of_singularity_image.sif docker://path/to/docker/image #TODO FILL IN ACTUAL PATH
+    singularity pull cabinet.sif docker://path/to/docker/image #TODO FILL IN ACTUAL PATH
 
 #### Docker
 
@@ -149,7 +153,8 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -v /path/to/input:/input \
     -v /path/to/output:/out \
     -v /path/to/param_file.json:param_file.json \
-    docker_image:version /param_file.json -start prebibsnet -end postbibsnet
+    docker_image:version /input /output participant -jargs /param_file.json \
+    -end postbibsnet --participant_label subject_id -ses session_id -age age_months -v
 
 
 #### Singularity
@@ -159,7 +164,8 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
     /home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_1_3_2.sif \
-    /param_file.json -end postbibsnet
+    /input /output participant -jargs /param_file.json -end postbibsnet \
+    --participant_label subject_id -ses session_id -age age_months -v 
 
 
 ## 1. PreBIBSnet
