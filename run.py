@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-07-19
+Updated: 2022-08-02
 """
 # Import standard libraries
 import argparse
@@ -431,15 +431,15 @@ def run_BIBSnet(j_args, logger):
     
     # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
     # Skip BIBSnet if overwrite=False and outputs already exist
-    if j_args["common"]["overwrite"] or not glob(dir_BIBS.format("out")):
-
+    if j_args["common"]["overwrite"] or not glob(os.path.join(
+        dir_BIBS.format("out"), "*"
+    )):
         # Import BIBSnet functionality from BIBSnet/run.py
         parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
         sys.path.append(parent_BIBSnet)
         from BIBSnet.run import run_nnUNet_predict
-        
-        
+               
         # TODO test functionality of importing BIBSNet function via params json (j_args)
         #parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         #logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
