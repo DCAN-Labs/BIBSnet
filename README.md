@@ -180,7 +180,7 @@ Prepares the anatomical BIDS images for BIBSnet segmentation generation.
 
 ## 2. BIBSnet
 
-Produces a segmentation from the optimal pair of T1 and T2 aligned images created by nnU-Net from a model trained on 0-8 month old infants.
+Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep neural network trained via nnU-Net and SynthSeg with a large 0 to 8 month old infant MRI brain dataset.
 
 ## 3. PostBIBSnet
 
