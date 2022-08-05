@@ -129,6 +129,8 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 #### "preBIBSnet": parameters used only for the preBIBSnet stage 
 - `"brain_z_size"`: positive integer, the size of the participant's brain along the z axis in mm. Example: `110`
 
+![brainzsize](https://user-images.githubusercontent.com/102316699/183222685-81e3632f-87ae-4a84-8d6c-70b68cdd2280.png)
+
 #### "BIBSnet": parameters used only for the BIBSnet stage
 - `"model"`: string, the model to run. Example: `"3d_fullres"`
 - `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
