@@ -161,7 +161,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
 
 #### Singularity
 
-    singularity run --nv --cleanenv \
+    singularity run --nv --cleanenv --no-home \
     -B /path/to/input:/input \
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
