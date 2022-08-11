@@ -129,6 +129,8 @@ The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVID
 #### "preBIBSnet": parameters used only for the preBIBSnet stage 
 - `"brain_z_size"`: positive integer, the size of the participant's brain along the z axis in mm. Example: `110`
 
+![brainzsize2](https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png)
+
 #### "BIBSnet": parameters used only for the BIBSnet stage
 - `"model"`: string, the model to run. Example: `"3d_fullres"`
 - `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
@@ -159,7 +161,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
 
 #### Singularity
 
-    singularity run --nv --cleanenv \
+    singularity run --nv --cleanenv --no-home \
     -B /path/to/input:/input \
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
@@ -180,7 +182,7 @@ Prepares the anatomical BIDS images for BIBSnet segmentation generation.
 
 ## 2. BIBSnet
 
-Produces a segmentation from the optimal pair of T1 and T2 aligned images created by nnU-Net from a model trained on 0-8 month old infants.
+Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep neural network trained via nnU-Net and SynthSeg with a large 0 to 8 month old infant MRI brain dataset.
 
 ## 3. PostBIBSnet
 
