@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-07-19
+Updated: 2022-08-09
 """
 # Import standard libraries
 import argparse
@@ -596,9 +596,9 @@ def get_subj_ID_and_session(j_args):
              with their correct "sub-" and "ses-" prefixes) if the parameter
              file has a session, otherwise just with the prefixed subject ID
     """ 
-    sub = ensure_prefixed(j_args["common"]["participant_label"], "sub-")
-    return [sub, ensure_prefixed(j_args["common"]["session"], "ses-")
-            ] if j_args["common"]["session"] else [sub]
+    sub = ensure_prefixed(j_args["ID"]["subject"], "sub-")
+    return [sub, ensure_prefixed(j_args["ID"]["session"], "ses-")
+            ] if j_args["ID"]["session"] else [sub]
 
 
 def get_subj_ses(j_args):
@@ -1026,26 +1026,57 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     # pdb.set_trace()  # TODO Add "debug" flag?
 
 
-def run_all_stages(all_stages, start, end, params_for_every_stage, logger):
+def get_optimal_resized_paths(sub_ses, bibsnet_out_dir):
+    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
+    input_dir_BIBSnet = os.path.join(bibsnet_out_dir, *sub_ses, "input")
+    return {"T{}w".format(t): os.path.join(
+                input_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
+                                    .format("_".join(sub_ses), t - 1)
+            ) for t in (1, 2)}
+
+
+def run_all_stages(all_stages, sub_ses_IDs, start, end,
+                   ubiquitous_j_args, logger):
     """
     Run stages sequentially, starting and ending at stages specified by user
     :param all_stages: List of functions in order where each runs one stage
+    :param sub_ses_IDs: List of dicts mapping "age_months", "subject", and
+                        "session" to their unique values per subject session
     :param start: String naming the first stage the user wants to run
     :param end: String naming the last stage the user wants to run
-    :param params_for_every_stage: Dictionary of all args needed by each stage
+    :param ubiquitous_j_args: Dictionary of all args needed by each stage
     :param logger: logging.Logger object to show messages and raise warnings
     """
+    # For every session of every subject...
     running = False
-    for stage in all_stages:
-        name = get_stage_name(stage)
-        if name == start:
-            running = True
-        if running:
-            stage_start = datetime.now()
-            stage(params_for_every_stage, logger)
-            log_stage_finished(name, stage_start, logger)
-        if name == end:
-            running = False
+    for dict_with_IDs in sub_ses_IDs:
+
+        # ...make a j_args copy with its subject ID, session ID, and age  # TODO Add brain_z_size into j_args[ID]
+        sub_ses_j_args = ubiquitous_j_args.copy()
+        sub_ses_j_args["ID"] = dict_with_IDs
+        sub_ses = get_subj_ID_and_session(sub_ses_j_args)
+        sub_ses_j_args["optimal_resized"] = get_optimal_resized_paths(
+            sub_ses, ubiquitous_j_args["optional_out_dirs"]["bibsnet"]
+        )
+
+        # Check that all required input files exist for the stages to run
+        verify_CABINET_inputs_exist(sub_ses, sub_ses_j_args, logger)
+        logger.info("All required input files exist.")
+
+        # ...run all stages that the user said to run
+        if sub_ses_j_args["common"]["verbose"]:
+            logger.info("Parameters from input .JSON file:\n{}"
+                        .format(sub_ses_j_args))
+        for stage in all_stages:
+            name = get_stage_name(stage)
+            if name == start:
+                running = True
+            if running:
+                stage_start = datetime.now()
+                stage(sub_ses_j_args, logger)
+                log_stage_finished(name, stage_start, logger)
+            if name == end:
+                running = False
 
 
 def split_2_exts(a_path):
@@ -1308,6 +1339,51 @@ def validate_1_parameter(j_args, arg_name, arg_type, section_name,
     except (argparse.ArgumentTypeError, KeyError, TypeError, ValueError) as e:
         parser.error(err_msg.format(to_validate, arg_name,
                                     section_name, param_json, e))
+
+
+def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
+    """
+    Given a stage, verify that all of the necessary inputs for that stage exist 
+    :param a_stage: String naming a stage
+    :param sub_ses: List with either only the subject ID str or the session too
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    """
+    # Define globbable paths to prereq files for the script to check
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
+                                   *sub_ses, "output", "*.nii.gz")
+    subject_heads = [os.path.join(
+            j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
+            "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
+        ) for t1or2 in (1, 2)]
+    out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["bibsnet"],
+                                      "*{}*.nii.gz".format(x))
+                         for x in ("aseg", "mask")]
+
+    # Map each stage's name to its required input files
+    stage_prerequisites = {"prebibsnet": list(),
+                           "bibsnet": list(j_args["optimal_resized"].values()),
+                           "postbibsnet": [out_BIBSnet_seg, *subject_heads],
+                           "nibabies": out_paths_BIBSnet,
+                           "xcpd": []}
+
+    # For each stage that will be run, verify that its prereq input files exist
+    all_stages = [s for s in stage_prerequisites.keys()]
+
+    # required_files = stage_prerequisites[j_args["stage_names"]["start"]]
+    start_ix = all_stages.index(j_args["stage_names"]["start"]) 
+    for stage in all_stages[:start_ix+1]:
+
+        # if stage == j_args["stage_names"]["start"]:
+        # if will_run_stage(stage, j_args["stage_names"]["start"], j_args["stage_names"]["end"], all_stages):
+
+        missing_files = list()
+        for globbable in stage_prerequisites[stage]:
+            if not glob(globbable):
+                missing_files.append(globbable)
+        if missing_files:
+            logger.error("The file(s) below are needed to run the {} stage, "
+                        "but they do not exist.\n{}\n"
+                        .format(stage, "\n".join(missing_files)))
 
 
 def warn_user_of_conditions(warning, logger, **to_check):

@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-02
+Updated: 2022-08-11
 """
 # Import standard libraries
 import argparse
@@ -38,16 +38,18 @@ def find_myself(flg):
 # Global constants: Paths to this dir and to level 1 analysis script
 SCRIPT_DIR_ARG = "--script-dir"
 SCRIPT_DIR = find_myself(SCRIPT_DIR_ARG)
+AGE_TO_HEAD_RADIUS_TABLE = os.path.join(SCRIPT_DIR, "data",
+                                        "age_to_avg_head_radius_BCP.csv")
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
     as_cli_attr, as_cli_arg, correct_chirality, create_anatomical_average,
-    crop_image, dict_has, dilate_LR_mask, exit_with_time_info,
+    crop_image, dict_has, dilate_LR_mask, ensure_prefixed, exit_with_time_info,
     extract_from_json, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
     get_stage_name, get_subj_ID_and_session, get_template_age_closest_to,
-    make_given_or_default_dir, resize_images, run_all_stages,
+    make_given_or_default_dir, resize_images, run_all_stages, 
     valid_readable_json, validate_parameter_types, valid_readable_dir,
     valid_subj_ses_ID, valid_whole_number
 )
@@ -60,14 +62,11 @@ def main():
     # Get and validate command-line arguments and parameters from .JSON file
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
               run_XCPD]
-    json_args = get_params_from_JSON([get_stage_name(stg) for stg in STAGES],
-                                     logger)  # TODO Un-capitalize "BIBS" everywhere (except import BIBSnet.run?)
-    if json_args["common"]["verbose"]:
-        logger.info("Parameters from input .JSON file:\n{}"
-                    .format(json_args))
+    json_args, sub_ses_IDs = get_params_from_JSON([get_stage_name(stg) for stg
+                                                   in STAGES], logger)  # TODO Un-capitalize "BIBS" everywhere (except import BIBSnet.run?)
 
     # Run every stage that the parameter file says to run
-    run_all_stages(STAGES, json_args["stage_names"]["start"],
+    run_all_stages(STAGES, sub_ses_IDs, json_args["stage_names"]["start"],
                    json_args["stage_names"]["end"], json_args, logger)
     # TODO default to running all stages if not specified by the user
     # TODO add error if end is given as a stage that happens before start
@@ -93,6 +92,7 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
+    default_brain_z_size = 120
     default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
@@ -130,17 +130,12 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-participant", "--subject", "-sub", "--participant-label",
-        required=True, dest="participant_label", type=valid_subj_ses_ID,
+        dest="participant_label", type=valid_subj_ses_ID,
         help=("The participant's unique subject identifier, without 'sub-'"
               "prefix. Example: 'ABC12345'")  # TODO Make CABINET able to accept with OR without 'sub-' prefix
     )
 
     # Optional flag arguments
-    parser.add_argument(
-        "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
-        help=("The name of the session to processes participant data for. "
-              "Example: baseline_year1")
-    )
     parser.add_argument(
         "-age", "-months", "--age-months", type=valid_whole_number,
         help=("Positive integer, the participant's age in months. For "
@@ -149,10 +144,21 @@ def get_params_from_JSON(stage_names, logger):
               "the participants.tsv file inside the BIDS input directory.")
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help=("Include this flag to print detailed information and every "
-              "command being run by CABINET to stdout. Otherwise CABINET "
-              "will only print warnings, errors, and minimal output.")
+        "-z", "--brain-z-size", type=valid_whole_number,
+        default=default_brain_z_size,
+        help=("Positive integer, the size of the participant's brain in "
+              "millimeters along the z-axis. By default, this will be {}."
+              .format(default_brain_z_size))
+    )
+    parser.add_argument(
+        "-end", "--ending-stage", dest="end",
+        choices=stage_names[:3], default=default_end_stage,
+        help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
+    )
+    parser.add_argument(
+        "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
+        help=("The name of the session to processes participant data for. "
+              "Example: baseline_year1")
     )
     parser.add_argument(
         "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"
@@ -168,9 +174,10 @@ def get_params_from_JSON(stage_names, logger):
         help=msg_stage.format("first", stage_names[0], ", ".join(stage_names[:3]))  # TODO Change to include all stage names; right now it just includes the segmentation pipeline
     )
     parser.add_argument(
-        "-end", "--ending-stage", dest="end",
-        choices=stage_names[:3], default=default_end_stage,
-        help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
+        "-v", "--verbose", action="store_true",
+        help=("Include this flag to print detailed information and every "
+              "command being run by CABINET to stdout. Otherwise CABINET "
+              "will only print warnings, errors, and minimal output.")
     )
     parser.add_argument(
         SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
@@ -188,7 +195,11 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     :param cli_args: Dictionary containing all command-line input arguments
     :param stage_names: List of strings naming stages to run (in order)
     :param logger: logging.Logger object to show messages and raise warnings
-    :return: Dictionary of validated parameters from parameter .JSON file
+    :return: Tuple of 2 objects:
+        1. Dictionary of validated parameters from parameter .JSON file
+        2. List of dicts which each map "subject" to the subject ID string,
+           "age_months" to the age in months (int) during the session, & maybe
+           also "session" to the session ID string. Each will be j_args[IDs]
     """
     # Get command-line input arguments and use them to get .JSON parameters
     j_args = extract_from_json(cli_args["parameter_json"])
@@ -199,9 +210,12 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("age_months", "bids_dir", "participant_label",
-                       "overwrite", "session", "verbose"):
+    for arg_to_add in ("bids_dir", "overwrite", "verbose"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
+    j_args["ID"] = {"subject": cli_args["participant_label"],
+                    "session": cli_args["session"],
+                    "age_months": cli_args["age_months"]}
+                    #"brain_z_size": cli_args["brain_z_size"]}
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
@@ -210,8 +224,6 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
 
     # TODO Automatically assign j_args[common][fsl_bin_path] and 
     #      j_args[bibsnet][nnUNet_predict_path] if in the Singularity container
-
-    sub_ses = get_subj_ID_and_session(j_args)
 
     # TODO Check whether the script is being run from a container...
     # - Docker: stackoverflow.com/a/25518538
@@ -223,55 +235,98 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Also, check whether the Docker/Singularity environment variables show up in os.environ for us to use here
     # print(vars(os.environ))
 
-    # Define (and create) default paths in derivatives directory structure for each stage
-    default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
-    j_args = ensure_j_args_has_bids_subdirs(j_args, stage_names, sub_ses,
-                                            default_derivs_dir)
-
-    # Verify that every parameter in the parameter .JSON file is a valid input
-    j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
-                                      cli_args["parameter_json"], parser,
-                                      stage_names)
+    # Define (and create) default paths in derivatives directory structure for 
+    # each stage of each session of each subject
+    sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
+                                      cli_args["session"])  # TODO Add brain_z_size into j_args[ID]
     
-    # Verify that subject-session directory path exists
-    sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
-    if not os.path.exists(sub_ses_dir):
-        parser.error("No subject/session directory found at {}\nCheck that "
-                     "your participant_label and session are correct."
-                     .format(sub_ses_dir))
+    # TODO Iff the user specifies a session, then let them specify an age
+    default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
+    for ix in range(len(sub_ses_IDs)):
+        # Create a list with the subject ID and (if it exists) the session ID
+        sub_ses = [sub_ses_IDs[ix]["subject"]]
+        if dict_has(sub_ses_IDs[ix], "session"):
+            sub_ses.append(sub_ses_IDs[ix]["session"])
 
-    # Using dict_has instead of easier ensure_dict_has so that the user only
-    # needs a participants.tsv file if they didn't specify age_months
-    if not dict_has(j_args["common"], "age_months"):
-        j_args["common"]["age_months"] = read_age_from_participants_tsv(j_args,
-                                                                        logger)
-    # TODO Figure out which column in the participants.tsv file has age_months
+        j_args = ensure_j_args_has_bids_subdirs(
+            j_args, stage_names, sub_ses, default_derivs_dir
+        )
 
-    # Create BIBSnet in/out directories
-    dir_BIBSnet = dict()
-    for io in ("in", "out"):
-        dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
-                                       *sub_ses, "{}put".format(io))
-        os.makedirs(dir_BIBSnet[io], exist_ok=True)
+        # Verify that subject-session BIDS/input directory path exists
+        sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
+        if not os.path.exists(sub_ses_dir):
+            parser.error("No subject/session directory found at {}\nCheck that "
+                         "your participant_label and session are correct."
+                         .format(sub_ses_dir))
+    
+        # Using dict_has instead of easier ensure_dict_has so that the user only
+        # needs a participants.tsv file if they didn't specify age_months
+        if not dict_has(j_args["common"], "age_months"):
+            sub_ses_IDs[ix]["age_months"] = read_age_from_participants_tsv(
+                j_args, logger, *sub_ses
+            )
+        
+        # TODO Check if this adds more sub_ses-dependent stuff to j_args
+        # Verify that every parameter in the parameter .JSON file is a valid input
+        j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
+                                        cli_args["parameter_json"], parser,
+                                        stage_names)
 
-    # Save paths to files used by multiple stages:
+        # Create BIBSnet in/out directories
+        dir_BIBSnet = dict()
+        for io in ("in", "out"):
+            dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
+                                        *sub_ses, "{}put".format(io))
+            os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
-    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    j_args["optimal_resized"] = {"T{}w".format(t): os.path.join(
-                                     dir_BIBSnet["in"], "{}_optimal_resized_000{}.nii.gz"
-                                                        .format("_".join(sub_ses), t-1)
-                                 ) for t in (1, 2)}
-
-    # Check that all required input files exist for the stages to run
-    verify_CABINET_inputs_exist(sub_ses, j_args, parser)
-    logger.info("All required input files exist.")
-    if j_args["common"]["verbose"]:
-        logger.info(" ".join(sys.argv[:]))  # Print all
+        if j_args["common"]["verbose"]:
+            logger.info(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
 
-    return j_args
+    return j_args, sub_ses_IDs
+
+
+def get_brain_z_size():
+    MM_PER_IN = 25.4
+    pd.set_option('display.max_rows', None)
+    age2headradius = pd.read_csv(AGE_TO_HEAD_RADIUS_TABLE)
+    age2headradius["brain_z_size"] = age2headradius["Head_Radius(in.)"
+                                                    ] * MM_PER_IN * 2
+    print(age2headradius["brain_z_size"])
+
+
+def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
+    """
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :return: List of dicts; each dict maps "subject" to its subject ID string
+             and may also map "session" to its session ID string
+    """
+    sub_ses_IDs = list()
+
+    # Find all subject-session directories in tree under bids_dir
+    sub_match = "sub-{}".format(subj_or_none.split("sub-")[-1] if
+                                subj_or_none else "*")
+    ses_match = "ses-{}".format(ses_or_none.split("ses-")[-1] if
+                                ses_or_none else "*")
+    sub_ses_dirs = glob(os.path.join(j_args["common"]["bids_dir"],
+                        sub_match, ses_match))
+
+    # If there are subjects and sessions, then add each pair to a list
+    if sub_ses_dirs:
+        for sub_ses_dirpath in sub_ses_dirs:
+            sub_dirpath, session = os.path.split(sub_ses_dirpath)
+            _, subject = os.path.split(sub_dirpath)
+            sub_ses_IDs.append({"subject": subject, "session": session})
+
+    # Otherwise, make a list that only has subject IDs
+    else:
+        for sub_dirpath in glob(os.path.join(j_args["common"]["bids_dir"],
+                                sub_match)):
+            sub_ses_IDs.append({"subject": os.path.basename(sub_dirpath)})
+
+    return sub_ses_IDs
 
 
 def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
@@ -296,53 +351,7 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     return j_args
 
 
-def verify_CABINET_inputs_exist(sub_ses, j_args, parser):
-    """
-    Given a stage, verify that all of the necessary inputs for that stage exist 
-    :param a_stage: String naming a stage
-    :param sub_ses: List with either only the subject ID str or the session too
-    :param j_args: Dictionary containing all args from parameter .JSON file
-    """
-    # Define globbable paths to prereq files for the script to check
-    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
-                                   *sub_ses, "output", "*.nii.gz")
-    subject_heads = [os.path.join(
-            j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
-            "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
-        ) for t1or2 in (1, 2)]
-    out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["bibsnet"],
-                                      "*{}*.nii.gz".format(x))
-                         for x in ("aseg", "mask")]
-
-    # Map each stage's name to its required input files
-    stage_prerequisites = {"prebibsnet": list(),
-                           "bibsnet": [fpath for fpath in
-                                       j_args["optimal_resized"].values()],
-                           "postbibsnet": [out_BIBSnet_seg, *subject_heads],
-                           "nibabies": out_paths_BIBSnet,
-                           "xcpd": []}
-
-    # For each stage that will be run, verify that its prereq input files exist
-    all_stages = [s for s in stage_prerequisites.keys()]
-
-    # required_files = stage_prerequisites[j_args["stage_names"]["start"]]
-    start_ix = all_stages.index(j_args["stage_names"]["start"]) 
-    for stage in all_stages[:start_ix+1]:
-
-        # if stage == j_args["stage_names"]["start"]:
-        # if will_run_stage(stage, j_args["stage_names"]["start"], j_args["stage_names"]["end"], all_stages):
-
-        missing_files = list()
-        for globbable in stage_prerequisites[stage]:
-            if not glob(globbable):
-                missing_files.append(globbable)
-        if missing_files:
-            parser.error("The file(s) below are needed to run the {} stage, "
-                        "but they do not exist.\n{}\n"
-                        .format(stage, "\n".join(missing_files)))
-
-
-def read_age_from_participants_tsv(j_args, logger):
+def read_age_from_participants_tsv(j_args, logger, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :return: Int, the subject's age (in months) listed in participants.tsv
@@ -355,18 +364,19 @@ def read_age_from_participants_tsv(j_args, logger):
                      "participants.tsv"), sep="\t", dtype=columns
     )
 
-    # Column names of participants.tsv                         
+    # Column names of participants.tsv
     age_months_col = "age" # TODO is there a way to ensure the age column is given in months using the participants.json (the participants.tsv's sidecar)
     sub_ID_col = "participant_id"
     ses_ID_col = "session"
 
     # Get and return the age_months value from participants.tsv
-    subj_row = part_tsv_df[  # TODO Run ensure_prefixed on the sub_ID_col?
-        part_tsv_df[sub_ID_col] == j_args["common"]["participant_label"]
+    subj_row = part_tsv_df[
+        part_tsv_df[sub_ID_col] == ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
-    subj_row = subj_row[  # TODO Run ensure_prefixed on the ses_ID_col?
-        subj_row[ses_ID_col] == j_args["common"]["session"]
-    ]  # select where "session" matches
+    if len(sub_ses) > 1:
+        subj_row = subj_row[
+            subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")
+        ]  # select where "session" matches
     if j_args["common"]["verbose"]:
         logger.info("Subject details from participants.tsv row:\n{}"
                     .format(subj_row))
@@ -604,7 +614,6 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
         )))
     logger.info(msg.format("Finished", first_subject_head))  # TODO Only print this message if not skipped (and do the same for all other stages)
     return left_right_mask_nifti_fpath
-    
 
 
 def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
@@ -742,7 +751,7 @@ def run_XCPD(j_args, logger):
         "-B", j_args["XCPD"]["work_dir"] + ":/work",
         "/home/faird/shared/code/external/pipelines/ABCD-XCP/xcp-d_unstable03112022a.sif",  # TODO Make this an import and/or a parameter
         "/data", "/out", "--participant-label",  # "-w", "/work", 
-        j_args["common"]["participant_label"], *xcpd_args
+        j_args["ID"]["subject"], *xcpd_args
     ])
     logger.info("XCP-D has completed")
     return j_args
