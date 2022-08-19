@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-11
+Updated: 2022-08-19
 """
 # Import standard libraries
 import argparse
@@ -143,7 +143,7 @@ def get_params_from_JSON(stage_names, logger):
               "Include this argument unless the age in months is specified in"
               "the participants.tsv file inside the BIDS input directory.")
     )
-    parser.add_argument(
+    parser.add_argument(  # TODO Make this a bool meaning getting brain_z_size from participants.tsv instead of (by default) calculating it with get_brain_z_size
         "-z", "--brain-z-size", type=valid_whole_number,
         default=default_brain_z_size,
         help=("Positive integer, the size of the participant's brain in "
@@ -266,6 +266,9 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                 j_args, logger, *sub_ses
             )
         
+        # TODO Infer brain_z_size for this sub_ses using age_months and
+        #      get_spatial_resolution_of and/or get_brain_z_size
+
         # TODO Check if this adds more sub_ses-dependent stuff to j_args
         # Verify that every parameter in the parameter .JSON file is a valid input
         j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
@@ -418,7 +421,7 @@ def run_preBIBSnet(j_args, logger):
     logger.info(completion_msg.format("resized"))
     
     # TODO Move this whole block to postBIBSnet, so it copies everything it needs first
-    # Make a symlink in BIBSnet input dir to transformed_images[T1w]
+    # Copy into BIBSnet input dir to transformed_images[T1w]
     for t in (1, 2):
         tw = "T{}w".format(t)
         out_nii_fpath = j_args["optimal_resized"][tw]
@@ -441,9 +444,14 @@ def run_BIBSnet(j_args, logger):
     
     # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
     # Skip BIBSnet if overwrite=False and outputs already exist
-    if j_args["common"]["overwrite"] or not glob(os.path.join(
+    if (not j_args["common"]["overwrite"]) and glob(os.path.join(
         dir_BIBS.format("out"), "*"
     )):
+        logger.info("Skipping BIBSnet because outputs already exist at the "
+                    "BIBSnet output path below, and --overwrite is off.\n{}"
+                    .format(dir_BIBS.format("out")))
+
+    else:  # Run BIBSnet
         # Import BIBSnet functionality from BIBSnet/run.py
         parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
@@ -463,6 +471,9 @@ def run_BIBSnet(j_args, logger):
                               "output": dir_BIBS.format("out"),
                               "task": str(j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
+            if j_args["common"]["verbose"]:
+                logger.info("Now running BIBSnet with these parameters:\n{}\n"
+                            .format(inputs_BIBSnet))
             run_nnUNet_predict(inputs_BIBSnet)
 
         except subprocess.CalledProcessError as e:
@@ -471,24 +482,29 @@ def run_BIBSnet(j_args, logger):
             outfpath = os.path.join(dir_BIBS.format("out"),
                                     "{}_{}_optimal_resized.nii.gz".format(*sub_ses))
             if not os.path.exists(outfpath):
-                logger.error("BIBSnet failed to create this segmentation file...\n{}\n...from these inputs:\n{}".format(outfpath, inputs_BIBSnet))
+                logger.error("BIBSnet failed to create this segmentation "
+                             "file...\n{}\n...from these inputs:\n{}"
+                             .format(outfpath, inputs_BIBSnet))
                 sys.exit(e)
 
         # Remove unneeded empty directories
         for unneeded_dir_name in ("nnUNet_cropped_image", "nnUNet_raw_data"):
-            unneeded_dir_path = os.path.join(j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name)
+            unneeded_dir_path = os.path.join(
+                j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name
+            )
             logger.info("Deleting unnecessary empty directory at {}"
                         .format(unneeded_dir_path))
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
     
-        # TODO hardcoded below call to run_nnUNet_predict. Will likely want to change and integrate into j_args
+        # TODO hardcoded below call to run_nnUNet_predict. Will likely want to 
+        # change and integrate into j_args
         #run_nnUNet_predict({"model": "3d_fullres",
         #                    "nnUNet": "/opt/conda/bin/nnUNet_predict",
         #                    "input": dir_BIBS.format("in"),
         #                    "output": dir_BIBS.format("out"),
         #                    "task": str(512)})
-    logger.info("BIBSnet has completed")
+        logger.info("BIBSnet has completed")
     return j_args
 
 
@@ -501,7 +517,7 @@ def run_postBIBSnet(j_args, logger):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # Template selection values
-    age_months = j_args["common"]["age_months"]
+    age_months = j_args["ID"]["age_months"]
     logger.info("Age of participant: {} months".format(age_months))
 
     # Get template closest to age
@@ -592,9 +608,9 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
         try:
             # SubjectHead TemplateHead TemplateMask OutputMaskFile
             cmd_LR_reg = (LR_REGISTR_PATH, first_subject_head,
-                        tmpl_head.format(age_months, t1or2),
-                        tmpl_mask.format(age_months),
-                        left_right_mask_nifti_fpath)
+                          tmpl_head.format(age_months, t1or2),
+                          tmpl_mask.format(age_months),
+                          left_right_mask_nifti_fpath)
             if j_args["common"]["verbose"]:
                 logger.info(msg.format("Now running", "\n".join(
                     (first_subject_head, " ".join(cmd_LR_reg))
@@ -668,10 +684,10 @@ def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
     )
     if (j_args["common"]["overwrite"] or not
             os.path.exists(output_mask_fpath)):
-        maths = fsl.ImageMaths(in_file=nii_outfpath,  # (anat file)
-                                op_string=("-bin -dilM -dilM -dilM -dilM "
-                                            "-fillh -ero -ero -ero -ero"),
-                                out_file=output_mask_fpath)
+        maths = fsl.ImageMaths(in_file=nii_outfpath,  # (nii_outfpath is anat file)
+                               op_string=("-bin -dilM -dilM -dilM -dilM "
+                                          "-fillh -ero -ero -ero -ero"),
+                               out_file=output_mask_fpath)
         maths.run()
     return output_mask_fpath
 

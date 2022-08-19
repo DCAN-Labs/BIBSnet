@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-09
+Updated: 2022-08-19
 """
 # Import standard libraries
 import argparse
@@ -568,6 +568,40 @@ def get_optional_args_in(a_dict):
     return optional_args
 
 
+def get_optimal_resized_paths(sub_ses, bibsnet_out_dir):
+    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
+    input_dir_BIBSnet = os.path.join(bibsnet_out_dir, *sub_ses, "input")
+    return {"T{}w".format(t): os.path.join(
+                input_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
+                                    .format("_".join(sub_ses), t - 1)
+            ) for t in (1, 2)}
+  
+
+def get_spatial_resolution_of(image_fpath, j_args, logger, fn_name="fslinfo"):
+    """
+    Run any FSL function in a Bash subprocess, unless its outputs exist and the
+    parameter file said not to overwrite outputs
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    :param fsl_fn_name: String naming the FSL function which is an
+                        executable file in j_args[common][fsl_bin_path]
+    """  # TODO Do we even need this function?
+    # FSL command to run in a subprocess
+    to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fn_name),
+              image_fpath]
+
+    # Run FSL command and read the file information into a dictionary
+    if j_args["common"]["verbose"]:
+        logger.info("Now running FSL command:\n{}"
+                    .format(" ".join(to_run)))
+    img_info = dict()
+    for eachline in subprocess.check_output(to_run).decode("utf-8").split("\n"):
+        split = eachline.split()
+        img_info[split[0]] = split[-1]
+
+    return img_info["pixdim3"]  # A.K.A. brain_z_size
+
+
 def get_stage_name(stage_fn):
     """ 
     :param stage_fn: Function to run one stage of CABINET. Its name must start
@@ -598,7 +632,7 @@ def get_subj_ID_and_session(j_args):
     """ 
     sub = ensure_prefixed(j_args["ID"]["subject"], "sub-")
     return [sub, ensure_prefixed(j_args["ID"]["session"], "ses-")
-            ] if j_args["ID"]["session"] else [sub]
+            ] if dict_has(j_args["ID"], "session") else [sub]
 
 
 def get_subj_ses(j_args):
@@ -643,17 +677,20 @@ def glob_and_copy(dest_dirpath, *path_parts_to_glob):
         shutil.copy(file_src, dest_dirpath)
 
 
-def log_stage_finished(stage_name, event_time, logger):
+def log_stage_finished(stage_name, event_time, sub_ses, logger):
     """
     Print and return a string showing how much time has passed since the
     current running script reached a certain part of its process
     :param stage_name: String, name of event that just finished
-    :param stage_start: datetime object representing when {stage_name} started
+    :param event_time: datetime object representing when {stage_name} started
+    :param sub_ses: List with either only the subject ID str or the session too
     :return: String with an easily human-readable message showing how much time
              has passed since {stage_start} when {stage_name} started.
     """
-    logger.info("{0} finished. Time elapsed since {0} started: {1}"
-                .format(stage_name, datetime.now() - event_time))
+    logger.info("{0} finished on subject {1}. "
+                "Time elapsed since {0} started: {2}"
+                .format(stage_name, " session ".join(sub_ses),
+                        datetime.now() - event_time))
 
 
 def make_given_or_default_dir(dirs_dict, dirname_key, default_dirpath):
@@ -689,8 +726,8 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
         logger.info(msg.format("ACPC and", optimal_resize["T1w"],
                                optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
 
-    # Create symlinks with the same name regardless of which is chosen, so 
-    # postBIBSnet can use the correct/chosen .mat file
+    # Copy files into postbibsnet dir with the same name regardless of which 
+    # is chosen, so postBIBSnet can use the correct/chosen .mat file
     concat_mat = optimal_resize["T1w_crop2BIBS_mat"]
     # TODO Rename T2w_crop2BIBS.mat to T2w_crop_to_T1w_to_BIBS.mat or something
     out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
@@ -701,7 +738,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     print("\nNow linking {0} to {1}\n{0} does {2}exist\n{1} does {3}exist\n".format(concat_mat, out_mat_fpath, "" if os.path.exists(concat_mat) else "not ", "" if os.path.exists(out_mat_fpath) else "not "))
     """
     if not os.path.exists(out_mat_fpath):
-        os.symlink(concat_mat, out_mat_fpath)
+        shutil.copy2(concat_mat, out_mat_fpath)
     return optimal_resize
                                        
 
@@ -926,11 +963,11 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
                 acpc2rigidbody
             )
 
-        crop2BIBS_mat_symlink = os.path.join(xfm_ACPC_vars["out_dir"],
+        crop2BIBS_mat = os.path.join(xfm_ACPC_vars["out_dir"],
                                      "crop_T{}w_to_BIBS_template.mat".format(t))
-        if not os.path.exists(crop2BIBS_mat_symlink):
-            os.symlink(to_rigidbody_final_mat, crop2BIBS_mat_symlink)
-        preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)] = crop2BIBS_mat_symlink
+        if not os.path.exists(crop2BIBS_mat):
+            shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
+        preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)] = crop2BIBS_mat
 
         # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
         # applywarp output is optimal_realigned_imgs input
@@ -938,7 +975,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
         run_FSL_sh_script(j_args, logger, "applywarp", "--rel", 
                           "--interp=spline", "-i", averaged_imgs["T{}w_avg".format(t)],
                           "-r", xfm_ACPC_vars["ref_img"].format(t),
-                          "--premat=" + crop2BIBS_mat_symlink, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
+                          "--premat=" + crop2BIBS_mat, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
                           "-o", preBIBS_ACPC_out["T{}w".format(t)])
         # pdb.set_trace()  # TODO Add "debug" flag?
 
@@ -983,7 +1020,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
     # pdb.set_trace()  # TODO Add "debug" flag?
     return optimal_realigned_imgs(preBIBS_nonACPC_out,
                                   preBIBS_ACPC_out, j_args, logger)
-  
+
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     """
@@ -1026,15 +1063,6 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     # pdb.set_trace()  # TODO Add "debug" flag?
 
 
-def get_optimal_resized_paths(sub_ses, bibsnet_out_dir):
-    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    input_dir_BIBSnet = os.path.join(bibsnet_out_dir, *sub_ses, "input")
-    return {"T{}w".format(t): os.path.join(
-                input_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
-                                    .format("_".join(sub_ses), t - 1)
-            ) for t in (1, 2)}
-
-
 def run_all_stages(all_stages, sub_ses_IDs, start, end,
                    ubiquitous_j_args, logger):
     """
@@ -1061,20 +1089,22 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
 
         # Check that all required input files exist for the stages to run
         verify_CABINET_inputs_exist(sub_ses, sub_ses_j_args, logger)
-        logger.info("All required input files exist.")
 
         # ...run all stages that the user said to run
         if sub_ses_j_args["common"]["verbose"]:
             logger.info("Parameters from input .JSON file:\n{}"
-                        .format(sub_ses_j_args))
+                        .format(sub_ses_j_args))  # TODO Only print j_args[ID] every time; print everything else in j_args before the sub-ses-loop
         for stage in all_stages:
             name = get_stage_name(stage)
             if name == start:
                 running = True
             if running:
                 stage_start = datetime.now()
+                if ubiquitous_j_args["common"]["verbose"]:
+                    logger.info("Now running {} stage on subject {}."
+                                .format(name, " session ".join(sub_ses)))
                 stage(sub_ses_j_args, logger)
-                log_stage_finished(name, stage_start, logger)
+                log_stage_finished(name, stage_start, sub_ses, logger)
             if name == end:
                 running = False
 
@@ -1217,7 +1247,7 @@ def valid_subj_ses_ID(to_validate):
     :param to_validate: Object to turn into a valid subject/session ID label
     :return: String
     """  # TODO Validate that subject/session exists 
-    return validate(to_validate, lambda _: True, lambda x: x.split("-")[-1],
+    return validate(to_validate, always_true, lambda x: x.split("-")[-1],
                     "{} is not a valid subject/session ID.")
 
 
@@ -1384,6 +1414,9 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
             logger.error("The file(s) below are needed to run the {} stage, "
                         "but they do not exist.\n{}\n"
                         .format(stage, "\n".join(missing_files)))
+            sys.exit(1)
+
+    logger.info("All required input files exist.")
 
 
 def warn_user_of_conditions(warning, logger, **to_check):
