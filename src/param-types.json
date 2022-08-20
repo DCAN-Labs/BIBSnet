@@ -12,11 +12,7 @@
         "omp_nthreads": "positive_int",
         "resource_monitor": "bool"
     },
-
-    "prebibsnet": {
-        "brain_z_size": "positive_int"
-    },
-    
+  
     "bibsnet": {
         "code_dir": "existing_directory_path",
         "model": "str",

@@ -1,22 +1,7 @@
 {
     "common": {
-        "age_months": 6,
-        "bids_dir": "/give/path",
         "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
-        "overwrite": true,
-        "participant_label": "1000",
-        "session": "6mo",
-        "task_id": null,
-        "verbose": true
-    },
-
-    "optional_out_dirs": {
-        "derivatives": null,
-        "preBIBSnet": null,
-        "BIBSnet": null,
-        "postBIBSnet": null,
-        "nibabies": null,
-        "XCPD": null
+        "task_id": null
     },
 
     "resource_management": {
@@ -28,14 +13,7 @@
         "resource_monitor": null
     },
 
-    "preBIBSnet": {
-        "brain_z_size": 120,
-        "averaged_dir": "averaged",
-        "cropped_dir": "cropped",
-        "resized_dir": "resized"
-    },
-
-    "BIBSnet": {
+    "bibsnet": {
         "model": "3d_fullres",
         "nnUNet_predict_path": "/home/support/public/torch_cudnn8.2/bin/nnUNet_predict",
         "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet",
@@ -87,7 +65,7 @@
         "skull_strip_fixed_seed": null,
         "skull_strip_t1w": null,
         "skull_strip_template": null,
-        "singularity_image_path": null,
+        "singularity_image_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies-22.0.1.sif",
         "slice_time_ref": null,
         "sloppy": null,
         "stop_on_first_crash": null,

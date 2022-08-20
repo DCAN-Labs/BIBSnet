@@ -9,6 +9,8 @@ Updated: 2022-08-19
 """
 # Import standard libraries
 import argparse
+from datetime import datetime  # for seeing how long scripts take to run
+from glob import glob
 import json
 import nibabel as nib
 from nipype.interfaces import fsl
@@ -18,8 +20,6 @@ import pdb
 import shutil
 import subprocess
 import sys
-from datetime import datetime  # for seeing how long scripts take to run
-from glob import glob
 
 # Chirality-checking constants
 CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
@@ -307,7 +307,7 @@ def crop_image(input_avg_img, output_crop_img, j_args, logger):
     crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
     run_FSL_sh_script(j_args, logger, "robustfov", "-i", input_avg_img, 
                       "-m", crop2full, "-r", output_crop_img,
-                      "-b", j_args["prebibsnet"]["brain_z_size"])  # TODO Use head radius for -b
+                      "-b", j_args["ID"]["brain_z_size"])  # TODO Use head radius for -b
     return crop2full
 
 
@@ -964,7 +964,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
             )
 
         crop2BIBS_mat = os.path.join(xfm_ACPC_vars["out_dir"],
-                                     "crop_T{}w_to_BIBS_template.mat".format(t))
+                                     "full_crop_T{}w_to_BIBS_template.mat".format(t))
         if not os.path.exists(crop2BIBS_mat):
             shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
         preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)] = crop2BIBS_mat
@@ -1100,10 +1100,10 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
                 running = True
             if running:
                 stage_start = datetime.now()
-                if ubiquitous_j_args["common"]["verbose"]:
+                if sub_ses_j_args["common"]["verbose"]:
                     logger.info("Now running {} stage on subject {}."
                                 .format(name, " session ".join(sub_ses)))
-                stage(sub_ses_j_args, logger)
+                sub_ses_j_args = stage(sub_ses_j_args, logger)
                 log_stage_finished(name, stage_start, sub_ses, logger)
             if name == end:
                 running = False
@@ -1312,8 +1312,8 @@ def validate_parameter_types(j_args, j_types, param_json, parser, stage_names):
 
         # Skip the j_args sections for stages not being run
         if section_name in stage_names and section_name in after_end:
-            if section_name in j_args:
-                to_delete.append(section_name)
+            if section_orig_name in j_args:
+                to_delete.append(section_orig_name)
 
         # Only include resource_management if we're in SLURM/SBATCH job(s)
         elif not (section_name == "resource_management"
@@ -1426,12 +1426,12 @@ def warn_user_of_conditions(warning, logger, **to_check):
     :param logger: logging.Logger object to raise warning
     """
     for thing in (warning, logger, to_check):
-        print(thing, type(thing))
+        logger.info(thing, type(thing))
     problems = list()
     for condition, problem in to_check.items():
         if condition:
             problems.append(problem)
-    print(type(warning))
+    logger.info(type(warning))
     logger.warning(warning.format(" and ".join(problems)))
 
 

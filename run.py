@@ -12,6 +12,7 @@ import argparse
 from datetime import datetime
 from glob import glob
 import logging
+import math
 from nipype.interfaces import fsl
 import os
 import pandas as pd
@@ -92,11 +93,11 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
-    default_brain_z_size = 120
+    # default_brain_z_size = 120
     default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("CABINET")
     # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
 
     # BIDS-App required positional args, validated later in j_args
@@ -110,7 +111,7 @@ def get_params_from_JSON(stage_names, logger):
         "output_dir", type=valid_readable_dir,  # TODO Does this dir have to already exist?
         help=("Valid absolute path to existing derivatives directory to save "
               "each stage's outputs by subject session into. Example: "
-              "/path/to/output/derivatives/")  # TODO Remove optional_out_dirs from parameter file and just keep output_dir as j_args[common][output_dir]
+              "/path/to/output/derivatives/")
     )
     parser.add_argument(
         "analysis_level", choices=["participant"],  # TODO Will we ever need to add group-level analysis functionality? Currently this argument does absolutely nothing
@@ -143,12 +144,14 @@ def get_params_from_JSON(stage_names, logger):
               "Include this argument unless the age in months is specified in"
               "the participants.tsv file inside the BIDS input directory.")
     )
-    parser.add_argument(  # TODO Make this a bool meaning getting brain_z_size from participants.tsv instead of (by default) calculating it with get_brain_z_size
-        "-z", "--brain-z-size", type=valid_whole_number,
-        default=default_brain_z_size,
-        help=("Positive integer, the size of the participant's brain in "
-              "millimeters along the z-axis. By default, this will be {}."
-              .format(default_brain_z_size))
+    parser.add_argument(  
+        "-z", "--brain-z-size", action="store_true", # type=valid_whole_number,
+        # default=default_brain_z_size,
+        help=("Include this flag to infer participants' brain height (z) "
+              "using the participants.tsv brain_z_size column. Otherwise, "
+              "CABINET will estimate the brain height from the participant "
+              "age and averages of a large sample of infant brain heights.")  # TODO rephase
+        # help=("Positive integer, the size of the participant's brain in millimeters along the z-axis. By default, this will be {}.".format(default_brain_z_size))
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -214,8 +217,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
     j_args["ID"] = {"subject": cli_args["participant_label"],
                     "session": cli_args["session"],
-                    "age_months": cli_args["age_months"]}
-                    #"brain_z_size": cli_args["brain_z_size"]}
+                    "age_months": cli_args["age_months"],
+                    "brain_z_size": cli_args["brain_z_size"]}
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
@@ -262,18 +265,25 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         # Using dict_has instead of easier ensure_dict_has so that the user only
         # needs a participants.tsv file if they didn't specify age_months
         if not dict_has(j_args["common"], "age_months"):
-            sub_ses_IDs[ix]["age_months"] = read_age_from_participants_tsv(
-                j_args, logger, *sub_ses
+            sub_ses_IDs[ix]["age_months"] = read_from_participants_tsv(
+                j_args, logger, "age", *sub_ses
             )
         
-        # TODO Infer brain_z_size for this sub_ses using age_months and
-        #      get_spatial_resolution_of and/or get_brain_z_size
+        # Infer brain_z_size for this sub_ses using participants.tsv if the 
+        # user said to (by using --brain-z-size flag), otherwise infer it 
+        # using age_months and the age-to-head-radius table .csv file
+        sub_ses_IDs[ix]["brain_z_size"] = read_from_participants_tsv(
+                j_args, logger, "brain_z_size", *sub_ses
+            ) if j_args["ID"]["brain_z_size"] else get_brain_z_size(
+                sub_ses_IDs[ix]["age_months"]
+            )
 
         # TODO Check if this adds more sub_ses-dependent stuff to j_args
         # Verify that every parameter in the parameter .JSON file is a valid input
-        j_args = validate_parameter_types(j_args, extract_from_json(TYPES_JSON),
-                                        cli_args["parameter_json"], parser,
-                                        stage_names)
+        j_args = validate_parameter_types(
+            j_args, extract_from_json(TYPES_JSON),
+            cli_args["parameter_json"], parser, stage_names
+        )
 
         # Create BIBSnet in/out directories
         dir_BIBSnet = dict()
@@ -282,8 +292,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                                         *sub_ses, "{}put".format(io))
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
-        if j_args["common"]["verbose"]:
-            logger.info(" ".join(sys.argv[:]))  # Print all
+    if j_args["common"]["verbose"]:
+        logger.info(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
@@ -291,13 +301,29 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     return j_args, sub_ses_IDs
 
 
-def get_brain_z_size():
-    MM_PER_IN = 25.4
-    pd.set_option('display.max_rows', None)
+def get_brain_z_size(age_months, buffer=5):
+    """
+    Infer a participant's brain z-size from their age and from the average
+    brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
+    :param age_months: Int, participant's age in months
+    :param buffer: Int, extra space (in mm), defaults to 5
+    :return: Int, the brain z-size (height) in millimeters
+    """
+    MM_PER_IN = 25.4  # Conversion factor: inches to millimeters
+
+    # Other columns' names in the age-to-head-radius table
+    age_months_col = "Candidate_Age(mo.)"
+    head_r_col = "Head_Radius(in.)"
+    head_diam_mm = "head_diameter_mm"
+
+    # Get average head radii in millimeters by age from table
     age2headradius = pd.read_csv(AGE_TO_HEAD_RADIUS_TABLE)
-    age2headradius["brain_z_size"] = age2headradius["Head_Radius(in.)"
-                                                    ] * MM_PER_IN * 2
-    print(age2headradius["brain_z_size"])
+    age2headradius[head_diam_mm] = age2headradius[head_r_col
+                                                  ] * MM_PER_IN * 2
+    row = age2headradius[age2headradius[age_months_col] == age_months]
+    
+    # Return the average brain z-size for the participant's age
+    return math.ceil(row.get(head_diam_mm)) + buffer
 
 
 def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
@@ -354,12 +380,15 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     return j_args
 
 
-def read_age_from_participants_tsv(j_args, logger, *sub_ses):
+def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :return: Int, the subject's age (in months) listed in participants.tsv
+    :param col_name: String naming the column of participants.tsv to return
+                     a value from (for this subject or subject-session)
+    :return: Int, either the subject's age (in months) or the subject's
+             brain_z_size (depending on col_name) as listed in participants.tsv
     """
-    columns = {x: "str" for x in ("age", "session", "participant_id")}
+    columns = {x: "str" for x in (col_name, "session", "participant_id")}
 
     # Read in participants.tsv
     part_tsv_df = pd.read_csv(
@@ -367,12 +396,11 @@ def read_age_from_participants_tsv(j_args, logger, *sub_ses):
                      "participants.tsv"), sep="\t", dtype=columns
     )
 
-    # Column names of participants.tsv
-    age_months_col = "age" # TODO is there a way to ensure the age column is given in months using the participants.json (the participants.tsv's sidecar)
+    # Subject and session column names in participants.tsv
     sub_ID_col = "participant_id"
     ses_ID_col = "session"
 
-    # Get and return the age_months value from participants.tsv
+    # Get and return the col_name value from participants.tsv
     subj_row = part_tsv_df[
         part_tsv_df[sub_ID_col] == ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
@@ -383,7 +411,7 @@ def read_age_from_participants_tsv(j_args, logger, *sub_ses):
     if j_args["common"]["verbose"]:
         logger.info("Subject details from participants.tsv row:\n{}"
                     .format(subj_row))
-    return int(subj_row[age_months_col])
+    return int(subj_row[col_name])
 
 
 def run_preBIBSnet(j_args, logger):
@@ -535,6 +563,8 @@ def run_postBIBSnet(j_args, logger):
     logger.info("Left/right image registration completed")
 
     # Dilate the L/R mask and feed the dilated mask into chirality correction
+    if j_args["common"]["verbose"]:
+        logger.info("Now dilating left/right mask")
     dilated_LRmask_fpath = dilate_LR_mask(
         os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses),
         left_right_mask_nifti_fpath
