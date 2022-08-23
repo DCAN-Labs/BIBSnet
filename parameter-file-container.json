@@ -1,6 +1,6 @@
 {
     "common": {
-        "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
+        "fsl_bin_path": "/opt/fsl-6.0.5.1/bin/",
         "task_id": null
     },
 
@@ -15,8 +15,8 @@
 
     "bibsnet": {
         "model": "3d_fullres",
-        "nnUNet_predict_path": "/home/support/public/torch_cudnn8.2/bin/nnUNet_predict",
-        "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet",
+        "nnUNet_predict_path": "/opt/conda/bin/nnUNet_predict",
+        "code_dir": "/home/cabinet/SW/BIBSnet",
         "singularity_image_path": "/home/feczk001/gconan/placeholder.txt",
         "task": "512"
     },
