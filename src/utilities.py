@@ -964,9 +964,12 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
             )
 
         crop2BIBS_mat = os.path.join(xfm_ACPC_vars["out_dir"],
-                                     "full_crop_T{}w_to_BIBS_template.mat".format(t))
+                                     "crop_T{}w_to_BIBS_template.mat".format(t))
         if not os.path.exists(crop2BIBS_mat):
             shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
+            if j_args["common"]["verbose"]:
+                logger.info("Copying {} to {}".format(to_rigidbody_final_mat,
+                                                      crop2BIBS_mat))
         preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)] = crop2BIBS_mat
 
         # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
