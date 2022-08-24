@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-19
+Updated: 2022-08-23
 """
 # Import standard libraries
 import argparse
@@ -70,7 +70,6 @@ def main():
     run_all_stages(STAGES, sub_ses_IDs, json_args["stage_names"]["start"],
                    json_args["stage_names"]["end"], json_args, logger)
     # TODO default to running all stages if not specified by the user
-    # TODO add error if end is given as a stage that happens before start
 
     # Show user how long the pipeline took and end the pipeline here
     exit_with_time_info(start_time)
@@ -123,8 +122,8 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-jargs", "-params", "--parameter-json", dest="parameter_json",
         type=valid_readable_json, required=True,
-        help=("Valid path to existing readable parameter .JSON file. See "
-              "README.md and example parameter .JSON files for more "
+        help=("Required. Valid path to existing readable parameter .JSON "
+              "file. See README.md and example parameter .JSON files for more "
               "information on parameters.")
         # TODO: Add description of all nibabies and XCP-D parameters to the README?
         # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
@@ -209,6 +208,12 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
     j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
                       "slurm": bool(cli_args[script_dir_attr])}
+
+    # Crash immediately if the end is given as a stage that happens before start
+    if (stage_names.index(cli_args["start"])
+            > stage_names.index(cli_args["end"])):
+        parser.error("Error: {} stage must happen before {} stage."
+                     .format(cli_args["start"], cli_args["end"]))
 
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
@@ -420,7 +425,6 @@ def run_preBIBSnet(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     :return: j_args, but with preBIBSnet working directory names added
     """
-    # sub_ses = get_subj_ID_and_session(j_args)
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
 
@@ -483,14 +487,10 @@ def run_BIBSnet(j_args, logger):
         # Import BIBSnet functionality from BIBSnet/run.py
         parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
         logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
-        sys.path.append(parent_BIBSnet)
+        sys.path.append(parent_BIBSnet)  #sys.path.append("/home/cabinet/SW/BIBSnet")
         from BIBSnet.run import run_nnUNet_predict
                
         # TODO test functionality of importing BIBSNet function via params json (j_args)
-        #parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
-        #logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
-        #sys.path.append("/home/cabinet/SW/BIBSnet")
-        #from BIBSnet.run import run_nnUNet_predict
 
         try:  # Run BIBSnet
             inputs_BIBSnet = {"model": j_args["bibsnet"]["model"],
@@ -516,7 +516,7 @@ def run_BIBSnet(j_args, logger):
                 sys.exit(e)
 
         # Remove unneeded empty directories
-        for unneeded_dir_name in ("nnUNet_cropped_image", "nnUNet_raw_data"):
+        for unneeded_dir_name in ("nnUNet_cropped_data", "nnUNet_raw_data"):
             unneeded_dir_path = os.path.join(
                 j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name
             )
