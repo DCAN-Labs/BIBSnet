@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-23
+Updated: 2022-08-19
 """
 # Import standard libraries
 import argparse
@@ -79,6 +79,8 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
     # Transform 12 dof matrix to 6 dof approximation matrix
     run_FSL_sh_script(j_args, logger, "aff2rigid", mats["full2acpc"],
                       mats["acpc2rigidbody"])
+
+    # run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", mats["rigidbody2acpc"], "-omat", mats["acpc2rigidbody"])
 
     # Apply ACPC alignment to the data
     # Create a resampled image (ACPC aligned) using spline interpolation  # TODO Only run this command in debug mode
@@ -240,9 +242,8 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
     preBIBSnet_mat = os.path.join(
         j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
-        "preBIBSnet_crop_T1w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
-    )  # preBIBSnet_mat_glob =
-    # preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()  # NOTE CABINET ran without error using this on 2022-08-23
+        "preBIBSnet_full_crop_T1w_to_BIBS_template.mat"
+    ) # "preBIBSnet_T1w_final.mat")   crop_T{}w_to_BIBS_template.mat
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
                       seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
 
@@ -578,10 +579,12 @@ def get_optimal_resized_paths(sub_ses, bibsnet_out_dir):
 
 def get_spatial_resolution_of(image_fpath, j_args, logger, fn_name="fslinfo"):
     """
+    Run any FSL function in a Bash subprocess, unless its outputs exist and the
+    parameter file said not to overwrite outputs
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
-    :param fn_name: String naming the function which is an
-                    executable file in j_args[common][fsl_bin_path]
+    :param fsl_fn_name: String naming the FSL function which is an
+                        executable file in j_args[common][fsl_bin_path]
     """  # TODO Do we even need this function?
     # FSL command to run in a subprocess
     to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fn_name),
@@ -736,8 +739,6 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     """
     if not os.path.exists(out_mat_fpath):
         shutil.copy2(concat_mat, out_mat_fpath)
-        if j_args["common"]["verbose"]:
-            logger.info("Copying {} to {}".format(concat_mat, out_mat_fpath))
     return optimal_resize
                                        
 
@@ -991,7 +992,7 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
         # registration_T2w_to_T1w's cropT2tocropT1.mat, and then non-ACPC
         # registration_T2w_to_T1w's crop_T1_to_BIBS_template.mat)
         preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-            xfm_non_ACPC_vars["out_dir"], "crop_T{}w_to_BIBS_template.mat".format(t)
+            xfm_non_ACPC_vars["out_dir"], "full_crop_T{}w_to_BIBS_template.mat".format(t)
         )
         full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
                                         "full2cropT1w.mat")
@@ -1081,7 +1082,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     running = False
     for dict_with_IDs in sub_ses_IDs:
 
-        # ...make a j_args copy with its subject ID, session ID, and age 
+        # ...make a j_args copy with its subject ID, session ID, and age  # TODO Add brain_z_size into j_args[ID]
         sub_ses_j_args = ubiquitous_j_args.copy()
         sub_ses_j_args["ID"] = dict_with_IDs
         sub_ses = get_subj_ID_and_session(sub_ses_j_args)
@@ -1089,7 +1090,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
             sub_ses, ubiquitous_j_args["optional_out_dirs"]["bibsnet"]
         )
 
-        # ...check that all required input files exist for the stages to run
+        # Check that all required input files exist for the stages to run
         verify_CABINET_inputs_exist(sub_ses, sub_ses_j_args, logger)
 
         # ...run all stages that the user said to run
@@ -1396,12 +1397,18 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
                            "bibsnet": list(j_args["optimal_resized"].values()),
                            "postbibsnet": [out_BIBSnet_seg, *subject_heads],
                            "nibabies": out_paths_BIBSnet,
-                           "xcpd": list()}
+                           "xcpd": []}
 
     # For each stage that will be run, verify that its prereq input files exist
     all_stages = [s for s in stage_prerequisites.keys()]
+
+    # required_files = stage_prerequisites[j_args["stage_names"]["start"]]
     start_ix = all_stages.index(j_args["stage_names"]["start"]) 
     for stage in all_stages[:start_ix+1]:
+
+        # if stage == j_args["stage_names"]["start"]:
+        # if will_run_stage(stage, j_args["stage_names"]["start"], j_args["stage_names"]["end"], all_stages):
+
         missing_files = list()
         for globbable in stage_prerequisites[stage]:
             if not glob(globbable):
