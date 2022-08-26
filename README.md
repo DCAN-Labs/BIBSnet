@@ -81,7 +81,7 @@ optional arguments:
                         Name of the stage to run last. By default, this will be the postbibsnet stage. Valid choices:
                         prebibsnet, bibsnet, postbibsnet
   -ses SESSION, --session SESSION, --session-id SESSION
-                        The name of the session to processes participant data for. Example: baseline_year1
+                        The name of the session to processes participant data for, without 'ses-'prefix. Example: baselineyear1
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous CABINET outputs in the derivatives sub-
                         directories. Otherwise, by default CABINET will skip creating any CABINET output files that
@@ -107,7 +107,7 @@ The repository contains two parameter files, one recommended to run CABINET insi
 
 #### "common": parameters used by multiple stages within CABINET
 
-- `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FreeSurferLearner (FSL)](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
+- `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FMRIB Software Library](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
 - `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback`
 
 #### "resource_management": parameters to determine resource use when running parallel scripts. These parameters are only needed for nibabies and XCPD.
@@ -194,6 +194,7 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 3. Registers the segmentation back into native T1 space using transform produced via optimal registration in preBIBSnet
 4. Generates a mask of the segmentation from the native T1 space segmentation
 5. Renames the native T1 space segmentation and mask to BIDS standard naming conventions to feed into Nibabies
+6. Creates a "precomputed" directory for input into Nibabies
 
 <br />
 
