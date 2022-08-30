@@ -1,0 +1,91 @@
+{
+    "description": "<ul>\n<li>CABINET can now run multiple subjects/sessions or subjects with no sessions</li>\n<li>Added issue templates</li>\n<li>BIDSified the application by moving args from param file to argparse</li>\n<li>Updated README.md to reflect these changes</li>\n<li>Implemented age-to-average-head-radius inference from table</li>\n</ul>", 
+    "license": "BSD-3-Clause license", 
+    "title": "DCAN-Labs/CABINET: BIDS-ified CABINET Application", 
+    "version": "1.5.0", 
+    "upload_type": "software", 
+    "publication_date": "2022-08-24", 
+    "creators": [
+        {
+            "name": "Audrey Houghton",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        }, 
+        {
+            "name": "Greg Conan",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        }, 
+        {
+            "name": "Timothy J Hendrickson",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        }, 
+        {
+            "name": "Aidan Latham",
+            "affiliation": "Washington University, St. Louis, MO"    
+        }, 
+        {
+            "name": "Amanda Rueter",
+            "affiliation": "University of Minnesota, Minneapolis, MN"
+        }, 
+        {
+            "name": "Christopher J Markiewicz",
+            "affiliation": "Stanford University, Stanford, CA"
+        }, 
+        {
+            "name": "Dimitrios Alexopoulos",
+            "affiliation": "Washington University, St. Louis, MO"
+        }, 
+        {
+            "name": "Erik Lee",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Jacob Lundquist",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Julia Moser",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Lucille A Moore",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Mathias Goncalves",
+            "affiliation": "Stanford University, Stanford, CA"
+        },
+        {
+            "name": "Paul Reiners",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Sanju Koirala",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Thomas J Madison",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Damien A Fair",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Eric Feczko",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        }
+    ], 
+    "access_right": "open", 
+    "related_identifiers": [
+        {
+            "scheme": "url", 
+            "identifier": "https://github.com/DCAN-Labs/CABINET/tree/1.5.0", 
+            "relation": "isSupplementTo"
+        }, 
+        {
+            "scheme": "doi", 
+            "identifier": "10.5281/zenodo.7019701", 
+            "relation": "isVersionOf"
+        }
+    ]
+}
