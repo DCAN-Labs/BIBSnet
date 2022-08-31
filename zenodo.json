@@ -1,5 +1,5 @@
 {
-    "description": "<ul>\n<li>CABINET can now run multiple subjects/sessions or subjects with no sessions</li>\n<li>Added issue templates</li>\n<li>BIDSified the application by moving args from param file to argparse</li>\n<li>Updated README.md to reflect these changes</li>\n<li>Implemented age-to-average-head-radius inference from table</li>\n</ul>", 
+    "description": "<ul>\n<li>This software provides the utility of creating a nnU-Net anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within Nibabies.</li>\n</ul>", 
     "license": "BSD-3-Clause license", 
     "title": "DCAN-Labs/CABINET: BIDS-ified CABINET Application", 
     "version": "1.5.0", 
