@@ -119,7 +119,7 @@ COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
 COPY bin /home/cabinet/bin
 #COPY data /home/cabinet/data
-RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && unzip -qq /home/cabinet/data/temp_data.zip && rm /home/cabinet/data/temp_data.zip
+RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && cd /home/cabinet/data && unzip -qq temp_data.zip && rm temp_data.zip
 
 COPY parameter-file-application.json /home/cabinet/parameter-file-application.json
 COPY parameter-file-container.json /home/cabinet/parameter-file-container.json
