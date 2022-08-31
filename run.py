@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-23
+Updated: 2022-08-30
 """
 # Import standard libraries
 import argparse
@@ -48,11 +48,11 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 from src.utilities import (
     as_cli_attr, as_cli_arg, correct_chirality, create_anatomical_average,
     crop_image, dict_has, dilate_LR_mask, ensure_prefixed, exit_with_time_info,
-    extract_from_json, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
-    get_stage_name, get_subj_ID_and_session, get_template_age_closest_to,
-    make_given_or_default_dir, resize_images, run_all_stages, 
-    valid_readable_json, validate_parameter_types, valid_readable_dir,
-    valid_subj_ses_ID, valid_whole_number
+    extract_from_json, get_age_closest_to, get_and_make_preBIBSnet_work_dirs,
+    get_optional_args_in, get_stage_name, get_subj_ID_and_session,
+    get_template_age_closest_to, make_given_or_default_dir, resize_images,
+    run_all_stages, valid_readable_json, validate_parameter_types,
+    valid_readable_dir, valid_subj_ses_ID, valid_whole_number
 )
 
 
@@ -280,7 +280,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         sub_ses_IDs[ix]["brain_z_size"] = read_from_participants_tsv(
                 j_args, logger, "brain_z_size", *sub_ses
             ) if j_args["ID"]["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs[ix]["age_months"]
+                sub_ses_IDs[ix]["age_months"], j_args, logger
             )
 
         # TODO Check if this adds more sub_ses-dependent stuff to j_args
@@ -306,7 +306,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     return j_args, sub_ses_IDs
 
 
-def get_brain_z_size(age_months, buffer=5):
+def get_brain_z_size(age_months, j_args, logger, buffer=5):
     """
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
@@ -321,11 +321,20 @@ def get_brain_z_size(age_months, buffer=5):
     head_r_col = "Head_Radius(in.)"
     head_diam_mm = "head_diameter_mm"
 
-    # Get average head radii in millimeters by age from table
+    # Get table mapping each age in months to average head radius
     age2headradius = pd.read_csv(AGE_TO_HEAD_RADIUS_TABLE)
+
+    # Get BCP age (in months) closest to the subject's age
+    closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
+    if j_args["common"]["verbose"]:
+        logger.info("Subject age in months: {}\nClosest BCP age in months in "
+                    "age-to-head-radius table: {}"
+                    .format(age_months, closest_age))
+
+    # Get average head radii in millimeters by age from table
     age2headradius[head_diam_mm] = age2headradius[head_r_col
                                                   ] * MM_PER_IN * 2
-    row = age2headradius[age2headradius[age_months_col] == age_months]
+    row = age2headradius[age2headradius[age_months_col] == closest_age]
     
     # Return the average brain z-size for the participant's age
     return math.ceil(row.get(head_diam_mm)) + buffer

@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-23
+Updated: 2022-08-30
 """
 # Import standard libraries
 import argparse
@@ -238,11 +238,11 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     shutil.copy2(nifti_corrected_file_path, dummy_copy)
 
     seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")
-    preBIBSnet_mat = os.path.join(
+    preBIBSnet_mat_glob = os.path.join(
         j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
-        "preBIBSnet_crop_T1w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
-    )  # preBIBSnet_mat_glob =
-    # preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()  # NOTE CABINET ran without error using this on 2022-08-23
+        "preBIBSnet_*crop_T1w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
+    )
+    preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
                       seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
 
@@ -657,11 +657,15 @@ def get_template_age_closest_to(age, templates_dir):
             template_ages.append(int(tmpl_age))
     
     # Get template age closest to subject age, then return template age
-    closest_age = template_ages[np.argmin(np.abs(np.array(template_ages)-age))]
+    closest_age = get_age_closest_to(age, template_ages)
     return (template_ranges[closest_age] if closest_age
             in template_ranges else str(closest_age)) #final_template_age
     # template_ages = [os.path.basename(f).split("mo", 1)[0] for f in glob(globber)]
 
+
+def get_age_closest_to(subject_age, all_ages):
+    return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
+    
 
 def glob_and_copy(dest_dirpath, *path_parts_to_glob):
     """
@@ -731,9 +735,6 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
         j_args["optional_out_dirs"]["postbibsnet"],
         *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
     )
-    """
-    print("\nNow linking {0} to {1}\n{0} does {2}exist\n{1} does {3}exist\n".format(concat_mat, out_mat_fpath, "" if os.path.exists(concat_mat) else "not ", "" if os.path.exists(out_mat_fpath) else "not "))
-    """
     if not os.path.exists(out_mat_fpath):
         shutil.copy2(concat_mat, out_mat_fpath)
         if j_args["common"]["verbose"]:
@@ -991,14 +992,14 @@ def resize_images(cropped_imgs, output_dir, ref_image, ident_mx,
         # registration_T2w_to_T1w's cropT2tocropT1.mat, and then non-ACPC
         # registration_T2w_to_T1w's crop_T1_to_BIBS_template.mat)
         preBIBS_nonACPC_out["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-            xfm_non_ACPC_vars["out_dir"], "crop_T{}w_to_BIBS_template.mat".format(t)
+            xfm_non_ACPC_vars["out_dir"], "full_crop_T{}w_to_BIBS_template.mat".format(t)  # TODO Changing this back to full_crop on 2022-08-30
         )
         full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
                                         "full2cropT1w.mat")
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm",
             "-omat", full2cropT1w_mat,
-            "-concat", xfm_ACPC_vars["mats_T{}w".format(t)]["full2crop"], 
+            "-concat", xfm_ACPC_vars["mats_T{}w".format(t)]["full2crop"], # TODO Was this messed up between 2022-08-11 and 2022-08-23?
             xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
         )
         run_FSL_sh_script( 
@@ -1245,9 +1246,8 @@ def valid_whole_number(to_validate):
 
 def valid_subj_ses_ID(to_validate):
     """
-    _summary_ 
     :param to_validate: Object to turn into a valid subject/session ID label
-    :return: String
+    :return: String, valid subject/session ID label
     """  # TODO Validate that subject/session exists 
     return validate(to_validate, always_true, lambda x: x.split("-")[-1],
                     "{} is not a valid subject/session ID.")
