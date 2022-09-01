@@ -130,7 +130,7 @@ ENV PATH="${PATH}:/home/cabinet/"
 RUN cp /home/cabinet/run.py /home/cabinet/cabinet
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
-RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet
+RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet data
 RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task512_BCP_ABCD_Neonates_SynthSegDownsample/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
 
 ENTRYPOINT ["cabinet"]
