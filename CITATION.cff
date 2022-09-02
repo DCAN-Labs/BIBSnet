@@ -79,3 +79,18 @@ references:
     title: "nnU-Net"
     type: software
     version: 2.3.3
+  - authors:
+      - family-names: "Developmental Cognition and Neuroimaging Labs"
+    repository-code: "https://github.com/DCAN-Labs/BIBSnet"
+    title: "BIBSnet"
+    type: software
+  - authors:
+      - family-names: "Developmental Cognition and Neuroimaging Labs"
+    repository-code: "https://github.com/DCAN-Labs/SynthSeg"
+    title: "SynthSeg"
+    type: software    
+  - authors:
+      - family-names: "NVIDIA"
+    title: "Pytorch"
+    type: software
+    version: 21.11
