@@ -79,5 +79,4 @@ references:
     repository-code: "https://github.com/MIC-DKFZ/nnUNet"
     title: "nnU-Net"
     type: software
-    version: 2.3.3   
-    "https://github.com/MIC-DKFZ/nnUNet"
+    version: 2.3.3
