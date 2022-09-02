@@ -59,3 +59,23 @@ references:
     title: "FSL: FMRIB SOFTWARE LIBRARY"
     type: software
     version: 6.0.5.1
+- authors:
+      - family-names: "Jenkinson et al."
+    doi: 0.1016/j.neuroimage.2011.09.015
+    journal: "NeuroImage"
+    scope: "Cite this paper if you want to reference the general concepts of the software."
+    title: "FSL"
+    type: article
+    volume: 62
+    year: 2012
+  - authors:
+      - family-names: "Avants et al."
+    title: "Advanced normalization tools (ANTS)"
+    type: software
+    version: 2.3.3 
+   - authors:
+      - family-names: "Applied Computer Vision Lab (ACVL) of Helmholtz Imaging"
+    repository-code: "https://github.com/MIC-DKFZ/nnUNet"
+    title: "nnU-Net"
+    type: software
+    version: 2.3.3
