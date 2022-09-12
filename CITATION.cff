@@ -62,7 +62,7 @@ references:
   - authors:
       - family-names: "Jenkinson et al."
     doi: 0.1016/j.neuroimage.2011.09.015
-    journal: "NeuroImage"
+    journal: "Neuroimage"
     scope: "Cite this paper if you want to reference the general concepts of the software."
     title: "FSL"
     type: article
@@ -94,6 +94,14 @@ references:
     title: "Pytorch"
     type: software
     version: 21.11
+  - authors:
+      - family-names: "Howell et al."
+    doi: 10.1016/j.neuroimage.2018.03.049
+    journal: "Neuroimage"
+    title: "The UNC/UMN Baby Connectome Project (BCP): An Overview of the Study Design and Protocol Development"
+    type: article
+    volume: 15
+    year: 2019
   - type: grant
     number: 1U01DA055371 
     title: "The Healthy Brain and Child Development National Consortium"
