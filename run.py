@@ -66,6 +66,9 @@ def main():
     json_args, sub_ses_IDs = get_params_from_JSON([get_stage_name(stg) for stg
                                                    in STAGES], logger)  # TODO Un-capitalize "BIBS" everywhere (except import BIBSnet.run?)
 
+    # Set output dir environment variable for BIBSnet to user-defined output dir
+    os.environ["nnUNet_raw_data_base"] = json_args["optional_out_dirs"]["derivatives"]
+    
     # Run every stage that the parameter file says to run
     run_all_stages(STAGES, sub_ses_IDs, json_args["stage_names"]["start"],
                    json_args["stage_names"]["end"], json_args, logger)
