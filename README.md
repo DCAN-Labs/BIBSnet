@@ -140,7 +140,6 @@ This has been primarily tested in Singularity. We are less able to provide techn
     docker_image:version /input /output participant -jargs /param_file.json \
     -end postbibsnet -v
 
-
 #### Singularity
 
     singularity run --nv --cleanenv --no-home \
@@ -156,11 +155,23 @@ This has been primarily tested in Singularity. We are less able to provide techn
 
 We do not recommend running `CABINET` outside of the container.
 
+However, if you run `CABINET` outside of the container as an application, then you will need to download the `data` directory from the `https://s3.msi.umn.edu/CABINET_data/data.zip` URL, unzip it, and move it into your cloned `CABINET` repository directory here: `CABINET/data/`
+
 <br />
 
 ## Multiple Participant Requirements
 
 ### `participants.tsv`
+
+#### Format Specification Example
+
+| participant_id | session | age |
+|:-:|:-:|:-:|
+| sub-123456 | ses-A | 1 |
+
+NOTE: `sub-` and `ses-` prefixes are currently required for `participant_id` and `session` values.
+
+#### Content
 
 When running multiple subjects and/or sessions, the `participants.tsv` file in the `bids_dir` must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session.
 
