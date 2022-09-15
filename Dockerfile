@@ -107,7 +107,7 @@ RUN cd /home/cabinet && \
 RUN cd  /home/cabinet/SW && \
     git clone https://github.com/DCAN-Labs/BIBSnet.git
 
-ENV nnUNet_raw_data_base="/output"
+#ENV nnUNet_raw_data_base="/output"
 ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
 ENV RESULTS_FOLDER="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 
