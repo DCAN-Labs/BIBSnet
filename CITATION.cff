@@ -75,7 +75,15 @@ references:
       - family-names: "Avants et al."
     title: "Advanced normalization tools (ANTS)"
     type: software
-    version: 2.3.3 
+    version: 2.3.3
+  - authors:
+      - family-names: "Avants et al."
+    doi: 10.54294/uvnhin
+    journal: "OR Insight"
+    scope: "Cite this paper if you want to reference the general concepts of the software."
+    title: "Advanced normalization tools (ANTS)"
+    type: article
+    year: 2008
   - authors:
       - family-names: "Applied Computer Vision Lab (ACVL) of Helmholtz Imaging"
     repository-code: "https://github.com/MIC-DKFZ/nnUNet"
