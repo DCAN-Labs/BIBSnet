@@ -85,11 +85,20 @@ references:
     type: article
     year: 2008
   - authors:
-      - family-names: "Applied Computer Vision Lab (ACVL) of Helmholtz Imaging"
+      - family-names: "Isensee et al."
     repository-code: "https://github.com/MIC-DKFZ/nnUNet"
     title: "nnU-Net"
     type: software
     version: 2.3.3
+  - authors:
+      - family-names: "Isensee et al."
+    doi: 10.1038/s41592-020-01008-z
+    journal: "Nature Methods"
+    scope: "Cite this paper if you want to reference the general concepts of the software."
+    title: "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation"
+    type: article
+    volume: 18
+    year: 2021  
   - authors:
       - family-names: "Developmental Cognition and Neuroimaging Labs"
     repository-code: "https://github.com/DCAN-Labs/BIBSnet"
