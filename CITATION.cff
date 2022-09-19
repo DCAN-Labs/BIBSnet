@@ -113,10 +113,17 @@ references:
     type: article
     year: 2021    
   - authors:
-      - family-names: "NVIDIA"
+      - family-names: "Paszke et al."
     title: "Pytorch"
     type: software
     version: 21.11
+  - authors:
+      - family-names: "Paszke et al."
+    scope: "Cite this paper if you want to reference the general concepts of the software."
+    title: "Automatic differentiation in PyTorch"
+    type: article
+    url: https://openreview.net/forum?id=BJJsrmfCZ
+    year: 2017  
   - authors:
       - family-names: "Howell et al."
     doi: 10.1016/j.neuroimage.2018.03.049
