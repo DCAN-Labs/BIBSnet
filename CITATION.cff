@@ -105,10 +105,13 @@ references:
     title: "BIBSnet"
     type: software
   - authors:
-      - family-names: "Developmental Cognition and Neuroimaging Labs"
-    repository-code: "https://github.com/DCAN-Labs/SynthSeg"
-    title: "SynthSeg"
-    type: software    
+      - family-names: "Billot et al."
+    doi: 10.48550/arXiv.2107.09559
+    journal: "arXiv"
+    scope: "Cite this paper if you want to reference the general concepts of the software."
+    title: "SynthSeg: Domain Randomisation for Segmentation of Brain Scans of any Contrast and Resolution"
+    type: article
+    year: 2021    
   - authors:
       - family-names: "NVIDIA"
     title: "Pytorch"
