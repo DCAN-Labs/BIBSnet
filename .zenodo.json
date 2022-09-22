@@ -96,12 +96,12 @@
         {
             "scheme": "url", 
             "identifier": "https://github.com/DCAN-Labs/CABINET/tree/1.5.0", 
-            "relation": "isSupplementTo"
+            "relation": "documents"
         }, 
         {
             "scheme": "doi", 
             "identifier": "10.5281/zenodo.7019701", 
-            "relation": "isVersionOf"
+            "relation": "isPartOf"
         }
     ]
 }
