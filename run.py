@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # coding: utf-8
 
@@ -5,7 +6,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-08-30
+Updated: 2022-10-12
 """
 # Import standard libraries
 import argparse
@@ -46,11 +47,13 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
-    as_cli_attr, as_cli_arg, correct_chirality, create_anatomical_average,
-    crop_image, dict_has, dilate_LR_mask, ensure_prefixed, exit_with_time_info,
-    extract_from_json, get_age_closest_to, get_and_make_preBIBSnet_work_dirs,
+    apply_final_prebibsnet_xfms, as_cli_attr, as_cli_arg, correct_chirality, 
+    create_anatomical_average, crop_image, dict_has, dilate_LR_mask, 
+    ensure_prefixed, exit_with_time_info, extract_from_json,
+    get_age_closest_to, get_and_make_preBIBSnet_work_dirs,
     get_optional_args_in, get_stage_name, get_subj_ID_and_session,
-    get_template_age_closest_to, make_given_or_default_dir, resize_images,
+    get_template_age_closest_to, make_given_or_default_dir,
+    only_Ts_needed_for_bibsnet_model, register_all_preBIBSnet_imgs,
     run_all_stages, valid_readable_json, validate_parameter_types,
     valid_readable_dir, valid_subj_ses_ID, valid_whole_number
 )
@@ -94,6 +97,7 @@ def get_params_from_JSON(stage_names, logger):
     """
     # default_brain_z_size = 120
     default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
+    default_model_num_bibsnet = 512
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser("CABINET")
@@ -143,24 +147,17 @@ def get_params_from_JSON(stage_names, logger):
               "Include this argument unless the age in months is specified in"
               "the participants.tsv file inside the BIDS input directory.")
     )
-    parser.add_argument(  
-        "-z", "--brain-z-size", action="store_true", # type=valid_whole_number,
-        # default=default_brain_z_size,
-        help=("Include this flag to infer participants' brain height (z) "
-              "using the participants.tsv brain_z_size column. Otherwise, "
-              "CABINET will estimate the brain height from the participant "
-              "age and averages of a large sample of infant brain heights.")  # TODO rephase
-        # help=("Positive integer, the size of the participant's brain in millimeters along the z-axis. By default, this will be {}.".format(default_brain_z_size))
-    )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
-        choices=stage_names[:3], default=default_end_stage,
+        choices=stage_names[:3], default=default_end_stage,  # TODO change to choices=stage_names,
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
     )
     parser.add_argument(
-        "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
-        help=("The name of the session to processes participant data for. "
-              "Example: baseline_year1")
+        "-model", "--model-number", "--bibsnet-model",
+        # default=default_model_num_bibsnet,  # TODO By default, get the model number(s) for the participants.tsv file
+        type=valid_whole_number, dest="model",
+        help=("Model/task number for BIBSnet. By default, this will be {}."
+              .format(default_model_num_bibsnet))
     )
     parser.add_argument(
         "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"
@@ -169,6 +166,11 @@ def get_params_from_JSON(stage_names, logger):
               "in the derivatives sub-directories. Otherwise, by default "
               "CABINET will skip creating any CABINET output files that "
               "already exist in the sub-directories of derivatives.")
+    )
+    parser.add_argument(
+        "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
+        help=("The name of the session to processes participant data for. "
+              "Example: baseline_year1")
     )
     parser.add_argument(
         "-start", "--starting-stage", dest="start",
@@ -180,6 +182,15 @@ def get_params_from_JSON(stage_names, logger):
         help=("Include this flag to print detailed information and every "
               "command being run by CABINET to stdout. Otherwise CABINET "
               "will only print warnings, errors, and minimal output.")
+    )
+    parser.add_argument(  
+        "-z", "--brain-z-size", action="store_true", # type=valid_whole_number,
+        # default=default_brain_z_size,
+        help=("Include this flag to infer participants' brain height (z) "
+              "using the participants.tsv brain_z_size column. Otherwise, "
+              "CABINET will estimate the brain height from the participant "
+              "age and averages of a large sample of infant brain heights.")  # TODO rephrase
+        # help=("Positive integer, the size of the participant's brain in millimeters along the z-axis. By default, this will be {}.".format(default_brain_z_size))
     )
     parser.add_argument(
         SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
@@ -220,10 +231,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
     for arg_to_add in ("bids_dir", "overwrite", "verbose"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
-    j_args["ID"] = {"subject": cli_args["participant_label"],
-                    "session": cli_args["session"],
-                    "age_months": cli_args["age_months"],
-                    "brain_z_size": cli_args["brain_z_size"]}
+    # j_args["ID"] = {"subject": cli_args["participant_label"], "session": cli_args["session"], "age_months": cli_args["age_months"], "brain_z_size": cli_args["brain_z_size"], "model": cli_args["model"]} 
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
@@ -279,7 +287,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         # using age_months and the age-to-head-radius table .csv file
         sub_ses_IDs[ix]["brain_z_size"] = read_from_participants_tsv(
                 j_args, logger, "brain_z_size", *sub_ses
-            ) if j_args["ID"]["brain_z_size"] else get_brain_z_size(
+            ) if cli_args["brain_z_size"] else get_brain_z_size(
                 sub_ses_IDs[ix]["age_months"], j_args, logger
             )
 
@@ -288,6 +296,20 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         j_args = validate_parameter_types(
             j_args, extract_from_json(TYPES_JSON),
             cli_args["parameter_json"], parser, stage_names
+        )
+
+        # Check whether this sub ses has T1w and/or T2w input data
+        data_path_BIDS_T = dict()  # Paths to expected input data to check
+        for t in (1, 2):
+            data_path_BIDS_T[t] = os.path.join(j_args["common"]["bids_dir"],
+                                               *sub_ses, "anat",
+                                               "*T{}w.nii.gz".format(t))
+            sub_ses_IDs[ix]["has_T{}w".format(t)
+                            ] = bool(glob(data_path_BIDS_T[t]))
+
+        models_df = get_df_with_valid_bibsnet_models(sub_ses_IDs[ix])
+        sub_ses_IDs[ix]["model"] = validate_model_num(
+            cli_args, data_path_BIDS_T, models_df, sub_ses_IDs[ix], parser
         )
 
         # Create BIBSnet in/out directories
@@ -306,8 +328,68 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     return j_args, sub_ses_IDs
 
 
-def get_brain_z_size(age_months, j_args, logger, buffer=5):
+def get_df_with_valid_bibsnet_models(sub_ses_ID):
+
+    # Read in models.csv info mapping model num to which T(s) it has
+    models_df = pd.read_csv(os.path.join(SCRIPT_DIR, "data", "models.csv"))
+
+    # Exclude any models which require (T1w or T2w) data the user lacks
+    for t in only_Ts_needed_for_bibsnet_model(sub_ses_ID):
+        # print("has_T{}w: {}".format(t, sub_ses_ID["has_T{}w".format(t)]))
+        # if not sub_ses_ID["has_T{}w".format(t)]:
+            # models_df = models_df.loc[~models_df["T{}w".format(t)]]
+        models_df = select_model_with_data_for_this_T(models_df, t, False)
+    return models_df
+
+
+def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser):
     """
+    :param cli_args: Dictionary containing all command-line input arguments
+    :param data_path_BIDS_T: Dictionary mapping 1 and 2 to the (incomplete)
+                             paths to expected T1w and T2w data respectively
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param parser:
+    :return: Int, validated bibsnet model number
+    """
+    model = cli_args["model"]  # Model number (if given from command line)
+
+    # Exclude any models which require (T1w or T2w) data the user lacks
+    for t in (1, 2):
+
+        # If user gave a model number but not the data the model needs,
+        # then crash with an informative error message
+        if model and (model not in models_df["model_num"]):
+            parser.error("CABINET needs T{}w data at the path below " 
+                            "to run model {}, but none was found.\n{}\n"
+                            .format(t, model, data_path_BIDS_T[t]))
+
+    if not model:  # Get default model number if user did not give one
+        # print(models_df[models_df["is_default"]])
+        models_df = models_df[models_df["is_default"]]
+        if len(models_df) > 1:
+            for t in (1, 2):
+                models_df = select_model_with_data_for_this_T(
+                    models_df, t, sub_ses_ID["has_T{}w".format(t)]
+                )
+        model = models_df.squeeze()["model_num"]
+            
+    return model
+
+
+def select_model_with_data_for_this_T(models_df, t, has_T):
+    """
+    :param models_df: pandas.DataFrame with columns called "T1w" and "T2w"
+                      with bool values describing which T(s) a model needs
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param has_T: bool, True if T{t}w data exists for this subject/ses
+    :return: pandas.DataFrame, all models_df rows with data for this sub/ses/t
+    """
+    has_T_row = models_df["T{}w".format(t)]
+    return models_df.loc[has_T_row if has_T else ~has_T_row]
+
+
+def get_brain_z_size(age_months, j_args, logger, buffer=5):
+    """ 
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
     :param age_months: Int, participant's age in months
@@ -416,11 +498,11 @@ def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
 
     # Get and return the col_name value from participants.tsv
     subj_row = part_tsv_df[
-        part_tsv_df[sub_ID_col] == ensure_prefixed(sub_ses[0], "sub-")
+        part_tsv_df[sub_ID_col] == ensure_prefixed(sub_ses[0], "sub-")  # TODO part_tsv_df[sub_ID_col] = part_tsv_df[sub_ID_col].apply(ensure_prefixed(...))
     ]  # select where "participant_id" matches
     if len(sub_ses) > 1:
         subj_row = subj_row[
-            subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")
+            subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[ses_ID_col] = part_tsv_df[ses_ID_col].apply(ensure_prefixed(...))
         ]  # select where "session" matches
     if j_args["common"]["verbose"]:
         logger.info("Subject details from participants.tsv row:\n{}"
@@ -443,27 +525,39 @@ def run_preBIBSnet(j_args, logger):
     # Crop T1w and T2w images
     cropped = dict()
     crop2full = dict()
-    for t in (1, 2):
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+    # for t in (1, 2):  # TODO Make this also work for T1-only or T2-only
+        # if j_args["ID"]["has_T{}w".format(t)]:
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
                                   cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
 
-    # Resize T1w and T2w images 
+    # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
     # TODO Make ref_img an input parameter if someone wants a different reference image?
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz") # TODO Pipeline should verify that these exist before running
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
+    if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
+        all_registration_vars = register_all_preBIBSnet_imgs(
+            cropped, preBIBSnet_paths["resized"], reference_img, 
+            id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
+        )
+        transformed_images = apply_final_prebibsnet_xfms(
+            all_registration_vars, preBIBSnet_paths["avg"], j_args, logger
+        )
+        logger.info(completion_msg.format("resized"))
 
-    transformed_images = resize_images(
-        cropped, preBIBSnet_paths["resized"], reference_img, 
-        id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
-    )
-    logger.info(completion_msg.format("resized"))
-    
-    # TODO Move this whole block to postBIBSnet, so it copies everything it needs first
+    # If running a T1w-only or T2w-only BIBSnet model, skip registration/resizing
+    #elif j_args["ID"]["has_T1w"]:
+    #    transformed_images = ""
+    else:
+        # TODO Add T1-to-BIBS and T2-to-BIBS functionality without T2-to-T1
+        transformed_images = {"T{}w".format(t): cropped[t] for t in cropped.keys()}
+
+    # TODO Copy this whole block to postBIBSnet, so it copies everything it needs first
     # Copy into BIBSnet input dir to transformed_images[T1w]
-    for t in (1, 2):
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):  # (1, 2):  # TODO Make this also work for T1-only or T2-only
         tw = "T{}w".format(t)
         out_nii_fpath = j_args["optimal_resized"][tw]
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
@@ -506,7 +600,7 @@ def run_BIBSnet(j_args, logger):
                               "nnUNet": j_args["bibsnet"]["nnUNet_predict_path"],
                               "input": dir_BIBS.format("in"),
                               "output": dir_BIBS.format("out"),
-                              "task": str(j_args["bibsnet"]["task"])}
+                              "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
             if j_args["common"]["verbose"]:
                 logger.info("Now running BIBSnet with these parameters:\n{}\n"
@@ -566,7 +660,7 @@ def run_postBIBSnet(j_args, logger):
     # if age_months > 33: age_months = "34-38"
 
     # Run left/right registration script and chirality correction
-    left_right_mask_nifti_fpath = run_left_right_registration(
+    left_right_mask_nifti_fpath = run_left_right_registration(  # NOTE Don't change this when implementing T1-/T2-only
         j_args, sub_ses, tmpl_age, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
     )
     logger.info("Left/right image registration completed")
