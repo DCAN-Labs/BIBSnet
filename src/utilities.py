@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-10-12
+Updated: 2022-10-14
 """
 # Import standard libraries
 import argparse
@@ -26,8 +26,7 @@ CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
 LEFT = "Left-"
 RIGHT = "Right-"
 
-# Other constants: Directory containing the main pipeline script, and 
-# SLURM-/SBATCH-related arguments' default names
+# Other constant: Directory containing the main pipeline script
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -101,9 +100,8 @@ def always_true(*_):
 
 def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
                          avg_imgs, outputs, t, j_args, logger):
-    outputs["T{}w".format(t)] = os.path.join(
-        xfm_ACPC_vars["out_dir"],
-        "preBIBSnet_final_000{}.nii.gz".format(t-1)
+    outputs["T{}w".format(t)] = get_preBIBS_final_img_fpath_T(
+        t, xfm_ACPC_vars["out_dir"], j_args["ID"]
     )
 
     # Concatenate rigidbody2acpc.mat and registration (identity/cropT2tocropT1.mat)
@@ -148,23 +146,23 @@ def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
 def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
                              outputs, t, full2crop_ACPC, j_args, logger):
     # TODO MODULARIZE (put this into a function to call once for ACPC and once for non to eliminate redundancy?)
-    outputs["T{}w".format(t)] = os.path.join(
-        xfm_non_ACPC_vars["out_dir"],
-        "preBIBSnet_final_000{}.nii.gz".format(t-1)
+    outputs["T{}w".format(t)] = get_preBIBS_final_img_fpath_T(
+        t, xfm_non_ACPC_vars["out_dir"], j_args["ID"]
     )
     
     # Do convert_xfm to combine 2 .mat files (non-ACPC
     # registration_T2w_to_T1w's cropT2tocropT1.mat, and then non-ACPC
     # registration_T2w_to_T1w's crop_T1_to_BIBS_template.mat)
     outputs["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-        xfm_non_ACPC_vars["out_dir"], "full_crop_T{}w_to_BIBS_template.mat".format(t)  # TODO Changed this back to full_crop on 2022-08-30
+        xfm_non_ACPC_vars["out_dir"],
+        "full_crop_T{}w_to_BIBS_template.mat".format(t)  # NOTE Changed this back to full_crop on 2022-08-30
     )
     full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
                                     "full2cropT1w.mat")
     run_FSL_sh_script( 
         j_args, logger, "convert_xfm",
         "-omat", full2cropT1w_mat,
-        "-concat", full2crop_ACPC,  # NOTE The choice between 2022-08-11 and 2022-08-23 to use ACPC's full2crop probably was NOT a problem because it works
+        "-concat", full2crop_ACPC,
         xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
     )
     run_FSL_sh_script( 
@@ -177,20 +175,28 @@ def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
     # applywarp output is optimal_realigned_imgs input
     # Apply registration to the T1ws and the T2ws
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
-                        "--interp=spline", "-i", avg_imgs["T{}w_avg".format(t)], # cropped_imgs[t],
+                        "--interp=spline", "-i", avg_imgs["T{}w_avg".format(t)],
                         "-r", xfm_non_ACPC_vars["ref_img"].format(t),
-                        "--premat=" + outputs["T{}w_crop2BIBS_mat".format(t)],  # full2BIBS_mat, # 
+                        "--premat=" + outputs["T{}w_crop2BIBS_mat".format(t)],
                         "-o", outputs["T{}w".format(t)])
     return outputs
 
 
-def apply_final_prebibsnet_xfms(all_regn_info, averaged_imgs, j_args, logger):
+def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
+                                j_args, logger):
     """
-    :param all_regn_info: Dict mapping "ACPC" and "non-ACPC" to dicts mapping
-                          "img_paths" to a dict of paths to image files and
-                          "vars" to a dict of other variables.
-                          {"ACPC": {"vars": {...}, "imgs": {...}}, "non-ACPC":}
-    :param averaged_imgs:
+    Resize the images to match the dimensions of images trained in the model,
+    and ensure that the first image (presumably a T1) is co-registered to the
+    second image (presumably a T2) before resizing. Use multiple alignments
+    of both images, and return whichever one is better (higher eta squared)
+    :param regn_non_ACPC: Dict mapping "img_paths" to a dict of paths to image
+                          files and "vars" to a dict of other variables.
+                          {"vars": {...}, "imgs": {...}}
+    :param regn_ACPC: Dict mapping "img_paths" to a dict of paths to image
+                      files and "vars" to a dict of other variables.
+                      {"vars": {...}, "imgs": {...}} 
+    :param averaged_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
+                          (valid paths to existing image files to resize)
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     :return: _type_, _description_
@@ -199,22 +205,18 @@ def apply_final_prebibsnet_xfms(all_regn_info, averaged_imgs, j_args, logger):
     out_non_ACPC = dict()
 
     for t in (1, 2):
-        # Apply ACPC-then-registration transforms for this subject session (and T)
+        # Apply ACPC-then-registration transforms for this subject session & T
         out_ACPC.update(apply_final_ACPC_xfm(
-            all_regn_info["ACPC"]["vars"],
-            all_regn_info["ACPC"]["img_paths"],
+            regn_ACPC["vars"], regn_ACPC["img_paths"],
             averaged_imgs, out_ACPC, t, j_args, logger
         ))
 
         # Retrieve path to ACPC full2crop.mat file (to use for non-ACPC xfms)
-        # from the very (probably overly) nested dict of registration vars
-        full2crop_ACPC = all_regn_info["ACPC"]["vars"]["mats_T{}w".format(t)
-                                                       ]["full2crop"]
+        full2crop_ACPC = regn_ACPC["vars"]["mats_T{}w".format(t)]["full2crop"]
 
         # Apply registration-only transforms for this subject session (and T)
         out_non_ACPC.update(apply_final_non_ACPC_xfm(
-            all_regn_info["non_ACPC"]["vars"],
-            all_regn_info["non_ACPC"]["img_paths"],
+            regn_non_ACPC["vars"], regn_non_ACPC["img_paths"],
             averaged_imgs, out_non_ACPC, t, full2crop_ACPC, j_args, logger
         ))
 
@@ -401,7 +403,7 @@ def create_anatomical_average(avg_params):
      "T1w_avg": String, average T1w output file path
      "T2w_avg": String, average T2w output file path}
     """   
-    for t in (1, 2): # TODO Make this also work for T1-only or T2-only. This may not even need to be changed
+    for t in (1, 2):
         if avg_params["T{}w_input".format(t)]:
             register_and_average_files(avg_params["T{}w_input".format(t)],
                                        avg_params["T{}w_avg".format(t)])
@@ -706,14 +708,48 @@ def get_optional_args_in(a_dict):
     return optional_args
 
 
-def get_optimal_resized_paths(sub_ses, bibsnet_out_dir):
-    # 1. Symlinks to resized images chosen by the preBIBSnet cost function
-    input_dir_BIBSnet = os.path.join(bibsnet_out_dir, *sub_ses, "input")
-    return {"T{}w".format(t): os.path.join(
-                input_dir_BIBSnet, "{}_optimal_resized_000{}.nii.gz"
-                                    .format("_".join(sub_ses), t - 1)
-            ) for t in (1, 2)}  # TODO Make this also work for T1-only or T2-only by not building unneeded paths? 
+def get_optimal_resized_paths(sub_ses, j_args):  # bibsnet_out_dir):
+    """
+    :param sub_ses: List with either only the subject ID str or the session too
+    :param j_args: Dict mapping (A) "optional_out_dirs" to a dict mapping 
+                   "bibsnet" to the bibsnet derivatives dir path, and 
+                   (B) "ID" to a dict mapping "has_T1w" and "has_T2w" to bools
+    :return: Dict mapping "T1w" and "T2w" to their respective optimal (chosen 
+             by the cost function) resized (by prebibsnet) image file paths
+    """
+    input_dir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
+                                     *sub_ses, "input")
+    return {"T{}w".format(t): os.path.join(input_dir_BIBSnet, 
+                "{}_optimal_resized_000{}.nii.gz".format(
+                    "_".join(sub_ses),
+                    get_preBIBS_final_digit_T(t, j_args["ID"])
+                )
+            ) for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])}
   
+
+def get_preBIBS_final_digit_T(t, sub_ses_ID):
+    """
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param sub_ses_ID: _type_, _description_
+    :return: Int, the last digit of the preBIBSnet final image filename: 0 or 1
+    """
+    return (t - 1 if sub_ses_ID["has_T1w"]  
+            and sub_ses_ID["has_T2w"] else 0)
+
+
+def get_preBIBS_final_img_fpath_T(t, parent_dir, sub_ses_ID):
+    """
+    Running in T1-/T2-only mode means the image name should always be
+    preBIBSnet_final_0000.nii.gz and otherwise it's _000{t-1}.nii.gz
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param parent_dir:
+    :param sub_ses_ID:
+    :return:
+    """
+    return os.path.join(parent_dir,
+                        "preBIBSnet_final_000{}.nii.gz".format(
+                            get_preBIBS_final_digit_T(t, sub_ses_ID)))
+
 
 def get_spatial_resolution_of(image_fpath, j_args, logger, fn_name="fslinfo"):
     """
@@ -881,49 +917,23 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
         logger.info(msg.format("ACPC and", optimal_resize["T1w"],
                                optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
 
-    # Copy files into postbibsnet dir with the same name regardless of which 
-    # is chosen, so postBIBSnet can use the correct/chosen .mat file
-    concat_mat = optimal_resize["T1w_crop2BIBS_mat"]
-    # TODO Rename T2w_crop2BIBS.mat to T2w_crop_to_T1w_to_BIBS.mat or something
-    out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
-        j_args["optional_out_dirs"]["postbibsnet"],
-        *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
-    )
-    if not os.path.exists(out_mat_fpath):
-        shutil.copy2(concat_mat, out_mat_fpath)  # TODO Put this block elsewhere so the block runs if T1-/T2-only skips this function (which it should)
-        if j_args["common"]["verbose"]:
-            logger.info("Copying {} to {}".format(concat_mat, out_mat_fpath))
     return optimal_resize
 
 
-def register_all_preBIBSnet_imgs(cropped_imgs, output_dir, ref_image, ident_mx,
-                                 crop2full, averaged_imgs, j_args, logger):
+def register_preBIBSnet_imgs_ACPC(cropped_imgs, output_dir, xfm_non_ACPC_vars,
+                                  crop2full, averaged_imgs, j_args, logger):
     """
-    Resize the images to match the dimensions of images trained in the model,
-    and ensure that the first image (presumably a T1) is co-registered to the
-    second image (presumably a T2) before resizing. Use multiple alignments
-    of both images, and return whichever one is better (higher eta squared)
     :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
                          paths to existing image files to resize)
     :param output_dir: String, valid path to a dir to save resized images into
-    :param ref_images: Dictionary mapping string keys to valid paths to real
-                       image file strings for "ACPC" (alignment) and (T2-to-T1)
-                       "reg"(istration) for flirt to use as a reference image.
-                       The ACPC string has a "{}" in it to represent (T) 1 or 2
-    :param ident_mx: String, valid path to existing identity matrix .mat file
+    :param xfm_non_ACPC_vars: Dict TODO Fix this function description
     :param crop2full: String, valid path to existing crop2full.mat file
     :param averaged_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
                           (valid paths to existing image files to resize)
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     """
-    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
-
-    # Build dictionaries of variables used for image transformations with and
-    # without ACPC alignment
-    xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
-                         "resolution": "1", "ident_mx": ident_mx,
-                         "ref_img": ref_image}
+    # Build dict of variables used for image transformation with ACPC alignment
     xfm_ACPC_vars = xfm_non_ACPC_vars.copy()
     xfm_ACPC_vars["out_dir"] = os.path.join(output_dir, "ACPC_align")
     out_var = "output_T{}w_img"
@@ -932,18 +942,8 @@ def register_all_preBIBSnet_imgs(cropped_imgs, output_dir, ref_image, ident_mx,
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
 
-        # Non-ACPC input to registration
-        # for keyname in ("crop_", "reg_input_"):
-        xfm_non_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path  # TODO This variable appears to be unused for non-ACPC
-        xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
-
-        # Non-ACPC outputs to registration
-        outfname = "T{}w_registered_to_T1w".format(t) + img_ext
-        xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
-            xfm_non_ACPC_vars["out_dir"], outfname
-        )
-
         # ACPC inputs to align and registration
+        outfname = "T{}w_registered_to_T1w".format(t) + img_ext
         xfm_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path
         xfm_ACPC_vars[reg_in_var.format(t)] = os.path.join(
             xfm_ACPC_vars["out_dir"], "ACPC_aligned_T{}w".format(t) + img_ext
@@ -952,20 +952,10 @@ def register_all_preBIBSnet_imgs(cropped_imgs, output_dir, ref_image, ident_mx,
             xfm_ACPC_vars["out_dir"], "ACPC_" + outfname
         )
 
-    if j_args["common"]["verbose"]:
-        msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
-        logger.info(msg_xfm.format("non-", xfm_non_ACPC_vars))
-        logger.info(msg_xfm.format("", xfm_ACPC_vars))
-
     # Make output directories for transformed images
-    for each_xfm_vars_dict in (xfm_non_ACPC_vars, xfm_ACPC_vars):
-        os.makedirs(each_xfm_vars_dict["out_dir"], exist_ok=True)
+    os.makedirs(xfm_ACPC_vars["out_dir"], exist_ok=True)
 
-    xfm_imgs_non_ACPC = registration_T2w_to_T1w(
-        j_args, logger, xfm_non_ACPC_vars, reg_in_var, acpc=False
-    )
-
-    # Do direct T1w-T2w alignment
+    # Do direct T2w-T1w alignment
     for t in (1, 2):
 
         # Run ACPC alignment
@@ -974,18 +964,64 @@ def register_all_preBIBSnet_imgs(cropped_imgs, output_dir, ref_image, ident_mx,
             averaged_imgs["T{}w_avg".format(t)]
         )
 
-    # T1w-T2w alignment of ACPC-aligned images
+    # T2w-T1w alignment of ACPC-aligned images
     xfm_ACPC_and_reg_imgs = registration_T2w_to_T1w(
         j_args, logger, xfm_ACPC_vars, reg_in_var, acpc=True
     )
 
     # pdb.set_trace()  # TODO Add "debug" flag?
 
-    # TODO End function here and start a new function below? Maybe put everything above in "register_all_preBIBSnet_imgs" and everything below in "apply_final_preBIBSnet_xfm" ?
-    return {  # A (*very* nested) dict with vars organized to apply final xfm
-        "ACPC": {"vars": xfm_ACPC_vars, "img_paths": xfm_ACPC_and_reg_imgs},
-        "non_ACPC": {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
-    }
+    return {"vars": xfm_ACPC_vars, "img_paths": xfm_ACPC_and_reg_imgs},
+
+
+def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 
+                                      ident_mx, resolution, j_args, logger):
+    """
+    :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
+                         paths to existing image files to resize)
+    :param output_dir: String, valid path to a dir to save resized images into
+    :param ref_images: Dictionary mapping string keys to valid paths to real
+                       image file strings for "ACPC" (alignment) and (T2-to-T1)
+                       "reg"(istration) for flirt to use as a reference image.
+                       The ACPC string has a "{}" in it to represent (T) 1 or 2
+    :param ident_mx: String, valid path to existing identity matrix .mat file
+    :param resolution:
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    """
+    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
+
+    # Build dictionaries of variables used for image transformations with and
+    # without ACPC alignment
+    xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
+                         "resolution": resolution, "ident_mx": ident_mx,
+                         "ref_img": ref_image}
+    out_var = "output_T{}w_img"
+    reg_in_var = "reg_input_T{}w_img"
+
+    for t, crop_img_path in cropped_imgs.items():
+        img_ext = split_2_exts(crop_img_path)[-1]
+
+        # Non-ACPC input to registration
+        # for keyname in ("crop_", "reg_input_"):
+        xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
+
+        # Non-ACPC outputs to registration
+        outfname = "T{}w_registered_to_T1w".format(t) + img_ext
+        xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], outfname
+        )
+
+    # Make output directory for transformed images
+    os.makedirs(xfm_non_ACPC_vars["out_dir"], exist_ok=True)
+
+    xfm_imgs_non_ACPC = registration_T2w_to_T1w(
+        j_args, logger, xfm_non_ACPC_vars, reg_in_var, acpc=False
+    )
+
+    # pdb.set_trace()  # TODO Add "debug" flag?
+
+    return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
                                        
 
 def register_and_average_files(input_file_paths, output_file_path):
@@ -1030,23 +1066,17 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     :return: Dictionary mapping "T1w" and "T2w" to their respective newly
              registered image file paths
     """
-    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
-
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
     
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
-    logger.info("Input images for T1w registration:\n" + inputs_msg)            
-    """
-    logger.info("Input images for T1w registration:\nT1w: {}\nT2w: {}"
-                .format(xfm_vars[reg_input_var.format(1)],
-                        xfm_vars[reg_input_var.format(2)]))
-    """
+    logger.info("Input images for T1w registration:\n" + inputs_msg)
 
     # Define paths to registration output matrices and images
     registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],
-                            "cropT2tocropT1": os.path.join(xfm_vars["out_dir"], "cropT2tocropT1.mat")}
+                            "cropT2tocropT1": os.path.join(xfm_vars["out_dir"],
+                                                           "cropT2tocropT1.mat")}
 
     """
     ACPC Order:
@@ -1057,9 +1087,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     1. T1w Make transformed
     2. T2w Make T2w-to-T1w matrix
     3. T2w Make transformed
-    """
-    nonACPC_xfm_params_T = dict()
-    
+    """   
     for t in (1, 2):
         # Define paths to registration output files
         registration_outputs["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
@@ -1086,6 +1114,11 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
 
         # Make transformed T1ws and T2ws
         if not acpc:  # TODO Should this go in its own function?
+            transform_image_T(
+                t, (xfm_vars[reg_input_var.format(t)] if t == 1 else
+                    registration_outputs["T2w"]),
+                xfm_vars, registration_outputs, j_args, logger
+            )
             run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
                 j_args, logger, "flirt",
                 "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
@@ -1097,6 +1130,18 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
             )
     # pdb.set_trace()  # TODO Add "debug" flag?
     return registration_outputs
+
+
+def transform_image_T(t, cropped_in_img, xfm_vars, regn_outs, j_args, logger):
+    run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
+        j_args, logger, "flirt",
+        "-in", cropped_in_img, # xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
+        "-ref", xfm_vars["ref_img"].format(t),
+        "-applyisoxfm", xfm_vars["resolution"],
+        "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
+        "-o", regn_outs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
+        "-omat", regn_outs["T{}w_crop2BIBS_mat".format(t)]
+    )
 
 
 def reshape_volume_to_array(array_img):
@@ -1161,6 +1206,10 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     :param logger: logging.Logger object to show messages and raise warnings
     """
+    if ubiquitous_j_args["common"]["verbose"]:
+        logger.info("All parameters from input args and input .JSON file:\n{}"
+                    .format(ubiquitous_j_args))
+
     # For every session of every subject...
     running = False
     for dict_with_IDs in sub_ses_IDs:
@@ -1170,16 +1219,13 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
         sub_ses_j_args["ID"] = dict_with_IDs
         sub_ses = get_subj_ID_and_session(sub_ses_j_args)
         sub_ses_j_args["optimal_resized"] = get_optimal_resized_paths(
-            sub_ses, ubiquitous_j_args["optional_out_dirs"]["bibsnet"]
+            sub_ses, sub_ses_j_args # ubiquitous_j_args["optional_out_dirs"]["bibsnet"]
         )
 
         # ...check that all required input files exist for the stages to run
         verify_CABINET_inputs_exist(sub_ses, sub_ses_j_args, logger)
 
         # ...run all stages that the user said to run
-        if sub_ses_j_args["common"]["verbose"]:
-            logger.info("Parameters from input .JSON file:\n{}"
-                        .format(sub_ses_j_args))  # TODO Only print j_args[ID] every time; print everything else in j_args before the sub-ses-loop
         for stage in all_stages:
             name = get_stage_name(stage)
             if name == start:
@@ -1187,8 +1233,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
             if running:
                 stage_start = datetime.now()
                 if sub_ses_j_args["common"]["verbose"]:
-                    logger.info("Now running {} stage on subject {}."
-                                .format(name, " session ".join(sub_ses)))
+                    logger.info("Now running {} stage on:\n{}"
+                                .format(name, sub_ses_j_args["ID"]))
                 sub_ses_j_args = stage(sub_ses_j_args, logger)
                 log_stage_finished(name, stage_start, sub_ses, logger)
             if name == end:
@@ -1483,7 +1529,7 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
     subject_heads = [os.path.join(
             j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
             "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
-        ) for t1or2 in (1, 2)]  # TODO Make this work for T1-only or T2-only
+        ) for t1or2 in only_Ts_needed_for_bibsnet_model(j_args["ID"])]  # TODO Make this work for T1-only or T2-only
     out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                       "*{}*.nii.gz".format(x))
                          for x in ("aseg", "mask")]
