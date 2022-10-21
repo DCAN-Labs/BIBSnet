@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-10-14
+Updated: 2022-10-21
 """
 # Import standard libraries
 import argparse
@@ -68,7 +68,7 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
 
     # Invert crop2full to get full2crop
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse", crop2full,
-                      "-omat", mats["full2crop"])
+                      "-omat", mats["full2crop"])  # TODO Move this to right after making crop2full to use it in both T?w-only and here
 
     run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
         j_args, logger, "convert_xfm", "-omat", mats["full2acpc"],
@@ -145,7 +145,6 @@ def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
 
 def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
                              outputs, t, full2crop_ACPC, j_args, logger):
-    # TODO MODULARIZE (put this into a function to call once for ACPC and once for non to eliminate redundancy?)
     outputs["T{}w".format(t)] = get_preBIBS_final_img_fpath_T(
         t, xfm_non_ACPC_vars["out_dir"], j_args["ID"]
     )
@@ -321,26 +320,27 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
 
 def correct_chirality(nifti_input_file_path, segment_lookup_table,
                       left_right_mask_nifti_file, chiral_out_dir,
-                      t1w_path, j_args, logger):
+                      xfm_ref_img, j_args, logger):
     """
     Creates an output file with chirality corrections fixed.
-    :param nifti_input_file_path: String, path to a segmentation file with possible chirality problems
-    :param segment_lookup_table: String, path to a FreeSurfer-style look-up table
-    :param left_right_mask_nifti_file: String, path to a mask file that distinguishes between left and right
-    :param nifti_output_file_path: String, path to location to write the corrected file
-    :param t1w_path: String, path to T1w image to use as a reference image
-                     when applying transform
+    :param nifti_input_file_path: String, path to a segmentation file with
+                                  possible chirality problems
+    :param segment_lookup_table: String, path to FreeSurfer-style look-up table
+    :param left_right_mask_nifti_file: String, path to a mask file that
+                                       distinguishes between left and right
+    :param nifti_output_file_path: String, path to save the corrected file into
+    :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
+                        image to use as a reference when applying transform
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     """
     sub_ses = get_subj_ID_and_session(j_args)
     msg = "{} chirality correction on {}"
-    nifti_corrected_file_path = os.path.join(
-        chiral_out_dir, "corrected_" + os.path.basename(nifti_input_file_path)
-    )# j_args["BIBSnet"]["aseg_outfile"]) 
-    nifti_output_file_path = os.path.join(
-        chiral_out_dir, "native_" + os.path.basename(nifti_input_file_path)
-    )# j_args["BIBSnet"]["aseg_outfile"]) 
+    nifti_file_paths = dict()
+    for which_nii in ("native", "corrected"):
+        nifti_file_paths[which_nii] = os.path.join(chiral_out_dir, "_".join((
+            which_nii, os.path.basename(nifti_input_file_path)
+        )))
 
     logger.info(msg.format("Running", nifti_input_file_path))
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
@@ -370,28 +370,30 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                     check_and_correct_region(
                         chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
-    nib.save(fixed_img, nifti_corrected_file_path)
+    nib.save(fixed_img, nifti_file_paths["corrected"])
 
     # TODO Make everything below its own function called "reverse_registration" or "revert_to_native" or something
 
     # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
-    dummy_copy = "_dummy".join(split_2_exts(nifti_corrected_file_path))
-    shutil.copy2(nifti_corrected_file_path, dummy_copy)
+    dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
+    shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
+    t = 2 if not j_args["ID"]["has_T1w"] else 1
 
-    seg_to_T1w_nat = os.path.join(chiral_out_dir, "seg_reg_to_T1w_native.mat")  # TODO Change naming to "T2w" in all these files if running T2-only
+    seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
     preBIBSnet_mat_glob = os.path.join(
         j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
-        "preBIBSnet_*crop_T1w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
+        f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
     )
     preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
     run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
-                      seg_to_T1w_nat, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
+                      seg2native, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
 
-    run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm", "-ref", t1w_path,  # TODO Change this to T2 if running T2-only; infer that info from the BIDS input anat dir
-                      "-in", dummy_copy, "-init", seg_to_T1w_nat,
-                      "-o", nifti_output_file_path, "-interp", "nearestneighbour")
+    run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
+                      "-ref", xfm_ref_img, "-in", dummy_copy,
+                      "-init", seg2native, "-o", nifti_file_paths["native"],
+                      "-interp", "nearestneighbour")
     logger.info(msg.format("Finished", nifti_input_file_path))
-    return nifti_output_file_path
+    return nifti_file_paths["native"]
 
 
 def create_anatomical_average(avg_params):
@@ -628,7 +630,7 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     # Build paths to BIDS anatomical input images and (averaged, 
     # nnU-Net-renamed) output images
     preBIBSnet_paths["avg"] = dict()
-    for t in (1, 2) :  # TODO Make this also work for T1-only or T2-only by not creating unneeded T dir(s)
+    for t in (1, 2):  # TODO Make this also work for T1-only or T2-only by not creating unneeded T dir(s)
         preBIBSnet_paths["avg"]["T{}w_input".format(t)] = list()
         for eachfile in glob(os.path.join(j_args["common"]["bids_dir"],
                                           *sub_ses, "anat", "*T{}w*.nii.gz"
@@ -730,7 +732,9 @@ def get_optimal_resized_paths(sub_ses, j_args):  # bibsnet_out_dir):
 def get_preBIBS_final_digit_T(t, sub_ses_ID):
     """
     :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
-    :param sub_ses_ID: _type_, _description_
+    :param sub_ses_ID: Dictionary mapping subject-session-specific input
+                       parameters' names (as strings) to their values for
+                       this subject session; the same as j_args[ID]
     :return: Int, the last digit of the preBIBSnet final image filename: 0 or 1
     """
     return (t - 1 if sub_ses_ID["has_T1w"]  
@@ -742,8 +746,10 @@ def get_preBIBS_final_img_fpath_T(t, parent_dir, sub_ses_ID):
     Running in T1-/T2-only mode means the image name should always be
     preBIBSnet_final_0000.nii.gz and otherwise it's _000{t-1}.nii.gz
     :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
-    :param parent_dir:
-    :param sub_ses_ID:
+    :param parent_dir: String, valid path to directory to hold output images
+    :param sub_ses_ID: Dictionary mapping subject-session-specific input
+                       parameters' names (as strings) to their values for
+                       this subject session; the same as j_args[ID]
     :return:
     """
     return os.path.join(parent_dir,
@@ -1199,8 +1205,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     """
     Run stages sequentially, starting and ending at stages specified by user
     :param all_stages: List of functions in order where each runs one stage
-    :param sub_ses_IDs: List of dicts mapping "age_months", "subject", and
-                        "session" to their unique values per subject session
+    :param sub_ses_IDs: List of dicts mapping "age_months", "subject",
+                        "session", etc. to unique values per subject session
     :param start: String naming the first stage the user wants to run
     :param end: String naming the last stage the user wants to run
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
@@ -1526,10 +1532,13 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
     # Define globbable paths to prereq files for the script to check
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                    *sub_ses, "output", "*.nii.gz")
+    all_T_suffixes = ["0000"]
+    if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
+        all_T_suffixes.append("0001") # Only check for _0001 file for T1-and-T2
     subject_heads = [os.path.join(
             j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "input",
-            "*{}*_000{}.nii.gz".format("_".join(sub_ses), t1or2 - 1)
-        ) for t1or2 in only_Ts_needed_for_bibsnet_model(j_args["ID"])]  # TODO Make this work for T1-only or T2-only
+            "*{}*_{}.nii.gz".format("_".join(sub_ses), suffix_T) 
+        ) for suffix_T in all_T_suffixes] 
     out_paths_BIBSnet = [os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                       "*{}*.nii.gz".format(x))
                          for x in ("aseg", "mask")]

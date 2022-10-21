@@ -17,8 +17,7 @@
         "model": "3d_fullres",
         "nnUNet_predict_path": "/opt/conda/bin/nnUNet_predict",
         "code_dir": "/home/cabinet/SW/BIBSnet",
-        "singularity_image_path": "/home/feczk001/gconan/placeholder.txt",
-        "task": "512"
+        "singularity_image_path": "/home/feczk001/gconan/placeholder.txt"
     },
     
     "nibabies": {

@@ -6,7 +6,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-10-14
+Updated: 2022-10-21
 """
 # Import standard libraries
 import argparse
@@ -97,9 +97,7 @@ def get_params_from_JSON(stage_names, logger):
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
-    # default_brain_z_size = 120
     default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
-    default_model_num_bibsnet = 512
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser("CABINET")
@@ -156,7 +154,6 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
-        # default=default_model_num_bibsnet,  # TODO By default, get the model number(s) for the participants.tsv file
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
               "inferred from {}/data/models.csv based on which data (T1, T2, "
@@ -188,7 +185,6 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(  
         "-z", "--brain-z-size", action="store_true", # type=valid_whole_number,
-        # default=default_brain_z_size,
         help=("Include this flag to infer participants' brain height (z) "
               "using the participants.tsv brain_z_size column. Otherwise, "
               "CABINET will estimate the brain height from the participant "
@@ -331,7 +327,12 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
 
 
 def get_df_with_valid_bibsnet_models(sub_ses_ID):
-
+    """
+    :param sub_ses_ID: Dictionary mapping subject-session-specific input
+                       parameters' names (as strings) to their values for
+                       this subject session; the same as j_args[ID]
+    :return: pandas.DataFrame of all bibsnet models viable for the input data
+    """
     # Read in models.csv info mapping model num to which T(s) it has
     models_df = pd.read_csv(os.path.join(SCRIPT_DIR, "data", "models.csv"))
 
@@ -347,7 +348,7 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
     :param data_path_BIDS_T: Dictionary mapping 1 and 2 to the (incomplete)
                              paths to expected T1w and T2w data respectively
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :param parser:
+    :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Int, validated bibsnet model number
     """
     model = cli_args["model"]  # Model number (if given from command line)
@@ -423,6 +424,8 @@ def get_brain_z_size(age_months, j_args, logger, buffer=5):
 def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param subj_or_none: String (the subject ID) or a falsey value
+    :param ses_or_none: String (the session name) or a falsey value
     :return: List of dicts; each dict maps "subject" to its subject ID string
              and may also map "session" to its session ID string
     """
@@ -525,8 +528,6 @@ def run_preBIBSnet(j_args, logger):
     cropped = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-    # for t in (1, 2):  # TODO Make this also work for T1-only or T2-only
-        # if j_args["ID"]["has_T{}w".format(t)]:
         cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
                                   cropped[t], j_args, logger)
@@ -534,10 +535,12 @@ def run_preBIBSnet(j_args, logger):
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
     # TODO Make ref_img an input parameter if someone wants a different reference image?
+    # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
-                                 "INFANT_MNI_T{}_1mm.nii.gz") # TODO Pipeline should verify that these exist before running
+                                 "INFANT_MNI_T{}_1mm.nii.gz") 
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
-    resolution = "1"
+    # TODO Resolution is hardcoded; infer it or get it from the command-line
+    resolution = "1"  
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
@@ -554,12 +557,6 @@ def run_preBIBSnet(j_args, logger):
             cropped, preBIBSnet_paths["resized"], regn_non_ACPC["vars"],
             crop2full, preBIBSnet_paths["avg"], j_args, logger
         )
-        """
-        all_registration_vars = register_all_preBIBSnet_imgs(
-            cropped, preBIBSnet_paths["resized"], reference_img, 
-            id_mx, crop2full, preBIBSnet_paths["avg"], j_args, logger
-        )
-        """
         if j_args["common"]["verbose"]:
             logger.info(msg_xfm.format("", regn_ACPC["vars"]))
 
@@ -569,8 +566,6 @@ def run_preBIBSnet(j_args, logger):
         logger.info(completion_msg.format("resized"))
 
     # If running a T1w-only or T2w-only BIBSnet model, skip registration/resizing
-    #elif j_args["ID"]["has_T1w"]:
-    #    transformed_images = ""
     else:
         # Define variables and paths needed for the final (only) xfm needed
         t1or2 = 1 if j_args["ID"]["has_T1w"] else 2
@@ -578,17 +573,43 @@ def run_preBIBSnet(j_args, logger):
         outdir = os.path.join(preBIBSnet_paths["resized"], "xfms")
         os.makedirs(outdir, exist_ok=True)
         out_img = get_preBIBS_final_img_fpath_T(t1or2, outdir, j_args["ID"])
+        crop2BIBS_mat = os.path.join(outdir,
+                                     "crop2BIBS_T{}w_only.mat".format(t1or2))
         out_mat = os.path.join(outdir, "full_crop_T{}w_to_BIBS_template.mat"
                                        .format(t1or2))
 
-        run_FSL_sh_script(  # Move the T1 (or T2) into BIBS space
+        run_FSL_sh_script(  # Get xfm moving the T1 (or T2) into BIBS space
             j_args, logger, "flirt", "-in", cropped[t1or2],
             "-ref", reference_img.format(t1or2), "-applyisoxfm", resolution,
-            "-init", id_mx, # TODO Should this be a matrix that does a transformation??
-            "-o", out_img, "-omat", out_mat
+            "-init", id_mx, # TODO Should this be a matrix that does a transformation?
+            "-omat", crop2BIBS_mat
         )
 
-        # TODO Add T1-to-BIBS and T2-to-BIBS functionality without T2-to-T1
+        # Invert crop2full to get full2crop
+        # TODO Move this to right after making crop2full, then delete the 
+        #      duplicated functionality in align_ACPC_1_image
+        full2crop = os.path.join(
+            os.path.dirname(preBIBSnet_paths["avg"]["T{}w_avg".format(t)]),
+            "full2crop_T{}w_only.mat".format(t)
+        )
+        run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse",
+                          crop2full[t], "-omat", full2crop) 
+
+        # - Concatenate crop .mat to out_mat (in that order) and apply the
+        #   concatenated .mat to the averaged image as the output
+        # - Treat that concatenated output .mat as the output to pass
+        #   along to postBIBSnet, and the image output to BIBSnet
+        run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
+            j_args, logger, "convert_xfm", "-omat", out_mat,
+            "-concat", full2crop, crop2BIBS_mat
+        )
+
+        run_FSL_sh_script(  # Apply concat xfm to crop and move into BIBS space
+            j_args, logger, "applywarp", "--rel", "--interp=spline",
+            "-i", preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+            "-r", reference_img.format(t1or2),
+            "--premat=" + out_mat, "-o", out_img
+        )
         transformed_images = {"T{}w".format(t1or2): out_img,
                               "T{}w_crop2BIBS_mat".format(t1or2): out_mat}
 
@@ -712,9 +733,18 @@ def run_postBIBSnet(j_args, logger):
         logger.info("Closest template-age is {} months".format(tmpl_age))
     # if age_months > 33: age_months = "34-38"
 
+    # For left/right registration, use T1 for T1-only and T2 for T2-only, but
+    # for T1-and-T2 combined use T2 for <22 months otherwise T1 (img quality)
+    if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
+        t1or2 = 2 if int(age_months) < 22 else 1  # NOTE 22 cutoff might change
+    elif j_args["ID"]["has_T1w"]:
+        t1or2 = 1
+    else:  # if j_args["ID"]["has_T2w"]:
+        t1or2 = 2
+
     # Run left/right registration script and chirality correction
-    left_right_mask_nifti_fpath = run_left_right_registration(  # NOTE Don't change this when implementing T1-/T2-only
-        j_args, sub_ses, tmpl_age, 2 if int(age_months) < 22 else 1, logger  # NOTE 22 cutoff might change
+    left_right_mask_nifti_fpath = run_left_right_registration(
+        j_args, sub_ses, tmpl_age, t1or2, logger
     )
     logger.info("Left/right image registration completed")
 
@@ -850,13 +880,16 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
         sys.exit()
 
     # Select an arbitrary T1w image path to use to get T1w space
-    path_T1w = glob(os.path.join(j_args["common"]["bids_dir"],
-                                 *sub_ses, "anat", "*_T1w.nii.gz"))[0]
+    # (unless in T2w-only mode, in which case use an arbitrary T2w image)
+    t = 2 if not j_args["ID"]["has_T1w"] else 1
+    chiral_ref_img_fpath = glob(os.path.join(
+        j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
+    ))[0]
 
     # Run chirality correction script
     nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0], segment_lookup_table_path,
                                      l_r_mask_nifti_fpath, chiral_out_dir, 
-                                     path_T1w, j_args, logger)
+                                     chiral_ref_img_fpath, j_args, logger)
     return nii_outfpath  # chiral_out_dir
 
 
