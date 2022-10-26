@@ -14,7 +14,7 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 <br />
 
-![CABINET - Stages for MRI Processing](https://user-images.githubusercontent.com/102316699/177638055-14894a92-9cb6-4a70-a649-71f61d47f3d6.png)
+![CABINET - Stages for MRI Processing](https://user-images.githubusercontent.com/102316699/195385888-77f627e1-1389-4f0c-991d-eeb0c9e663b8.png)
 
 <br />
 
@@ -140,7 +140,6 @@ This has been primarily tested in Singularity. We are less able to provide techn
     docker_image:version /input /output participant -jargs /param_file.json \
     -end postbibsnet -v
 
-
 #### Singularity
 
     singularity run --nv --cleanenv --no-home \
@@ -154,13 +153,30 @@ This has been primarily tested in Singularity. We are less able to provide techn
 
 ### Application
 
-We do not recommend running `CABINET` outside of the container.
+We do not recommend running `CABINET` outside of the container for the following:
+1. Installing nnU-Net can be complicated
+2. Running it inside the container ensures you have the proper versions of all softwares
+3. It is hard to diagnose your errors if you are working in a different environment
+
+However, if you run `CABINET` outside of the container as an application, then you will need to do the following:
+1. Download the `data` directory from the `https://s3.msi.umn.edu/CABINET_data/data.zip` URL, unzip it, and move it into your cloned `CABINET` repository directory here: `CABINET/data/`
+2. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
 
 <br />
 
 ## Multiple Participant Requirements
 
 ### `participants.tsv`
+
+#### Format Specification Example
+
+| participant_id | session | age |
+|:-:|:-:|:-:|
+| sub-123456 | ses-A | 1 |
+
+NOTE: `sub-` and `ses-` prefixes are currently required for `participant_id` and `session` values.
+
+#### Content
 
 When running multiple subjects and/or sessions, the `participants.tsv` file in the `bids_dir` must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session.
 
@@ -169,6 +185,7 @@ If the user wants to specify the brain height (shown below) for each subject ses
 <center><img src="https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png" width=555em></center>
 
 <br />
+
 
 ## 1. PreBIBSnet
 
@@ -194,7 +211,7 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 3. Registers the segmentation back into native T1 space using transform produced via optimal registration in preBIBSnet
 4. Generates a mask of the segmentation from the native T1 space segmentation
 5. Renames the native T1 space segmentation and mask to BIDS standard naming conventions to feed into Nibabies
-6. Creates a "precomputed" directory for input into Nibabies
+6. Creates a "precomputed" directory for input into Nibabies, containing the final segmentation and mask along with the `dataset_description.file`
 
 <br />
 

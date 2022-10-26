@@ -107,7 +107,7 @@ RUN cd /home/cabinet && \
 RUN cd  /home/cabinet/SW && \
     git clone https://github.com/DCAN-Labs/BIBSnet.git
 
-ENV nnUNet_raw_data_base="/output"
+#ENV nnUNet_raw_data_base="/output"
 ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
 ENV RESULTS_FOLDER="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 
@@ -119,14 +119,18 @@ COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
 COPY bin /home/cabinet/bin
 #COPY data /home/cabinet/data
-RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && unzip -qq /home/cabinet/data/temp_data.zip && rm /home/cabinet/data/temp_data.zip
+RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && cd /home/cabinet/data && unzip -qq temp_data.zip && rm temp_data.zip
 
 COPY parameter-file-application.json /home/cabinet/parameter-file-application.json
 COPY parameter-file-container.json /home/cabinet/parameter-file-container.json
-COPY requirements.txt  /home/cabinet/requirements.txt 
+COPY requirements.txt  /home/cabinet/requirements.txt
+
+#Add cabinet dir to path
+ENV PATH="${PATH}:/home/cabinet/"
+RUN cp /home/cabinet/run.py /home/cabinet/cabinet
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
-RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json
-RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task512_BCP_ABCD_Neonates_SynthSegDownsample/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json /home/cabinet/data/dataset_description.json
+RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet data
+RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task512_BCP_ABCD_Neonates_SynthSegDownsample/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
 
-ENTRYPOINT ["/home/cabinet/run.py"]
+ENTRYPOINT ["cabinet"]

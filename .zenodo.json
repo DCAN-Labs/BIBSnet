@@ -1,0 +1,102 @@
+{
+    "title": "CABINET: BIDS-ified CABINET Application",
+    "description": "<p>This software provides the utility of creating a nnU-Net anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within Nibabies.</p>", 
+    "license": "BSD-3-Clause license",
+    "version": "1.5.0", 
+    "upload_type": "software", 
+    "publication_date": "2022-08-24", 
+    "creators": [
+        {
+            "name": "Houghton, Audrey",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0001-9426-7969"
+        }, 
+        {
+            "name": "Conan, Greg",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0002-3758-5562"
+        }, 
+        {
+            "name": "Hendrickson, Timothy J.",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0001-6862-6526"
+        }, 
+        {
+            "name": "Alexopoulos, Dimitrios",
+            "affiliation": "Washington University, St. Louis, MO",
+            "orcid": "0000-0001-5659-8695"
+        },       
+        {
+            "name": "Goncalves, Mathias",
+            "affiliation": "Department of Psychology, Stanford University, Stanford, CA",
+            "orcid": "0000-0002-7252-7771"
+        },
+        {
+            "name": "Koirala, Sanju",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN"
+        },
+        {
+            "name": "Latham, Aidan",
+            "affiliation": "Washington University, St. Louis, MO",
+            "orcid": "0000-0002-8753-2282"    
+        }, 
+        {
+            "name": "Lee, Erik",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0001-9236-5100"
+        },
+        {
+            "name": "Lundquist, Jacob",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0001-9573-1954"
+        },
+        {
+            "name": "Madison, Thomas J.",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0003-3030-6580"
+        },
+        {
+            "name": "Markiewicz, Christopher J.",
+            "affiliation": "Department of Psychology, Stanford University, Stanford, CA",
+            "orcid": "0000-0002-6533-164X"
+        },
+        {
+            "name": "Moore, Lucille A.",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0002-7665-2713"
+        },
+         {
+            "name": "Moser, Julia",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0002-6219-415X"
+        },
+        {
+            "name": "Reiners, Paul",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0002-6167-5007"
+        },
+        {
+            "name": "Rueter, Amanda",
+            "affiliation": "University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0002-3138-7071"    
+        }, 
+        {
+            "name": "Fair, Damien A.",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0001-8602-393X"
+        },
+        {
+            "name": "Feczko, Eric",
+            "affiliation": "Masonic Institute for the Developing Brain, University of Minnesota, Minneapolis, MN",
+            "orcid": "0000-0003-1337-5517"
+        }
+    ], 
+    "access_right": "open", 
+    "related_identifiers": [
+        {
+            "scheme": "url", 
+            "identifier": "https://github.com/DCAN-Labs/CABINET/tree/1.5.0", 
+            "relation": "documents"
+        }
+    ]
+}
