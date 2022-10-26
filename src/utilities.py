@@ -977,7 +977,7 @@ def register_preBIBSnet_imgs_ACPC(cropped_imgs, output_dir, xfm_non_ACPC_vars,
 
     # pdb.set_trace()  # TODO Add "debug" flag?
 
-    return {"vars": xfm_ACPC_vars, "img_paths": xfm_ACPC_and_reg_imgs},
+    return {"vars": xfm_ACPC_vars, "img_paths": xfm_ACPC_and_reg_imgs}
 
 
 def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 

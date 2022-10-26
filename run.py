@@ -59,7 +59,6 @@ from src.utilities import (
 )
 
 
-
 def main():
     start_time = datetime.now()  # Time how long the script takes
     logger = make_logger()  # Make object to log error/warning/status messages
