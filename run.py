@@ -121,7 +121,7 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "analysis_level", choices=["participant"],  # TODO Will we ever need to add group-level analysis functionality? Currently this argument does absolutely nothing
-        help=("Processing level. Currently the only choice is 'participant'."
+        help=("Processing level. Currently the only choice is 'participant'. "
               "See BIDS-Apps specification.")
     )
 
@@ -138,7 +138,7 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-participant", "--subject", "-sub", "--participant-label",
         dest="participant_label", type=valid_subj_ses_ID,
-        help=("The participant's unique subject identifier, without 'sub-'"
+        help=("The participant's unique subject identifier, without 'sub-' "
               "prefix. Example: 'ABC12345'")  # TODO Make CABINET able to accept with OR without 'sub-' prefix
     )
 
@@ -146,8 +146,8 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-age", "-months", "--age-months", type=valid_whole_number,
         help=("Positive integer, the participant's age in months. For "
-              "example, -age 5 would mean the participant is 5 months old."
-              "Include this argument unless the age in months is specified in"
+              "example, -age 5 would mean the participant is 5 months old. "
+              "Include this argument unless the age in months is specified in "
               "the participants.tsv file inside the BIDS input directory.")
     )
     parser.add_argument(
