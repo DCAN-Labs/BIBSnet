@@ -122,7 +122,7 @@ def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
         )
 
     crop2BIBS_mat = os.path.join(xfm_ACPC_vars["out_dir"],
-                                    "crop_T{}w_to_BIBS_template.mat".format(t))
+                                 "crop_T{}w_to_BIBS_template.mat".format(t))
     if not os.path.exists(crop2BIBS_mat):
         shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
         if j_args["common"]["verbose"]:
@@ -164,12 +164,24 @@ def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
         "-concat", full2crop_ACPC,
         xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
     )
-    run_FSL_sh_script( 
-        j_args, logger, "convert_xfm",
-        "-omat", outputs["T{}w_crop2BIBS_mat".format(t)],
-        "-concat", full2cropT1w_mat,
-        xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)]
-    )
+    if t == 1:
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm",
+            "-omat", outputs["T{}w_crop2BIBS_mat".format(t)],
+            "-concat", full2cropT1w_mat,
+            xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)]
+        )
+    else: # if t == 2:
+        crop_and_reg_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
+                                        "full2cropT2toT1.mat")
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm", "-omat", crop_and_reg_mat, "-concat", xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)], full2cropT1w_mat
+        )
+        run_FSL_sh_script( 
+            j_args, logger, "convert_xfm", "-omat", outputs["T{}w_crop2BIBS_mat".format(t)], "-concat", xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)], crop_and_reg_mat
+        )
+
+
     # Do the applywarp FSL command from align_ACPC_1_img (for T2w and not T1w, for non-ACPC)
     # applywarp output is optimal_realigned_imgs input
     # Apply registration to the T1ws and the T2ws
