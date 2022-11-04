@@ -188,10 +188,6 @@ However, if you run `CABINET` outside of the container as an application, then y
 
 <br />
 
-## Different Modes
-
-
-
 ## Multiple Participant Requirements
 
 ### `participants.tsv`
@@ -208,21 +204,9 @@ NOTE: `sub-` and `ses-` prefixes are currently required for `participant_id` and
 
 When running multiple subjects and/or sessions, the `participants.tsv` file in the `bids_dir` must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session.
 
-If the user wants to specify the brain height (shown below) for each subject session, then the user must also include an additional `"brain_z_size"` column. That column also must have a positive integer for each row, which is the size of the participant's brain along the z-axis in millimeters.
+If the user wants to specify the brain height (shown below) for each subject session, then the user must also include an additional `"brain_z_size"` column. That column also must have a positive integer for each row, which is the size of the participant's brain along the z-axis in millimeters. Without a `brain_z_size` column, `CABINET` will calculate the `brain_z_size` value based on a table with [BCP](https://babyconnectomeproject.org/) participants' average head radius per age. That table is called `age_to_avg_head_radius_BCP.csv` under the `data` directory.
 
-<img src="https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png" width=555em style="margin-left: auto; margin-right: auto; display: block">
-
-### `age_to_avg_head_radius_BCP.csv`
-
-Without a `brain_z_size` column in the `participants.tsv` file, `CABINET` will calculate the `brain_z_size` value based on a table with [BCP](https://babyconnectomeproject.org/) participants' average head radius per age. That table is called `age_to_avg_head_radius_BCP.csv` under the `data` directory. It has 2 columns: age in months and the average head radius (in inches) of BCP participants at that age. Part of the table is shown below.
-
-| Candidate_Age(mo.) | Head_Radius(in.) |
-|:-:|:-:|
-| 1 | 2.26 |
-| 2 | 2.54 |
-| 5 | 2.70 |
-| 10 | 2.87 |
-| 20 | 3.12 |
+<center><img src="https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png" width=555em></center>
 
 <br />
 
