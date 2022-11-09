@@ -157,8 +157,10 @@ def get_params_from_JSON(stage_names, logger):
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
-              "inferred from {}/data/models.csv based on which data (T1, T2, "
-              "or both) exists in the --bids-dir.".format(SCRIPT_DIR))
+              "inferred from {} based on which data exists in the "
+              "--bids-dir. BIBSnet will run model 514 by default for T1w-"
+              "only, model 515 for T2w-only, and model 512 for both T1w and "
+              "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
     )
     parser.add_argument(
         "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"

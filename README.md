@@ -89,10 +89,11 @@ optional arguments:
                         be the postbibsnet stage. Valid choices: prebibsnet,
                         bibsnet, postbibsnet
   -model MODEL, --model-number MODEL, --bibsnet-model MODEL
-                        Model/task number for BIBSnet. By default, this will
-                        be inferred from CABINET/data/models.csv based
-                        on which data (T1, T2, or both) exists in the --bids-
-                        dir.
+                        Model/task number for BIBSnet. By default, this will 
+                        be inferred from CABINET/data/models.csv based on
+                        which data exists in the --bids-dir. BIBSnet will run 
+                        model 514 by default for T1w-only, model 515 for 
+                        T2w-only, and model 512 for both T1w and T2w.
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous CABINET
                         outputs in the derivatives sub-directories. Otherwise,
@@ -234,6 +235,16 @@ Prepares the anatomical BIDS images for BIBSnet segmentation generation.
 ## 2. BIBSnet
 
 Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep neural network trained via nnU-Net and SynthSeg with a large 0 to 8 month old infant MRI brain dataset.
+
+### BIBSnet Segmentation Models
+
+`data/models.csv` lists all available BIBSnet models to run. Below are the default BIBSnet models, all trained on manually-segmented 0- to 8-month-old BCP subjects' segmentations. 
+
+| Model | Description |
+|:-:|:--|
+| 512 | Default T1w and T2w model |
+| 514 | Default T1w-only model |
+| 515 | Default T2w-only model |
 
 <br />
 
