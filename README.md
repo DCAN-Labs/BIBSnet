@@ -41,7 +41,7 @@ Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
 
 #### Docker
 
-    docker pull dcanumn/cabinet
+    docker pull dcanumn/cabinet:t1-only_t2-only
 
 <br />
 

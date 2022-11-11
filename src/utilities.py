@@ -156,29 +156,33 @@ def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
         xfm_non_ACPC_vars["out_dir"],
         "full_crop_T{}w_to_BIBS_template.mat".format(t)  # NOTE Changed this back to full_crop on 2022-08-30
     )
-    full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
-                                    "full2cropT1w.mat")
+    full2crop_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
+                                 f"full2cropT{t}w.mat")
+    # full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"], "full2cropT1w.mat")
     run_FSL_sh_script( 
         j_args, logger, "convert_xfm",
-        "-omat", full2cropT1w_mat,
-        "-concat", full2crop_ACPC,
-        xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
+        "-omat", full2crop_mat, # full2cropT1w_mat,
+        "-concat", full2crop_ACPC, xfm_imgs_non_ACPC["cropT1tocropT1"]
+        # xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
     )
     if t == 1:
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm",
             "-omat", outputs["T{}w_crop2BIBS_mat".format(t)],
-            "-concat", full2cropT1w_mat,
+            "-concat", full2crop_mat,  # full2cropT1w_mat,
             xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)]
         )
     else: # if t == 2:
         crop_and_reg_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
                                         "full2cropT2toT1.mat")
         run_FSL_sh_script( 
-            j_args, logger, "convert_xfm", "-omat", crop_and_reg_mat, "-concat", xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)], full2cropT1w_mat
+            j_args, logger, "convert_xfm", "-omat", crop_and_reg_mat, "-concat",
+            xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)], full2crop_mat  # full2cropT1w_mat
         )
         run_FSL_sh_script( 
-            j_args, logger, "convert_xfm", "-omat", outputs["T{}w_crop2BIBS_mat".format(t)], "-concat", xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)], crop_and_reg_mat
+            j_args, logger, "convert_xfm", "-omat",
+            outputs["T{}w_crop2BIBS_mat".format(t)], "-concat",
+            xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)], crop_and_reg_mat
         )
 
 
