@@ -134,7 +134,7 @@ The repository contains two parameter files, one recommended to run CABINET insi
 #### "common": parameters used by multiple stages within CABINET
 
 - `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FMRIB Software Library](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
-- `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback`
+- `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback` (note: this is not utilized by cabinet yet, please designate it as null)
 
 #### "resource_management": parameters to determine resource use when running parallel scripts. These parameters are only needed for nibabies and XCPD.
 
