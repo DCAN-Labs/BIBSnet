@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-10-21
+Updated: 2022-11-18
 """
 # Import standard libraries
 import argparse
@@ -186,13 +186,12 @@ def get_params_from_JSON(stage_names, logger):
               "command being run by CABINET to stdout. Otherwise CABINET "
               "will only print warnings, errors, and minimal output.")
     )
-    parser.add_argument(  
-        "-z", "--brain-z-size", action="store_true", # type=valid_whole_number,
+    parser.add_argument(
+        "-z", "--brain-z-size", action="store_true",
         help=("Include this flag to infer participants' brain height (z) "
               "using the participants.tsv brain_z_size column. Otherwise, "
               "CABINET will estimate the brain height from the participant "
               "age and averages of a large sample of infant brain heights.")  # TODO rephrase
-        # help=("Positive integer, the size of the participant's brain in millimeters along the z-axis. By default, this will be {}.".format(default_brain_z_size))
     )
     parser.add_argument(
         SCRIPT_DIR_ARG, dest=as_cli_attr(SCRIPT_DIR_ARG),
@@ -210,6 +209,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     :param cli_args: Dictionary containing all command-line input arguments
     :param stage_names: List of strings naming stages to run (in order)
     :param logger: logging.Logger object to show messages and raise warnings
+    :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Tuple of 2 objects:
         1. Dictionary of validated parameters from parameter .JSON file
         2. List of dicts which each map "subject" to the subject ID string,
@@ -233,7 +233,6 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
     for arg_to_add in ("bids_dir", "overwrite", "verbose"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
-    # j_args["ID"] = {"subject": cli_args["participant_label"], "session": cli_args["session"], "age_months": cli_args["age_months"], "brain_z_size": cli_args["brain_z_size"], "model": cli_args["model"]} 
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
@@ -341,7 +340,9 @@ def get_df_with_valid_bibsnet_models(sub_ses_ID):
 
     # Exclude any models which require (T1w or T2w) data the user lacks
     for t in only_Ts_needed_for_bibsnet_model(sub_ses_ID):
-        models_df = select_model_with_data_for_T(t, models_df, sub_ses_ID["has_T{}w".format(t)])
+        models_df = select_model_with_data_for_T(
+            t, models_df, sub_ses_ID["has_T{}w".format(t)]
+        )
     return models_df
 
 
@@ -350,7 +351,9 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
     :param cli_args: Dictionary containing all command-line input arguments
     :param data_path_BIDS_T: Dictionary mapping 1 and 2 to the (incomplete)
                              paths to expected T1w and T2w data respectively
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param models_df: pd.DataFrame of all bibsnet models viable for input data
+    :param sub_ses_ID: Dict mapping (string) names to values for sub- &
+                       ses-specific input parameters; same as j_args[ID]
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Int, validated bibsnet model number
     """
@@ -380,9 +383,9 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
 
 def select_model_with_data_for_T(t, models_df, has_T):
     """
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
     :param models_df: pandas.DataFrame with columns called "T1w" and "T2w"
                       with bool values describing which T(s) a model needs
-    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
     :param has_T: bool, True if T{t}w data exists for this subject/ses
     :return: pandas.DataFrame, all models_df rows with data for this sub/ses/t
     """
@@ -395,6 +398,8 @@ def get_brain_z_size(age_months, j_args, logger, buffer=5):
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
     :param age_months: Int, participant's age in months
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :param buffer: Int, extra space (in mm), defaults to 5
     :return: Int, the brain z-size (height) in millimeters
     """
@@ -461,9 +466,10 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
 def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
-    :param subdirnames: Unpacked list of strings. Each names 1 part of a path
-                        under j_args[common][bids_dir]. The last string is
-                        mapped by j_args[optional_out_dirs] to the subdir path.
+    :param derivs: Unpacked list of strings. Each names 1 part of a path under
+                   j_args[common][bids_dir]. The last string is mapped by
+                   j_args[optional_out_dirs] to the subdir path.
+    :param sub_ses: List with either only the subject ID str or the session too
     :return: j_args, but with the (now-existing) subdirectory path
     """
     j_args["optional_out_dirs"] = make_given_or_default_dir(
@@ -483,6 +489,7 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
 def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :param col_name: String naming the column of participants.tsv to return
                      a value from (for this subject or subject-session)
     :return: Int, either the subject's age (in months) or the subject's
@@ -572,7 +579,6 @@ def run_preBIBSnet(j_args, logger):
     else:
         # Define variables and paths needed for the final (only) xfm needed
         t1or2 = 1 if j_args["ID"]["has_T1w"] else 2
-        # img_ext = split_2_exts(cropped[t1or2])[-1]
         outdir = os.path.join(preBIBSnet_paths["resized"], "xfms")
         os.makedirs(outdir, exist_ok=True)
         out_img = get_preBIBS_final_img_fpath_T(t1or2, outdir, j_args["ID"])
@@ -734,7 +740,6 @@ def run_postBIBSnet(j_args, logger):
     )
     if j_args["common"]["verbose"]:
         logger.info("Closest template-age is {} months".format(tmpl_age))
-    # if age_months > 33: age_months = "34-38"
 
     # For left/right registration, use T1 for T1-only and T2 for T2-only, but
     # for T1-and-T2 combined use T2 for <22 months otherwise T1 (img quality)
@@ -747,7 +752,7 @@ def run_postBIBSnet(j_args, logger):
 
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
-        j_args, sub_ses, tmpl_age, t1or2, logger
+        sub_ses, tmpl_age, t1or2, j_args, logger
     )
     logger.info("Left/right image registration completed")
 
@@ -775,11 +780,6 @@ def run_postBIBSnet(j_args, logger):
     derivs_dir = os.path.join(precomputed_dir, *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
     copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
-    """
-    for eachfile in os.scandir(chiral_out_dir):
-        if "native" in os.path.basename(eachfile):
-            copy_to_derivatives_dir(eachfile, derivs_dir, sub_ses, "aseg_dseg")  # TODO Can these be symlinks?
-    """
     copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
 
     # Copy dataset_description.json into precomputed directory for nibabies
@@ -792,19 +792,19 @@ def run_postBIBSnet(j_args, logger):
     return j_args
 
 
-def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
+def run_left_right_registration(sub_ses, age_months, t1or2, j_args, logger):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
     :param sub_ses: List with either only the subject ID str or the session too
     :param age_months: String or int, the subject's age [range] in months
     :param t1or2: Int, 1 to use T1w image for registration or 2 to use T2w
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
     :return: String, path to newly created left/right registration output file
     """
     # Paths for left & right registration
     chiral_in_dir = os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     tmpl_head = os.path.join(chiral_in_dir, "{}mo_T{}w_acpc_dc_restore.nii.gz")
-    tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz") # "brainmasks", {}mo_template_brainmask.nii.gz")
-
+    tmpl_mask = os.path.join(chiral_in_dir, "{}mo_template_LRmask.nii.gz")
 
     # Grab the first resized T?w from preBIBSnet to use for L/R registration
     last_digit = (t1or2 - 1 if j_args["ID"]["has_T1w"]  
@@ -822,13 +822,13 @@ def run_left_right_registration(j_args, sub_ses, age_months, t1or2, logger):
     # Left/right registration output file path (this function's return value)
     left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "LRmask.nii.gz")
 
-    # Run left & right registration  # NOTE: Script ran successfully until here 2022-03-08
+    # Run left & right registration
     msg = "{} left/right registration on {}"
     if (j_args["common"]["overwrite"] or not
             os.path.exists(left_right_mask_nifti_fpath)):
-        # logger.info(msg.format("Running", first_subject_head))
         try:
-            # SubjectHead TemplateHead TemplateMask OutputMaskFile
+            # In bin/LR_mask_registration.sh, the last 4 vars in cmd_LR_reg are
+            # named SubjectHead, TemplateHead, TemplateMask, and OutputMaskFile
             cmd_LR_reg = (LR_REGISTR_PATH, first_subject_head,
                           tmpl_head.format(age_months, t1or2),
                           tmpl_mask.format(age_months),
@@ -890,7 +890,8 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     ))[0]
 
     # Run chirality correction script
-    nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0], segment_lookup_table_path,
+    nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0],
+                                     segment_lookup_table_path,
                                      l_r_mask_nifti_fpath, chiral_out_dir, 
                                      chiral_ref_img_fpath, j_args, logger)
     return nii_outfpath  # chiral_out_dir
@@ -899,8 +900,10 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
 def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
+    :param j_args: Dictionary containing all args from parameter .JSON file
     :param aseg_dir: String, valid path to existing directory with output files
                      from chirality correction
+    :param nii_outfpath: String, valid path to existing anat file
     :return: List of strings; each is a valid path to an aseg mask file
     """
     # binarize, fillh, and erode aseg to make mask:
@@ -909,7 +912,7 @@ def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
     )
     if (j_args["common"]["overwrite"] or not
             os.path.exists(output_mask_fpath)):
-        maths = fsl.ImageMaths(in_file=nii_outfpath,  # (nii_outfpath is anat file)
+        maths = fsl.ImageMaths(in_file=nii_outfpath,
                                op_string=("-bin -dilM -dilM -dilM -dilM "
                                           "-fillh -ero -ero -ero -ero"),
                                out_file=output_mask_fpath)
@@ -958,12 +961,6 @@ def run_nibabies(j_args, logger):
     else:
         derivs = list()
         # TODO If j_args[nibabies][derivatives] has a path, use that instead
-        """
-        warn_user_of_conditions(
-            ("Missing {{}} files in {}\nNow running nibabies with JLF but not "
-             "BIBSnet.".format(j_args["optional_out_dirs"]["bibsnet"])),
-            logger, mask=mask_glob, aseg=aseg_glob
-        ) """
     
     # Run nibabies
     print()
