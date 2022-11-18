@@ -16,9 +16,7 @@
     "bibsnet": {
         "model": "3d_fullres",
         "nnUNet_predict_path": "/home/support/public/torch_cudnn8.2/bin/nnUNet_predict",
-        "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet",
-        "singularity_image_path": "/home/feczk001/gconan/placeholder.txt",
-        "task": "512"
+        "code_dir": "/home/faird/shared/code/internal/pipelines/bibsnet/BIBSnet"
     },
     
     "nibabies": {

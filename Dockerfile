@@ -113,8 +113,13 @@ ENV RESULTS_FOLDER="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/cabinet/data
 #COPY trained_models/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet
-RUN wget https://s3.msi.umn.edu/CABINET_data/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip -O /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip
-RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && unzip -qq Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip
+RUN wget https://s3.msi.umn.edu/CABINET_data/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip -O /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip && \
+    wget https://s3.msi.umn.edu/CABINET_data/Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.zip -O /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.zip && \
+    wget https://s3.msi.umn.edu/CABINET_data/Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip -O /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
+RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && \
+    unzip -qq Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip && \
+    unzip -qq Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.zip && \
+    unzip -qq Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
 COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
 COPY bin /home/cabinet/bin
@@ -131,6 +136,6 @@ RUN cp /home/cabinet/run.py /home/cabinet/cabinet
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
 RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet data
-RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task512_BCP_ABCD_Neonates_SynthSegDownsample/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
+RUN chmod 666 /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task*/nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
 
 ENTRYPOINT ["cabinet"]

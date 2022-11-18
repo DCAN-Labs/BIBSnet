@@ -16,8 +16,7 @@
     "bibsnet": {
         "code_dir": "existing_directory_path",
         "model": "str",
-        "nnUNet_predict_path": "existing_file_path",
-        "task": "str"
+        "nnUNet_predict_path": "existing_file_path" 
     },
     
     "nibabies": {
