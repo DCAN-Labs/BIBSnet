@@ -185,7 +185,6 @@ def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
             xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)], crop_and_reg_mat
         )
 
-
     # Do the applywarp FSL command from align_ACPC_1_img (for T2w and not T1w, for non-ACPC)
     # applywarp output is optimal_realigned_imgs input
     # Apply registration to the T1ws and the T2ws
@@ -412,7 +411,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     return nifti_file_paths["native"]
 
 
-def create_anatomical_average(avg_params):
+def create_anatomical_average(avg_params, logger):
     """
     Creates a NIFTI file whose voxels are the average of the voxel values of the input files.
     :param avg_params: Dictionary with 4 keys:
@@ -424,7 +423,7 @@ def create_anatomical_average(avg_params):
     for t in (1, 2):
         if avg_params["T{}w_input".format(t)]:
             register_and_average_files(avg_params["T{}w_input".format(t)],
-                                       avg_params["T{}w_avg".format(t)])
+                                       avg_params["T{}w_avg".format(t)], logger)
 
 
 def create_avg_image(output_file_path, registered_files):
@@ -1046,29 +1045,44 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
                                        
 
-def register_and_average_files(input_file_paths, output_file_path):
+def register_and_average_files(input_file_paths, output_file_path, logger):
     reference = input_file_paths[0]
+    out_dir=os.path.dirname(output_file_path)
     if len(input_file_paths) > 1:
-        registered_files = register_files(input_file_paths, reference)
+        registered_files = register_files(input_file_paths, reference,
+                                          out_dir, logger)
 
         create_avg_image(output_file_path, registered_files)
     else:
         shutil.copyfile(reference, output_file_path)
 
 
-def register_files(input_file_paths, reference):
+def register_files(input_file_paths, reference, out_dir, logger):
     registered_files = [reference]
-    flt = fsl.FLIRT(bins=640, cost_func='mutualinfo')
+    
+    # Build FSL FLIRT object by first making name of output nifti & mat files
+    ref_fname, ref_ext = split_2_exts(reference)
+    ref_fname, tw = os.path.basename(ref_fname).split("_T")
+    t = int(tw[0])
+    flt = fsl.FLIRT(
+        bins=640, cost_func='mutualinfo',
+        out_file=os.path.join(out_dir, f"{ref_fname}_desc-avg_T{t}w{ref_ext}"),  # TODO This file is redundant, was added to try to prevent create_avg_image from trying to save an average image to a relative path, bc that breaks in a container
+        out_matrix_file=os.path.join(out_dir, f"T{t}_avg.mat")
+    )
     flt.inputs.reference = reference
     flt.inputs.output_type = "NIFTI_GZ"
     for structural in input_file_paths[1:]:
+
+        # Build FSL command to register each file
         flt.inputs.in_file = structural
-        print(flt.cmdline)
+        logger.info("Now running FSL FLIRT:\n{}".format(flt.cmdline))
         out_index = flt.cmdline.find('-out')
         start_index = out_index + len('-out') + 1
         end_index = flt.cmdline.find(' ', start_index)
         out = flt.cmdline[start_index:end_index]
         registered_files.append(out)
+
+        # Run each FSL command
         res = flt.run()
         stderr = res.runtime.stderr
         if stderr:

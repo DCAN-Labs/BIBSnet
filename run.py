@@ -532,7 +532,7 @@ def run_preBIBSnet(j_args, logger):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_average(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_average(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
 
     # Crop T1w and T2w images
     cropped = dict()
@@ -885,15 +885,16 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     # Select an arbitrary T1w image path to use to get T1w space
     # (unless in T2w-only mode, in which case use an arbitrary T2w image)
     t = 2 if not j_args["ID"]["has_T1w"] else 1
-    chiral_ref_img_fpath = glob(os.path.join(
+    chiral_ref_img_fpaths = glob(os.path.join(
         j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
-    ))[0]
-
+    ))
+    chiral_ref_img_fpaths.sort()
+    
     # Run chirality correction script
     nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0],
                                      segment_lookup_table_path,
                                      l_r_mask_nifti_fpath, chiral_out_dir, 
-                                     chiral_ref_img_fpath, j_args, logger)
+                                     chiral_ref_img_fpaths[0], j_args, logger)
     return nii_outfpath  # chiral_out_dir
 
 
