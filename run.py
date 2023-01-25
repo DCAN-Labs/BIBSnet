@@ -159,7 +159,7 @@ def get_params_from_JSON(stage_names, logger):
         help=("Model/task number for BIBSnet. By default, this will be "
               "inferred from {} based on which data exists in the "
               "--bids-dir. BIBSnet will run model 514 by default for T1w-"
-              "only, model 515 for T2w-only, and model 512 for both T1w and "
+              "only, model 515 for T2w-only, and model 550 for both T1w and "
               "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
     )
     parser.add_argument(
