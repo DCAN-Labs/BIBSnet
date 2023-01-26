@@ -5,7 +5,7 @@
 Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-11-18
+Updated: 2023-01-25
 """
 # Import standard libraries
 import argparse
@@ -16,7 +16,6 @@ import math
 from nipype.interfaces import fsl
 import os
 import pandas as pd
-import pdb
 import shutil
 import subprocess
 import sys
@@ -47,15 +46,16 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 # Custom local imports
 from src.utilities import (
     apply_final_prebibsnet_xfms, as_cli_attr, as_cli_arg, correct_chirality, 
-    create_anatomical_average, crop_image, dilate_LR_mask, ensure_prefixed,
+    create_anatomical_averages, crop_image, dilate_LR_mask, ensure_prefixed,
     exit_with_time_info, extract_from_json, get_age_closest_to,
     get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
     get_preBIBS_final_img_fpath_T, get_stage_name, get_subj_ID_and_session,
     get_template_age_closest_to, make_given_or_default_dir,
     only_Ts_needed_for_bibsnet_model, register_preBIBSnet_imgs_ACPC, 
-    register_preBIBSnet_imgs_non_ACPC, run_FSL_sh_script, 
-    run_all_stages, valid_readable_json, validate_parameter_types,
-    valid_readable_dir, valid_subj_ses_ID, valid_whole_number
+    register_preBIBSnet_imgs_non_ACPC, reverse_regn_revert_to_native,
+    run_FSL_sh_script, run_all_stages, valid_readable_json,
+    validate_parameter_types, valid_readable_dir,
+    valid_subj_ses_ID, valid_whole_number
 )
 
 
@@ -84,7 +84,7 @@ def main():
 def make_logger():
     """
     Make logger to log status updates, warnings, and other important info
-    :return: logging.Logger
+    :return: logging.Logger able to print info to stdout and problems to stderr
     """  # TODO Incorporate pprint to make printed JSONs/dicts more readable
     fmt = "\n%(levelname)s %(asctime)s: %(message)s"
     logging.basicConfig(stream=sys.stdout, format=fmt, level=logging.INFO)  
@@ -272,8 +272,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         # Verify that subject-session BIDS/input directory path exists
         sub_ses_dir = os.path.join(j_args["common"]["bids_dir"], *sub_ses)
         if not os.path.exists(sub_ses_dir):
-            parser.error("No subject/session directory found at {}\nCheck that "
-                         "your participant_label and session are correct."
+            parser.error("No subject/session directory found at {}\nCheck "
+                         "that your participant_label and session are correct."
                          .format(sub_ses_dir))
     
         # User only needs participants.tsv if they didn't specify age_months
@@ -303,9 +303,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         for t in (1, 2):
             data_path_BIDS_T[t] = os.path.join(j_args["common"]["bids_dir"],
                                                *sub_ses, "anat",
-                                               "*T{}w.nii.gz".format(t))
-            sub_ses_IDs[ix]["has_T{}w".format(t)
-                            ] = bool(glob(data_path_BIDS_T[t]))
+                                               f"*T{t}w.nii.gz")
+            sub_ses_IDs[ix][f"has_T{t}w"] = bool(glob(data_path_BIDS_T[t]))
 
         models_df = get_df_with_valid_bibsnet_models(sub_ses_IDs[ix])
         sub_ses_IDs[ix]["model"] = validate_model_num(
@@ -316,7 +315,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
         dir_BIBSnet = dict()
         for io in ("in", "out"):
             dir_BIBSnet[io] = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
-                                        *sub_ses, "{}put".format(io))
+                                           *sub_ses, f"{io}put")
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
     if j_args["common"]["verbose"]:
@@ -324,7 +323,6 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
-
     return j_args, sub_ses_IDs
 
 
@@ -341,7 +339,7 @@ def get_df_with_valid_bibsnet_models(sub_ses_ID):
     # Exclude any models which require (T1w or T2w) data the user lacks
     for t in only_Ts_needed_for_bibsnet_model(sub_ses_ID):
         models_df = select_model_with_data_for_T(
-            t, models_df, sub_ses_ID["has_T{}w".format(t)]
+            t, models_df, sub_ses_ID[f"has_T{t}w"]
         )
     return models_df
 
@@ -374,7 +372,7 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
         if len(models_df) > 1:
             for t in (1, 2):
                 models_df = select_model_with_data_for_T(
-                    t, models_df, sub_ses_ID["has_T{}w".format(t)]
+                    t, models_df, sub_ses_ID[f"has_T{t}w"]
                 )
         model = models_df.squeeze()["model_num"]
             
@@ -389,7 +387,7 @@ def select_model_with_data_for_T(t, models_df, has_T):
     :param has_T: bool, True if T{t}w data exists for this subject/ses
     :return: pandas.DataFrame, all models_df rows with data for this sub/ses/t
     """
-    has_T_row = models_df["T{}w".format(t)]
+    has_T_row = models_df[f"T{t}w"]
     return models_df.loc[has_T_row if has_T else ~has_T_row]
 
 
@@ -416,9 +414,8 @@ def get_brain_z_size(age_months, j_args, logger, buffer=5):
     # Get BCP age (in months) closest to the subject's age
     closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
     if j_args["common"]["verbose"]:
-        logger.info("Subject age in months: {}\nClosest BCP age in months in "
-                    "age-to-head-radius table: {}"
-                    .format(age_months, closest_age))
+        logger.info(f"Subject age in months: {age_months}\nClosest BCP age in "
+                    f"months in age-to-head-radius table: {closest_age}")
 
     # Get average head radii in millimeters by age from table
     age2headradius[head_diam_mm] = age2headradius[head_r_col
@@ -502,7 +499,6 @@ def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
         os.path.join(j_args["common"]["bids_dir"],
                      "participants.tsv"), sep="\t", dtype=columns
     )
-
     # Subject and session column names in participants.tsv
     sub_ID_col = "participant_id"
     ses_ID_col = "session"
@@ -516,8 +512,7 @@ def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
             subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[ses_ID_col] = part_tsv_df[ses_ID_col].apply(ensure_prefixed(...))
         ]  # select where "session" matches
     if j_args["common"]["verbose"]:
-        logger.info("Subject details from participants.tsv row:\n{}"
-                    .format(subj_row))
+        logger.info(f"Subject details from participants.tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
 
@@ -532,14 +527,14 @@ def run_preBIBSnet(j_args, logger):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_average(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_averages(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
 
     # Crop T1w and T2w images
     cropped = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        cropped[t] = preBIBSnet_paths["crop_T{}w".format(t)]
-        crop2full[t] = crop_image(preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+        cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
+        crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
                                   cropped[t], j_args, logger)
     logger.info(completion_msg.format("cropped"))
 
@@ -598,8 +593,8 @@ def run_preBIBSnet(j_args, logger):
         # TODO Move this to right after making crop2full, then delete the 
         #      duplicated functionality in align_ACPC_1_image
         full2crop = os.path.join(
-            os.path.dirname(preBIBSnet_paths["avg"]["T{}w_avg".format(t)]),
-            "full2crop_T{}w_only.mat".format(t)
+            os.path.dirname(preBIBSnet_paths["avg"][f"T{t}w_avg"]),
+            f"full2crop_T{t}w_only.mat"
         )
         run_FSL_sh_script(j_args, logger, "convert_xfm", "-inverse",
                           crop2full[t], "-omat", full2crop) 
@@ -612,32 +607,29 @@ def run_preBIBSnet(j_args, logger):
             j_args, logger, "convert_xfm", "-omat", out_mat,
             "-concat", full2crop, crop2BIBS_mat
         )
-
         run_FSL_sh_script(  # Apply concat xfm to crop and move into BIBS space
             j_args, logger, "applywarp", "--rel", "--interp=spline",
-            "-i", preBIBSnet_paths["avg"]["T{}w_avg".format(t)],
+            "-i", preBIBSnet_paths["avg"][f"T{t}w_avg"],
             "-r", reference_img.format(t1or2),
             "--premat=" + out_mat, "-o", out_img
         )
-        transformed_images = {"T{}w".format(t1or2): out_img,
-                              "T{}w_crop2BIBS_mat".format(t1or2): out_mat}
+        transformed_images = {f"T{t1or2}w": out_img,
+                              f"T{t1or2}w_crop2BIBS_mat": out_mat}
 
     # TODO Copy this whole block to postBIBSnet, so it copies everything it needs first
     # Copy preBIBSnet outputs into BIBSnet input dir
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]): 
-        tw = "T{}w".format(t)
-
         # Copy image files
-        out_nii_fpath = j_args["optimal_resized"][tw]
+        out_nii_fpath = j_args["optimal_resized"][f"T{t}w"]
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
         if j_args["common"]["overwrite"]:  # TODO Should --overwrite delete old image file(s)?
             os.remove(out_nii_fpath)
         if not os.path.exists(out_nii_fpath): 
-            shutil.copy2(transformed_images[tw], out_nii_fpath)
+            shutil.copy2(transformed_images[f"T{t}w"], out_nii_fpath)
 
         # Copy .mat into postbibsnet dir with the same name regardless of which
         # is chosen, so postBIBSnet can use the correct/chosen .mat file
-        concat_mat = transformed_images["T{}w_crop2BIBS_mat".format(t)]
+        concat_mat = transformed_images[f"T{t}w_crop2BIBS_mat"]
         out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
             j_args["optional_out_dirs"]["postbibsnet"],
             *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
@@ -645,7 +637,7 @@ def run_preBIBSnet(j_args, logger):
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
             if j_args["common"]["verbose"]:
-                logger.info("Copying {} to {}".format(concat_mat, out_mat_fpath))
+                logger.info(f"Copying {concat_mat} to {out_mat_fpath}")
     logger.info("PreBIBSnet has completed")
     return j_args
 
@@ -672,7 +664,7 @@ def run_BIBSnet(j_args, logger):
     else:  # Run BIBSnet
         # Import BIBSnet functionality from BIBSnet/run.py
         parent_BIBSnet = os.path.dirname(j_args["bibsnet"]["code_dir"])
-        logger.info("Importing BIBSnet from {}".format(parent_BIBSnet))
+        logger.info(f"Importing BIBSnet from {parent_BIBSnet}")
         sys.path.append(parent_BIBSnet)  #sys.path.append("/home/cabinet/SW/BIBSnet")
         from BIBSnet.run import run_nnUNet_predict
                
@@ -694,7 +686,8 @@ def run_BIBSnet(j_args, logger):
             # BIBSnet will crash even after correctly creating a segmentation,
             # so only crash CABINET if that segmentation is not made.
             outfpath = os.path.join(dir_BIBS.format("out"),
-                                    "{}_{}_optimal_resized.nii.gz".format(*sub_ses))
+                                    "{}_optimal_resized.nii.gz"
+                                    .format("_".join(sub_ses)))
             if not os.path.exists(outfpath):
                 logger.error("BIBSnet failed to create this segmentation "
                              "file...\n{}\n...from these inputs:\n{}"
@@ -717,7 +710,7 @@ def run_BIBSnet(j_args, logger):
         #                    "nnUNet": "/opt/conda/bin/nnUNet_predict",
         #                    "input": dir_BIBS.format("in"),
         #                    "output": dir_BIBS.format("out"),
-        #                    "task": str(512)})
+        #                    "task": "550"})
         logger.info("BIBSnet has completed")
     return j_args
 
@@ -764,8 +757,8 @@ def run_postBIBSnet(j_args, logger):
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
-    nii_outfpath = run_chirality_correction(dilated_LRmask_fpath, # left_right_mask_nifti_fpath,  # TODO Rename to mention that this also does registration?
-                                            j_args, logger)
+    nii_outfpath = correct_chirality_revert_to_native(dilated_LRmask_fpath,
+                                                      j_args, logger)
     chiral_out_dir = os.path.dirname(nii_outfpath)
     logger.info("The BIBSnet segmentation has had its chirality checked and "
                 "registered if needed. Now making aseg-derived mask.")
@@ -784,10 +777,11 @@ def run_postBIBSnet(j_args, logger):
 
     # Copy dataset_description.json into precomputed directory for nibabies
     new_data_desc_json = os.path.join(precomputed_dir, "dataset_description.json")
-    if j_args["common"]["overwrite"] or not os.path.exists(new_data_desc_json):
+    if j_args["common"]["overwrite"]:
+        os.remove(new_data_desc_json)
+    if not os.path.exists(new_data_desc_json):
         shutil.copy2(os.path.join(SCRIPT_DIR, "data",
                                   "dataset_description.json"), new_data_desc_json)
-        
     logger.info("PostBIBSnet has completed.")
     return j_args
 
@@ -854,7 +848,7 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args, logger):
     return left_right_mask_nifti_fpath
 
 
-def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
+def correct_chirality_revert_to_native(l_r_mask_nifti_fpath, j_args, logger):
     """
     :param l_r_mask_nifti_fpath: String, valid path to existing left/right
                                  registration output mask file
@@ -877,7 +871,7 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
                                    *sub_ses, "output", "*.nii.gz")
     seg_BIBSnet_outfiles = glob(out_BIBSnet_seg)
     if len(seg_BIBSnet_outfiles) != 1:
-        logger.error("There must be exactly one BIBSnet segmentation file: "
+        logger.error(f"There must be exactly one BIBSnet segmentation file: "
                      "{}\nResume at postBIBSnet stage once this is fixed."
                      .format(out_BIBSnet_seg))
         sys.exit()
@@ -890,12 +884,18 @@ def run_chirality_correction(l_r_mask_nifti_fpath, j_args, logger):
     ))
     chiral_ref_img_fpaths.sort()
     
-    # Run chirality correction script
-    nii_outfpath = correct_chirality(seg_BIBSnet_outfiles[0],
-                                     segment_lookup_table_path,
-                                     l_r_mask_nifti_fpath, chiral_out_dir, 
-                                     chiral_ref_img_fpaths[0], j_args, logger)
-    return nii_outfpath  # chiral_out_dir
+    # Run chirality correction script and return the image to native space
+    msg = "{} running chirality correction on " + seg_BIBSnet_outfiles[0]
+    logger.info(msg.format("Now"))
+    nii_fpaths = correct_chirality(
+        seg_BIBSnet_outfiles[0], segment_lookup_table_path,
+        l_r_mask_nifti_fpath, chiral_out_dir
+    )
+    native_img_fpath = reverse_regn_revert_to_native(
+        nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths[0], j_args, logger
+    )
+    logger.info(msg.format("Finished"))
+    return native_img_fpath
 
 
 def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
@@ -964,7 +964,6 @@ def run_nibabies(j_args, logger):
         # TODO If j_args[nibabies][derivatives] has a path, use that instead
     
     # Run nibabies
-    print()
     print(" ".join(str(x) for x in [j_args["nibabies"]["singularity_image_path"],  # subprocess.check_call  # TODO
                            j_args["common"]["bids_dir"],
                            j_args["optional_out_dirs"]["nibabies"],
@@ -982,7 +981,6 @@ def run_XCPD(j_args, logger):
     """
     # Get all XCP-D parameters, excluding any whose value is null/None
     xcpd_args = get_optional_args_in(j_args["XCPD"])
-    
     subprocess.check_call([ #    # TODO Ensure that all "common" args required by XCPD are added
         "singularity", "run", "--cleanenv",
         "-B", j_args["optional_out_dirs"]["nibabies"] + ":/data:ro",
