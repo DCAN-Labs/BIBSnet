@@ -5,7 +5,7 @@
 Common source for utility functions used by CABINET :)
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2022-10-21
+Updated: 2023-01-26
 """
 # Import standard libraries
 import argparse
@@ -52,17 +52,15 @@ def align_ACPC_1_img(j_args, logger, xfm_ACPC_vars, crop2full, output_var, t,
     # Get paths to ACPC ref image, output dir, output images, and .mat files
     mni_ref_img_path = xfm_ACPC_vars["ref_img"].format(t)
     work_dir = xfm_ACPC_vars["out_dir"]  # Working directory for ACPC alignment
-    input_img = xfm_ACPC_vars["crop_T{}w_img".format(t)]  # Cropped img, ACPC input
+    input_img = xfm_ACPC_vars[f"crop_T{t}w_img"]  # Cropped img, ACPC input
     output_img =  xfm_ACPC_vars[output_var.format(t)]  # ACPC-aligned image
-    mats = {fname: os.path.join(work_dir, "T{}w_{}.mat".format(t, fname))
+    mats = {fname: os.path.join(work_dir, f"T{t}w_{fname}.mat")
             for fname in ("crop2acpc", "full2acpc", "full2crop",
                           "acpc2rigidbody")}  # .mat file paths
-
-    # acpc_final_img = os.path.join(work_dir, "T{}w_acpc_final.nii.gz".format(t))
     
     run_FSL_sh_script(j_args, logger, "flirt", "-interp", "spline",  
                       "-ref", mni_ref_img_path, "-in", input_img,
-                      "-omat", mats["crop2acpc"], # "-out", acpc_final_img,
+                      "-omat", mats["crop2acpc"], # "-out", os.path.join(work_dir, "T{}w_acpc_final.nii.gz".format(t)),
                       "-searchrx", "-45", "45", "-searchry", "-30", "30",
                       "-searchrz", "-30", "30")
 
@@ -98,17 +96,30 @@ def always_true(*_):
     return True
 
 
-def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
-                         avg_imgs, outputs, t, j_args, logger):
-    outputs["T{}w".format(t)] = get_preBIBS_final_img_fpath_T(
-        t, xfm_ACPC_vars["out_dir"], j_args["ID"]
+def apply_final_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs, outputs,
+                         t, j_args, logger):
+    """
+    Apply entire image transformation (from cropped image to BIBSnet format)
+    with ACPC transformation to a T1w or T2w image 
+    :param xfm_vars: Dict with variables specific to images to transform
+    :param xfm_imgs: Dict with paths to image files
+    :param avg_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
+                     (valid paths to existing image files to resize)
+    :param outputs: Dict that will have T1w &/or T2w ACPC transformed images
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    :return: outputs, with paths to ACPC-transformed image and transform .mat
+    """
+    outputs[f"T{t}w"] = get_preBIBS_final_img_fpath_T(
+        t, xfm_vars["out_dir"], j_args["ID"]
     )
 
     # Concatenate rigidbody2acpc.mat and registration (identity/cropT2tocropT1.mat)
     # First concatenate rigidbody2acpc with registration, then concatenate
     # the output .mat with the template
-    acpc2rigidbody = xfm_ACPC_vars["mats_T{}w".format(t)]["acpc2rigidbody"]
-    to_rigidbody_final_mat = os.path.join(xfm_ACPC_vars["out_dir"], 
+    acpc2rigidbody = xfm_vars[f"mats_T{t}w"]["acpc2rigidbody"]
+    to_rigidbody_final_mat = os.path.join(xfm_vars["out_dir"], 
                                             "T2w_to_rigidbody.mat"
                                             ) if t == 2 else acpc2rigidbody
     
@@ -117,83 +128,91 @@ def apply_final_ACPC_xfm(xfm_ACPC_vars, xfm_ACPC_imgs,
     if t == 2:
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm", "-omat", to_rigidbody_final_mat,
-            "-concat", xfm_ACPC_imgs["cropT{}tocropT1".format(t)],
+            "-concat", xfm_imgs[f"cropT{t}tocropT1"],
             acpc2rigidbody
         )
 
-    crop2BIBS_mat = os.path.join(xfm_ACPC_vars["out_dir"],
-                                 "crop_T{}w_to_BIBS_template.mat".format(t))
+    crop2BIBS_mat = os.path.join(xfm_vars["out_dir"],
+                                 f"crop_T{t}w_to_BIBS_template.mat")
     if not os.path.exists(crop2BIBS_mat):
         shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
         if j_args["common"]["verbose"]:
             logger.info("Copying {} to {}".format(to_rigidbody_final_mat,
                                                     crop2BIBS_mat))
-    outputs["T{}w_crop2BIBS_mat".format(t)] = crop2BIBS_mat
+    outputs[f"T{t}w_crop2BIBS_mat"] = crop2BIBS_mat
 
     # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
     # applywarp output is optimal_realigned_imgs input
     # Apply registration and ACPC alignment to the T1ws and the T2ws
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel", 
-                        "--interp=spline", "-i", avg_imgs["T{}w_avg".format(t)],
-                        "-r", xfm_ACPC_vars["ref_img"].format(t),
+                        "--interp=spline", "-i", avg_imgs[f"T{t}w_avg"],
+                        "-r", xfm_vars["ref_img"].format(t),
                         "--premat=" + crop2BIBS_mat, # preBIBS_ACPC_out["T{}w_crop2BIBS_mat".format(t)],
-                        "-o", outputs["T{}w".format(t)])
+                        "-o", outputs[f"T{t}w"])
     # pdb.set_trace()  # TODO Add "debug" flag?
 
     return outputs
 
 
-def apply_final_non_ACPC_xfm(xfm_non_ACPC_vars, xfm_imgs_non_ACPC, avg_imgs,
+def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                              outputs, t, full2crop_ACPC, j_args, logger):
-    outputs["T{}w".format(t)] = get_preBIBS_final_img_fpath_T(
-        t, xfm_non_ACPC_vars["out_dir"], j_args["ID"]
+    """
+    Apply entire image transformation (from cropped image to BIBSnet format)
+    without ACPC transformation to a T1w or T2w image 
+    :param xfm_vars: Dict with variables specific to images to transform
+    :param xfm_ACPC_imgs: Dict with paths to image files
+    :param avg_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
+                     (valid paths to existing image files to resize)
+    :param outputs: Dict that will have T1w &/or T2w ACPC transformed images
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    :return: outputs, with paths to ACPC-transformed image and transform .mat
+    """
+    outputs[f"T{t}w"] = get_preBIBS_final_img_fpath_T(
+        t, xfm_vars["out_dir"], j_args["ID"]
     )
     
     # Do convert_xfm to combine 2 .mat files (non-ACPC
     # registration_T2w_to_T1w's cropT2tocropT1.mat, and then non-ACPC
     # registration_T2w_to_T1w's crop_T1_to_BIBS_template.mat)
-    outputs["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-        xfm_non_ACPC_vars["out_dir"],
-        "full_crop_T{}w_to_BIBS_template.mat".format(t)  # NOTE Changed this back to full_crop on 2022-08-30
-    )
-    full2crop_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
+    outputs[f"T{t}w_crop2BIBS_mat"] = os.path.join(
+        xfm_vars["out_dir"], f"full_crop_T{t}w_to_BIBS_template.mat"  
+    )  # NOTE Changed crop_T{}w... back to full_crop_T{}w... on 2022-08-30
+    full2crop_mat = os.path.join(xfm_vars["out_dir"],
                                  f"full2cropT{t}w.mat")
-    # full2cropT1w_mat = os.path.join(xfm_non_ACPC_vars["out_dir"], "full2cropT1w.mat")
     run_FSL_sh_script( 
         j_args, logger, "convert_xfm",
-        "-omat", full2crop_mat, # full2cropT1w_mat,
-        "-concat", full2crop_ACPC, xfm_imgs_non_ACPC["cropT1tocropT1"]
-        # xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)]
+        "-omat", full2crop_mat,
+        "-concat", full2crop_ACPC, xfm_imgs["cropT1tocropT1"]
     )
     if t == 1:
         run_FSL_sh_script( 
             j_args, logger, "convert_xfm",
-            "-omat", outputs["T{}w_crop2BIBS_mat".format(t)],
-            "-concat", full2crop_mat,  # full2cropT1w_mat,
-            xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)]
+            "-omat", outputs[f"T{t}w_crop2BIBS_mat"],
+            "-concat", full2crop_mat, 
+            xfm_imgs[f"T{t}w_crop2BIBS_mat"]
         )
     else: # if t == 2:
-        crop_and_reg_mat = os.path.join(xfm_non_ACPC_vars["out_dir"],
+        crop_and_reg_mat = os.path.join(xfm_vars["out_dir"],
                                         "full2cropT2toT1.mat")
         run_FSL_sh_script( 
-            j_args, logger, "convert_xfm", "-omat", crop_and_reg_mat, "-concat",
-            xfm_imgs_non_ACPC["cropT{}tocropT1".format(t)], full2crop_mat  # full2cropT1w_mat
+            j_args, logger, "convert_xfm", "-omat", crop_and_reg_mat,
+            "-concat", xfm_imgs[f"cropT{t}tocropT1"], full2crop_mat 
         )
-        run_FSL_sh_script( 
-            j_args, logger, "convert_xfm", "-omat",
-            outputs["T{}w_crop2BIBS_mat".format(t)], "-concat",
-            xfm_imgs_non_ACPC["T{}w_crop2BIBS_mat".format(t)], crop_and_reg_mat
-        )
+        run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
+                          outputs[f"T{t}w_crop2BIBS_mat"], "-concat",
+                          xfm_imgs[f"T{t}w_crop2BIBS_mat"], crop_and_reg_mat)
 
-
-    # Do the applywarp FSL command from align_ACPC_1_img (for T2w and not T1w, for non-ACPC)
+    # Do the applywarp FSL command from align_ACPC_1_img
+    # (for T2w and not T1w, for non-ACPC)
     # applywarp output is optimal_realigned_imgs input
     # Apply registration to the T1ws and the T2ws
     run_FSL_sh_script(j_args, logger, "applywarp", "--rel",
-                        "--interp=spline", "-i", avg_imgs["T{}w_avg".format(t)],
-                        "-r", xfm_non_ACPC_vars["ref_img"].format(t),
-                        "--premat=" + outputs["T{}w_crop2BIBS_mat".format(t)],
-                        "-o", outputs["T{}w".format(t)])
+                      "--interp=spline", "-i", avg_imgs[f"T{t}w_avg"],
+                      "-r", xfm_vars["ref_img"].format(t),
+                      "--premat=" + outputs[f"T{t}w_crop2BIBS_mat"],
+                      "-o", outputs[f"T{t}w"])
     return outputs
 
 
@@ -214,7 +233,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
                           (valid paths to existing image files to resize)
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
-    :return: _type_, _description_
+    :return: Dict with paths to either ACPC- or non-ACPC image & .mat files
     """
     out_ACPC = dict()
     out_non_ACPC = dict()
@@ -227,7 +246,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
         ))
 
         # Retrieve path to ACPC full2crop.mat file (to use for non-ACPC xfms)
-        full2crop_ACPC = regn_ACPC["vars"]["mats_T{}w".format(t)]["full2crop"]
+        full2crop_ACPC = regn_ACPC["vars"][f"mats_T{t}w"]["full2crop"]
 
         # Apply registration-only transforms for this subject session (and T)
         out_non_ACPC.update(apply_final_non_ACPC_xfm(
@@ -276,12 +295,12 @@ def calculate_eta(img_paths):
     # get the data from each nifti image as a flattened vector
     vectors = dict()
     for t in (1, 2):  # TODO Make this also work for (T1-only or?) T2-only by comparing to the registered image instead of the other T
-        anat = "T{}w".format(t)
+        anat = f"T{t}w"
         vectors[anat] = reshape_volume_to_array(nib.load(img_paths[anat]))  # np.abs()
         negatives = vectors[anat][vectors[anat] < 0]
-        print("{} has {} negatives: {}".format(anat, len(negatives), negatives))
+        print("{} has {} negatives.".format(anat, len(negatives)))  # TODO REMOVE LINE
 
-    print("Vectors: {}".format(vectors))
+    print(f"Vectors: {vectors}")  # TODO REMOVE LINE
     """
     medians = {
         "grand": (np.median(vectors["T1w"]) + np.median(vectors["T2w"])) / 2,
@@ -293,7 +312,7 @@ def calculate_eta(img_paths):
 
     # mean value matrix for each location in the 2 images
     m_within = (vectors["T1w"] + vectors["T2w"]) / 2  # TODO Try combining both arrays and taking the median of the result?
-    print("Mean Within: {}\nMean Total: {}".format(m_within, m_grand))
+    print("Mean Within: {}\nMean Total: {}".format(m_within, m_grand))  # TODO REMOVE LINE
 
     # sswithin = (sum(np.square(vectors["T1w"] - m_within)) + sum(np.square(vectors["T2w"] - m_within)))
     # sstot = (sum(np.square(vectors["T1w"] - m_grand)) + sum(np.square(vectors["T2w"] - m_grand)))
@@ -303,7 +322,7 @@ def calculate_eta(img_paths):
 
     # NOTE SStot = SSwithin + SSbetween so eta can also be
     #      written as SSbetween/SStot
-    print("SumSq Within: {}\nSumSq Total: {}".format(sswithin, sstot))
+    print("SumSq Within: {}\nSumSq Total: {}".format(sswithin, sstot))  # TODO REMOVE LINE
     return 1 - sswithin / sstot  # Should there be parentheses around (1 - sswithin)?
 
 
@@ -312,11 +331,12 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
     """
     Ensures that a voxel in NIFTI data is in the correct region by flipping
     the label if it's mislabeled
-    :param should_be_left (Boolean): This voxel *should be on the LHS of the head
+    :param should_be_left (Boolean): This voxel *should be on the head's LHS 
     :param region: String naming the anatomical region
     :param segment_name_to_number (map<str, int>): Map from anatomical regions 
                                                    to identifying numbers
-    :param new_data (3-d in array): segmentation data passed by reference to be fixed if necessary
+    :param new_data (3-d in array): segmentation data passed by reference to 
+                                    be fixed if necessary
     :param chirality: x-coordinate into new_data
     :param floor_ceiling: y-coordinate into new_data
     :param scanner_bore: z-coordinate into new_data
@@ -335,35 +355,31 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
 
 
 def correct_chirality(nifti_input_file_path, segment_lookup_table,
-                      left_right_mask_nifti_file, chiral_out_dir,
-                      xfm_ref_img, j_args, logger):
+                      nii_fpath_LR_mask, chiral_out_dir):
     """
     Creates an output file with chirality corrections fixed.
     :param nifti_input_file_path: String, path to a segmentation file with
                                   possible chirality problems
     :param segment_lookup_table: String, path to FreeSurfer-style look-up table
-    :param left_right_mask_nifti_file: String, path to a mask file that
-                                       distinguishes between left and right
-    :param nifti_output_file_path: String, path to save the corrected file into
+    :param nii_fpath_LR_mask: String, path to a mask file that
+                              distinguishes between left and right
     :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
                         image to use as a reference when applying transform
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
+    :return: Dict with paths to native and chirality-corrected images
     """
-    sub_ses = get_subj_ID_and_session(j_args)
-    msg = "{} chirality correction on {}"
     nifti_file_paths = dict()
     for which_nii in ("native", "corrected"):
         nifti_file_paths[which_nii] = os.path.join(chiral_out_dir, "_".join((
             which_nii, os.path.basename(nifti_input_file_path)
         )))
 
-    logger.info(msg.format("Running", nifti_input_file_path))
     free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
     segment_name_to_number = {v: k for k, v in free_surfer_label_to_region.items()}
     img = nib.load(nifti_input_file_path)
     data = img.get_data()
-    left_right_img = nib.load(left_right_mask_nifti_file)
+    left_right_img = nib.load(nii_fpath_LR_mask)
     left_right_data = left_right_img.get_data()
 
     new_data = data.copy()
@@ -387,32 +403,10 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                         chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
     fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
     nib.save(fixed_img, nifti_file_paths["corrected"])
-
-    # TODO Make everything below its own function called "reverse_registration" or "revert_to_native" or something
-
-    # Undo resizing right here (do inverse transform) using RobustFOV so padding isn't necessary; revert aseg to native space
-    dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
-    shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
-    t = 2 if not j_args["ID"]["has_T1w"] else 1
-
-    seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
-    preBIBSnet_mat_glob = os.path.join(
-        j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
-        f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
-    )
-    preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
-    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
-                      seg2native, "-inverse", preBIBSnet_mat)  # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
-
-    run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
-                      "-ref", xfm_ref_img, "-in", dummy_copy,
-                      "-init", seg2native, "-o", nifti_file_paths["native"],
-                      "-interp", "nearestneighbour")
-    logger.info(msg.format("Finished", nifti_input_file_path))
-    return nifti_file_paths["native"]
+    return nifti_file_paths
 
 
-def create_anatomical_average(avg_params):
+def create_anatomical_averages(avg_params, logger):
     """
     Creates a NIFTI file whose voxels are the average of the voxel values of the input files.
     :param avg_params: Dictionary with 4 keys:
@@ -422,13 +416,15 @@ def create_anatomical_average(avg_params):
      "T2w_avg": String, average T2w output file path}
     """   
     for t in (1, 2):
-        if avg_params["T{}w_input".format(t)]:
-            register_and_average_files(avg_params["T{}w_input".format(t)],
-                                       avg_params["T{}w_avg".format(t)])
+        if avg_params.get(f"T{t}w_input"):
+            register_and_average_files(avg_params[f"T{t}w_input"],
+                                       avg_params[f"T{t}w_avg"], logger)
 
 
 def create_avg_image(output_file_path, registered_files):
     """
+    Create image which is an average of all registered_files,
+    then save it to output_file_path
     :param output_file_path: String, valid path to average image file to make
     :param registered_files: List of strings; each is a valid path to an
                              existing image file to add to the average
@@ -481,72 +477,71 @@ def dict_has(a_dict, a_key):
 def dilate_LR_mask(sub_LRmask_dir, anatfile):
     """
     Taken from https://github.com/DCAN-Labs/SynthSeg/blob/master/SynthSeg/dcan/img_processing/chirality_correction/dilate_LRmask.py
-    :param sub_LRmask_dir: String, valid path to placeholder
-    :param anatfile: String, valid path to placeholder
+    :param sub_LRmask_dir: String, path to real directory to make subdirectory
+                           in; the subdirectory will contain mask files
+    :param anatfile: String, valid path to existing anatomical image file
     """
-    os.chdir(sub_LRmask_dir)
-    if not os.path.exists('lrmask_dil_wd'):
-        os.mkdir('lrmask_dil_wd')
+    # Make subdirectory to save masks in & generic mask file name format-string
+    parent_dir = os.path.join(sub_LRmask_dir, "lrmask_dil_wd")
+    os.makedirs(parent_dir, exist_ok=True)
+    mask = os.path.join(parent_dir, "{}mask{}.nii.gz")
 
-    # anatfile = 'LRmask.nii.gz'
+    # Make left, right, and middle masks using FSL
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
-                           out_file='lrmask_dil_wd/Lmask.nii.gz')
+                           out_file=mask.format("L", ""))
     maths.run()
-
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
-                           out_file='lrmask_dil_wd/Rmask.nii.gz')
+                           out_file=mask.format("R", ""))
     maths.run()
-
     maths.run()
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
-                           out_file='lrmask_dil_wd/Mmask.nii.gz')
+                           out_file=mask.format("M", ""))
     maths.run()
 
     # dilate, fill, and erode each mask in order to get rid of holes
     # (also binarize L and M images in order to perform binary operations)
-    anatfile = 'lrmask_dil_wd/Lmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-dilM -dilM -dilM -fillh -ero',
-                           out_file='lrmask_dil_wd/L_mask_holes_filled.nii.gz')
+    maths = fsl.ImageMaths(in_file=mask.format("L", ""),
+                           op_string='-dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("L", "_holes_filled"))
     maths.run()
-
-    anatfile = 'lrmask_dil_wd/Rmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero',
-                           out_file='lrmask_dil_wd/R_mask_holes_filled.nii.gz')
+    maths = fsl.ImageMaths(in_file=mask.format("R", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("R", "_holes_filled"))
     maths.run()
-
-    anatfile = 'lrmask_dil_wd/Mmask.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-bin -dilM -dilM -dilM -fillh -ero',
-                           out_file='lrmask_dil_wd/M_mask_holes_filled.nii.gz')
+    maths = fsl.ImageMaths(in_file=mask.format("M", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("M", "_holes_filled"))
     maths.run()
 
     # Reassign values of 2 and 3 to R and M masks (L mask already a value of 1)
-    anatfile = 'lrmask_dil_wd/R_mask_holes_filled.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 2',
-                           out_file='lrmask_dil_wd/R_mask_holes_filled_label2.nii.gz')
+    label_anat_masks = {"L": mask.format("L", "_holes_filled"),
+                        "R": mask.format("R", "_holes_filled_label2"),
+                        "M": mask.format("M", "_holes_filled_label3")}
+    maths = fsl.ImageMaths(in_file=mask.format("R", "_holes_filled"),
+                           op_string='-mul 2', out_file=label_anat_masks["R"])
     maths.run()
 
-    anatfile = 'lrmask_dil_wd/M_mask_holes_filled.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-mul 3',
-                           out_file='lrmask_dil_wd/M_mask_holes_filled_label3.nii.gz')
+    maths = fsl.ImageMaths(in_file=mask.format("M", "_holes_filled"),
+                           op_string='-mul 3', out_file=label_anat_masks["M"])
     maths.run()
 
-    # recombine new L, R, and M mask files
-    anatfile_left = 'lrmask_dil_wd/L_mask_holes_filled.nii.gz'
-    anatfile_right = 'lrmask_dil_wd/R_mask_holes_filled_label2.nii.gz'
-    anatfile_mid = 'lrmask_dil_wd/M_mask_holes_filled_label3.nii.gz'
-    maths = fsl.ImageMaths(in_file=anatfile_left, op_string='-add {}'.format(anatfile_right),
-                           out_file='lrmask_dil_wd/recombined_mask_LR.nii.gz')
+    # recombine new L, R, and M mask files and then dilate the result 
+    masks_LR = {"dilated": mask.format("dilated_LR", ""),
+                "recombined": mask.format("recombined_", "_LR")}
+    maths = fsl.ImageMaths(in_file=label_anat_masks["L"],
+                           op_string='-add {}'.format(label_anat_masks["R"]),
+                           out_file=masks_LR["recombined"])
+    maths.run()
+    maths = fsl.ImageMaths(in_file=label_anat_masks["M"],
+                           op_string="-add {}".format(masks_LR["recombined"]),
+                           out_file=masks_LR["dilated"])
     maths.run()
 
-    maths = fsl.ImageMaths(in_file=anatfile_mid, op_string='-add lrmask_dil_wd/recombined_mask_LR.nii.gz',
-                           out_file='lrmask_dil_wd/dilated_LRmask.nii.gz')
-    maths.run()
-
-    ## Fix incorrect values resulting from recombining dilated components
-    orig_LRmask_img = nib.load('LRmask.nii.gz')
+    # Fix incorrect values resulting from recombining dilated components
+    orig_LRmask_img = nib.load(os.path.join(sub_LRmask_dir, "LRmask.nii.gz"))
     orig_LRmask_data = orig_LRmask_img.get_fdata()
 
-    fill_LRmask_img = nib.load('lrmask_dil_wd/dilated_LRmask.nii.gz')
+    fill_LRmask_img = nib.load(masks_LR["dilated"])
     fill_LRmask_data = fill_LRmask_img.get_fdata()
 
     # Flatten numpy arrays
@@ -570,7 +565,7 @@ def dilate_LR_mask(sub_LRmask_dir, anatfile):
     # save new numpy array as image
     empty_header = nib.Nifti1Header()
     out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
-    out_fpath = os.path.join(sub_LRmask_dir, 'LRmask_dil.nii.gz')
+    out_fpath = mask.format("LR", "_dil")  # os.path.join(sub_LRmask_dir, 'LRmask_dil.nii.gz')
     nib.save(out_img, out_fpath)
 
     #remove working directory with intermediate outputs
@@ -647,37 +642,21 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     # nnU-Net-renamed) output images
     preBIBSnet_paths["avg"] = dict()
     for t in (1, 2):  # TODO Make this also work for T1-only or T2-only by not creating unneeded T dir(s)
-        preBIBSnet_paths["avg"]["T{}w_input".format(t)] = list()
+        preBIBSnet_paths["avg"][f"T{t}w_input"] = list()
         for eachfile in glob(os.path.join(j_args["common"]["bids_dir"],
-                                          *sub_ses, "anat", "*T{}w*.nii.gz"
-                                                            .format(t))):
-            preBIBSnet_paths["avg"]["T{}w_input".format(t)].append(eachfile)
+                                          *sub_ses, "anat", 
+                                          f"*T{t}w*.nii.gz")):
+            preBIBSnet_paths["avg"][f"T{t}w_input"].append(eachfile)
         avg_img_name = "{}_000{}{}".format("_".join(sub_ses), t-1, ".nii.gz")
-        preBIBSnet_paths["avg"]["T{}w_avg".format(t)] = os.path.join(  
+        preBIBSnet_paths["avg"][f"T{t}w_avg"] = os.path.join(  
             preBIBSnet_paths["averaged"], avg_img_name  
         )  
   
         # Get paths to, and make, cropped image subdirectories  
-        crop_dir = os.path.join(preBIBSnet_paths["cropped"], "T{}w".format(t))  
-        preBIBSnet_paths["crop_T{}w".format(t)] = os.path.join(crop_dir,  
-                                                               avg_img_name)  
+        crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w")  
+        preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
         os.makedirs(crop_dir, exist_ok=True)
     return preBIBSnet_paths
-
-
-def get_default_ext_command(cmd_name):
-    """
-    Try to get valid path to external software command file without user input
-    :param cmd_name: String naming the executable command file
-    :return: String, path to the command if the user has the command alias in
-             their .bashrc / $PATH; otherwise None
-    """
-    try:  # If the command path is already defined, then use it
-        cmd = subprocess.check_output(("which", cmd_name)
-                                      ).decode("utf-8").split()[-1]
-    except subprocess.CalledProcessError:
-        cmd = None
-    return cmd
 
 
 def get_id_to_region_mapping(mapping_file_name, separator=None):
@@ -737,7 +716,7 @@ def get_optimal_resized_paths(sub_ses, j_args):  # bibsnet_out_dir):
     """
     input_dir_BIBSnet = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                      *sub_ses, "input")
-    return {"T{}w".format(t): os.path.join(input_dir_BIBSnet, 
+    return {f"T{t}w": os.path.join(input_dir_BIBSnet, 
                 "{}_optimal_resized_000{}.nii.gz".format(
                     "_".join(sub_ses),
                     get_preBIBS_final_digit_T(t, j_args["ID"])
@@ -766,11 +745,11 @@ def get_preBIBS_final_img_fpath_T(t, parent_dir, sub_ses_ID):
     :param sub_ses_ID: Dictionary mapping subject-session-specific input
                        parameters' names (as strings) to their values for
                        this subject session; the same as j_args[ID]
-    :return:
+    :return: String, valid path to a preBIBSnet final image file
     """
-    return os.path.join(parent_dir,
-                        "preBIBSnet_final_000{}.nii.gz".format(
-                            get_preBIBS_final_digit_T(t, sub_ses_ID)))
+    return os.path.join(parent_dir, "preBIBSnet_final_000{}.nii.gz".format(
+        get_preBIBS_final_digit_T(t, sub_ses_ID)
+    ))
 
 
 def get_spatial_resolution_of(image_fpath, j_args, logger, fn_name="fslinfo"):
@@ -813,7 +792,7 @@ def get_sub_base(j_args, run_num=None):
     """
     parts = [get_subj_ses(j_args), "task-" + j_args["common"]["task_id"]]
     if run_num is not None:
-        parts.append("run-{}".format(run_num))
+        parts.append(f"run-{run_num}")
     return "_".join(parts)
 
 
@@ -838,6 +817,13 @@ def get_subj_ses(j_args):
 
 
 def get_template_age_closest_to(age, templates_dir):
+    """
+    :param age: Int, participant age in months
+    :param templates_dir: String, valid path to existing directory which
+                          contains template image files
+    :return: String, the age (or range of ages) in months closest to the
+             participant's with a template image file in templates_dir
+    """
     template_ages = list()
     template_ranges = dict()
 
@@ -849,18 +835,21 @@ def get_template_age_closest_to(age, templates_dir):
             for each_age in tmpl_age.split("-"):
                 template_ages.append(int(each_age))
                 template_ranges[template_ages[-1]] = tmpl_age
-            # template_ages.append(int(tmpl_age.split("-")))
         else:
             template_ages.append(int(tmpl_age))
     
     # Get template age closest to subject age, then return template age
     closest_age = get_age_closest_to(age, template_ages)
     return (template_ranges[closest_age] if closest_age
-            in template_ranges else str(closest_age)) #final_template_age
-    # template_ages = [os.path.basename(f).split("mo", 1)[0] for f in glob(globber)]
+            in template_ranges else str(closest_age))
 
 
 def get_age_closest_to(subject_age, all_ages):
+    """
+    :param subject_age: Int, participant's actual age in months
+    :param all_ages: List of ints, each a potential participant age in months
+    :return: Int, the age in all_ages which is closest to subject_age
+    """
     return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
     
 
@@ -905,12 +894,15 @@ def make_given_or_default_dir(dirs_dict, dirname_key, default_dirpath):
 
 
 def only_Ts_needed_for_bibsnet_model(sub_ses_ID):
-    # to_return = list()
+    """
+    :param sub_ses_ID: Dictionary mapping subject-session-specific input
+                       parameters' names (as strings) to their values for
+                       this subject session; the same as j_args[ID]
+    :yield: Int, each T value (1 and/or 2) which inputs exist for
+    """
     for t in (1, 2):
-        if sub_ses_ID["has_T{}w".format(t)]:
+        if sub_ses_ID[f"has_T{t}w"]:
             yield t
-            # to_return.append(t)
-    # return to_return
 
 
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, logger):
@@ -922,14 +914,13 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     """
-    sub_ses = get_subj_ID_and_session(j_args)
     msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}"
     eta = dict()
-    print("\nACPC:")
+    logger.info("\nACPC:")
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
-    print("\nNon-ACPC:")
+    logger.info("\nNon-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
-    print("Eta-Squared Values: {}".format(eta))
+    logger.info(f"Eta-Squared Values: {eta}")
     if eta["non-ACPC"] > eta["ACPC"]:
         optimal_resize = xfm_imgs_non_ACPC
         logger.info(msg.format("only", optimal_resize["T1w"],
@@ -938,7 +929,6 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args, log
         optimal_resize = xfm_imgs_ACPC_and_reg
         logger.info(msg.format("ACPC and", optimal_resize["T1w"],
                                optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
-
     return optimal_resize
 
 
@@ -965,10 +955,10 @@ def register_preBIBSnet_imgs_ACPC(cropped_imgs, output_dir, xfm_non_ACPC_vars,
         img_ext = split_2_exts(crop_img_path)[-1]
 
         # ACPC inputs to align and registration
-        outfname = "T{}w_registered_to_T1w".format(t) + img_ext
-        xfm_ACPC_vars["crop_T{}w_img".format(t)] = crop_img_path
+        outfname = f"T{t}w_registered_to_T1w" + img_ext
+        xfm_ACPC_vars[f"crop_T{t}w_img"] = crop_img_path
         xfm_ACPC_vars[reg_in_var.format(t)] = os.path.join(
-            xfm_ACPC_vars["out_dir"], "ACPC_aligned_T{}w".format(t) + img_ext
+            xfm_ACPC_vars["out_dir"], f"ACPC_aligned_T{t}w" + img_ext
         )
         xfm_ACPC_vars[out_var.format(t)] = os.path.join(
             xfm_ACPC_vars["out_dir"], "ACPC_" + outfname
@@ -981,9 +971,9 @@ def register_preBIBSnet_imgs_ACPC(cropped_imgs, output_dir, xfm_non_ACPC_vars,
     for t in (1, 2):
 
         # Run ACPC alignment
-        xfm_ACPC_vars["mats_T{}w".format(t)] = align_ACPC_1_img(
+        xfm_ACPC_vars[f"mats_T{t}w"] = align_ACPC_1_img(
             j_args, logger, xfm_ACPC_vars, crop2full[t], reg_in_var, t,
-            averaged_imgs["T{}w_avg".format(t)]
+            averaged_imgs[f"T{t}w_avg"]
         )
 
     # T2w-T1w alignment of ACPC-aligned images
@@ -1029,7 +1019,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
         xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
 
         # Non-ACPC outputs to registration
-        outfname = "T{}w_registered_to_T1w".format(t) + img_ext
+        outfname = f"T{t}w_registered_to_T1w" + img_ext
         xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
             xfm_non_ACPC_vars["out_dir"], outfname
         )
@@ -1044,31 +1034,67 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     # pdb.set_trace()  # TODO Add "debug" flag?
 
     return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
-                                       
 
-def register_and_average_files(input_file_paths, output_file_path):
+
+def register_and_average_files(input_file_paths, output_file_path, logger):
+    """
+    Register all input image files, and if there are multiple of them, then
+    create an average of all of them
+    :param input_file_paths: List of strings, each a valid path to an existing
+                             image file to register
+    :param output_file_path: String, valid path to image file to create by
+                             averaging all of the input_file_paths images
+    :param logger: logging.Logger object to show messages and raise warnings
+    """
     reference = input_file_paths[0]
+    out_dir=os.path.dirname(output_file_path)
     if len(input_file_paths) > 1:
-        registered_files = register_files(input_file_paths, reference)
+        registered_files = register_files(input_file_paths, reference,
+                                          out_dir, logger)
 
         create_avg_image(output_file_path, registered_files)
     else:
         shutil.copyfile(reference, output_file_path)
 
 
-def register_files(input_file_paths, reference):
+def register_files(input_file_paths, reference, out_dir, logger):
+    """
+    :param input_file_paths: List of strings, each a valid path to an existing
+                             image file to register
+    :param reference: String, valid path to existing img to register others to
+    :param out_dir: String, valid path to existing directory to save registered
+                    images into
+    :param logger: logging.Logger object to show messages and raise warnings
+    :raises RuntimeError: If FSL FLIRT command to register images fails
+    :return: List of strings, each a valid path to a newly created image file,
+             starting with the reference image and then every input_file_paths
+             image registered to that reference image
+    """
     registered_files = [reference]
-    flt = fsl.FLIRT(bins=640, cost_func='mutualinfo')
+    
+    # Build FSL FLIRT object by first making name of output nifti & mat files
+    ref_fname, ref_ext = split_2_exts(reference)
+    ref_fname, tw = os.path.basename(ref_fname).split("_T")
+    t = int(tw[0])
+    flt = fsl.FLIRT(
+        bins=640, cost_func='mutualinfo',
+        out_file=os.path.join(out_dir, f"{ref_fname}_desc-avg_T{t}w{ref_ext}"),  # TODO This file is redundant, was added to try to prevent create_avg_image from trying to save an average image to a relative path, bc that breaks in a container
+        out_matrix_file=os.path.join(out_dir, f"T{t}_avg.mat")
+    )
     flt.inputs.reference = reference
     flt.inputs.output_type = "NIFTI_GZ"
     for structural in input_file_paths[1:]:
+
+        # Build FSL command to register each file
         flt.inputs.in_file = structural
-        print(flt.cmdline)
+        logger.info("Now running FSL FLIRT:\n{}".format(flt.cmdline))
         out_index = flt.cmdline.find('-out')
         start_index = out_index + len('-out') + 1
         end_index = flt.cmdline.find(' ', start_index)
         out = flt.cmdline[start_index:end_index]
         registered_files.append(out)
+
+        # Run each FSL command
         res = flt.run()
         stderr = res.runtime.stderr
         if stderr:
@@ -1090,7 +1116,6 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     """
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
-    
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
     logger.info("Input images for T1w registration:\n" + inputs_msg)
@@ -1099,7 +1124,6 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],
                             "cropT2tocropT1": os.path.join(xfm_vars["out_dir"],
                                                            "cropT2tocropT1.mat")}
-
     """
     ACPC Order:
     1. T1w Save cropped and aligned T1w image 
@@ -1112,12 +1136,12 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     """   
     for t in (1, 2):
         # Define paths to registration output files
-        registration_outputs["T{}w_crop2BIBS_mat".format(t)] = os.path.join(
-            xfm_vars["out_dir"], "crop_T{}w_to_BIBS_template.mat".format(t)
+        registration_outputs[f"T{t}w_crop2BIBS_mat"] = os.path.join(
+            xfm_vars["out_dir"], f"crop_T{t}w_to_BIBS_template.mat"
         )
-        registration_outputs["T{}w".format(t)] = xfm_vars["output_T{}w_img".format(t)]
-        registration_outputs["T{}w_to_BIBS".format(t)] = os.path.join(
-            xfm_vars["out_dir"], "T{}w_to_BIBS.nii.gz".format(t)
+        registration_outputs[f"T{t}w"] = xfm_vars[f"output_T{t}w_img"]
+        registration_outputs[f"T{t}w_to_BIBS"] = os.path.join(
+            xfm_vars["out_dir"], f"T{t}w_to_BIBS.nii.gz"
         )
 
         if t == 2:  # Make T2w-to-T1w matrix
@@ -1128,7 +1152,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
                             "-out", registration_outputs["T2w"],
                             '-cost', 'mutualinfo',
                             '-searchrx', '-15', '15', '-searchry', '-15', '15',
-                            '-searchrz', '-15', '15', '-dof', '6')  # Added changes suggested by Luci on 2022-03-30
+                            '-searchrz', '-15', '15', '-dof', '6')
 
         elif acpc:  # Save cropped and aligned T1w image 
             shutil.copy2(xfm_vars[reg_input_var.format(1)],
@@ -1147,22 +1171,31 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
                 "-ref", xfm_vars["ref_img"].format(t),
                 "-applyisoxfm", xfm_vars["resolution"],
                 "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
-                "-o", registration_outputs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
-                "-omat", registration_outputs["T{}w_crop2BIBS_mat".format(t)]
+                "-o", registration_outputs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
+                "-omat", registration_outputs[f"T{t}w_crop2BIBS_mat"]
             )
     # pdb.set_trace()  # TODO Add "debug" flag?
     return registration_outputs
 
 
 def transform_image_T(t, cropped_in_img, xfm_vars, regn_outs, j_args, logger):
+    """
+    Run FSL command on a cropped input image to apply a .mat file transform 
+    :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
+    :param cropped_in_img: String, valid path to cropped T1w or T2w image
+    :param xfm_vars: Dict with paths to reference image & identity matrix files
+    :param regn_outs: Dict with paths to transformed output images to make
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    """
     run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
         j_args, logger, "flirt",
         "-in", cropped_in_img, # xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
         "-ref", xfm_vars["ref_img"].format(t),
         "-applyisoxfm", xfm_vars["resolution"],
         "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
-        "-o", regn_outs["T{}w_to_BIBS".format(t)], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
-        "-omat", regn_outs["T{}w_crop2BIBS_mat".format(t)]
+        "-o", regn_outs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
+        "-omat", regn_outs[f"T{t}w_crop2BIBS_mat"]
     )
 
 
@@ -1173,6 +1206,44 @@ def reshape_volume_to_array(array_img):
     """
     image_data = array_img.get_fdata()
     return image_data.flatten()
+
+
+def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
+                                  xfm_ref_img, j_args, logger):
+    """
+    :param nifti_file_paths: Dict with valid paths to native and
+                             chirality-corrected images
+    :param chiral_out_dir: String, valid path to existing directory to save 
+                           chirality-corrected images into
+    :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
+                        image to use as a reference when applying transform
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param logger: logging.Logger object to show messages and raise warnings
+    :return: String, valid path to existing image reverted to native
+    """
+    sub_ses = get_subj_ID_and_session(j_args)
+
+    # Undo resizing right here (do inverse transform) using RobustFOV so 
+    # padding isn't necessary; revert aseg to native space
+    dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
+    shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
+    t = 2 if not j_args["ID"]["has_T1w"] else 1
+
+    seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
+    preBIBSnet_mat_glob = os.path.join(
+        j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
+        f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
+    )
+    preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
+    run_FSL_sh_script(j_args, logger, "convert_xfm", "-omat",
+                      seg2native, "-inverse", preBIBSnet_mat)
+    # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
+
+    run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
+                      "-ref", xfm_ref_img, "-in", dummy_copy,
+                      "-init", seg2native, "-o", nifti_file_paths["native"],
+                      "-interp", "nearestneighbour")
+    return nifti_file_paths["native"]
 
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
@@ -1275,11 +1346,10 @@ def split_2_exts(a_path):
 
 def sum_of_2_sums_of_squares_of(np_vector1, np_vector2, a_mean):
     """
-    _summary_ 
     :param np_vector1: Numpy array of numbers
     :param np_vector2: Numpy array of numbers
     :param a_mean: Float, _description_
-    :return: Float, _description_
+    :return: Float, the sum of squares of each vector, added together
     """
     total_sum = 0
     for each_vec in (np_vector1, np_vector2):
@@ -1581,22 +1651,6 @@ def verify_CABINET_inputs_exist(sub_ses, j_args, logger):
             sys.exit(1)
 
     logger.info("All required input files exist.")
-
-
-def warn_user_of_conditions(warning, logger, **to_check):
-    """
-    Show warning message to user based on boolean conditions 
-    :param warning: String with warning message to put problems into and log
-    :param logger: logging.Logger object to raise warning
-    """
-    for thing in (warning, logger, to_check):
-        logger.info(thing, type(thing))
-    problems = list()
-    for condition, problem in to_check.items():
-        if condition:
-            problems.append(problem)
-    logger.info(type(warning))
-    logger.warning(warning.format(" and ".join(problems)))
 
 
 def will_run_stage(a_stage, start_stage, end_stage, all_stage_names):
