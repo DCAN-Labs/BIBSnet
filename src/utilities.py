@@ -331,11 +331,12 @@ def check_and_correct_region(should_be_left, region, segment_name_to_number,
     """
     Ensures that a voxel in NIFTI data is in the correct region by flipping
     the label if it's mislabeled
-    :param should_be_left (Boolean): This voxel *should be on the LHS of the head
+    :param should_be_left (Boolean): This voxel *should be on the head's LHS 
     :param region: String naming the anatomical region
     :param segment_name_to_number (map<str, int>): Map from anatomical regions 
                                                    to identifying numbers
-    :param new_data (3-d in array): segmentation data passed by reference to be fixed if necessary
+    :param new_data (3-d in array): segmentation data passed by reference to 
+                                    be fixed if necessary
     :param chirality: x-coordinate into new_data
     :param floor_ceiling: y-coordinate into new_data
     :param scanner_bore: z-coordinate into new_data
@@ -422,6 +423,8 @@ def create_anatomical_averages(avg_params, logger):
 
 def create_avg_image(output_file_path, registered_files):
     """
+    Create image which is an average of all registered_files,
+    then save it to output_file_path
     :param output_file_path: String, valid path to average image file to make
     :param registered_files: List of strings; each is a valid path to an
                              existing image file to add to the average
@@ -474,27 +477,22 @@ def dict_has(a_dict, a_key):
 def dilate_LR_mask(sub_LRmask_dir, anatfile):
     """
     Taken from https://github.com/DCAN-Labs/SynthSeg/blob/master/SynthSeg/dcan/img_processing/chirality_correction/dilate_LRmask.py
-    :param sub_LRmask_dir: String, valid path to placeholder
-    :param anatfile: String, valid path to placeholder
+    :param sub_LRmask_dir: String, path to real directory to make subdirectory
+                           in; the subdirectory will contain mask files
+    :param anatfile: String, valid path to existing anatomical image file
     """
+    # Make subdirectory to save masks in & generic mask file name format-string
     parent_dir = os.path.join(sub_LRmask_dir, "lrmask_dil_wd")
-    mask = os.path.join(parent_dir, "{}mask{}.nii.gz")
-    # mask_filled = os.path.join(parent_dir, "{}_mask_holes_filled{}.nii.gz")
-
     os.makedirs(parent_dir, exist_ok=True)
-    # os.chdir(sub_LRmask_dir)
-    # if not os.path.exists('lrmask_dil_wd'):
-    #     os.mkdir('lrmask_dil_wd')
+    mask = os.path.join(parent_dir, "{}mask{}.nii.gz")
 
-    # anatfile = 'LRmask.nii.gz'
+    # Make left, right, and middle masks using FSL
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
                            out_file=mask.format("L", ""))
     maths.run()
-
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
                            out_file=mask.format("R", ""))
     maths.run()
-
     maths.run()
     maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
                            out_file=mask.format("M", ""))
@@ -502,15 +500,16 @@ def dilate_LR_mask(sub_LRmask_dir, anatfile):
 
     # dilate, fill, and erode each mask in order to get rid of holes
     # (also binarize L and M images in order to perform binary operations)
-    maths = fsl.ImageMaths(in_file=mask.format("L", ""), op_string='-dilM -dilM -dilM -fillh -ero',
+    maths = fsl.ImageMaths(in_file=mask.format("L", ""),
+                           op_string='-dilM -dilM -dilM -fillh -ero',
                            out_file=mask.format("L", "_holes_filled"))
     maths.run()
-
-    maths = fsl.ImageMaths(in_file=mask.format("R", ""), op_string='-bin -dilM -dilM -dilM -fillh -ero',
+    maths = fsl.ImageMaths(in_file=mask.format("R", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
                            out_file=mask.format("R", "_holes_filled"))
     maths.run()
-
-    maths = fsl.ImageMaths(in_file=mask.format("M", ""), op_string='-bin -dilM -dilM -dilM -fillh -ero',
+    maths = fsl.ImageMaths(in_file=mask.format("M", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
                            out_file=mask.format("M", "_holes_filled"))
     maths.run()
 
@@ -518,33 +517,27 @@ def dilate_LR_mask(sub_LRmask_dir, anatfile):
     label_anat_masks = {"L": mask.format("L", "_holes_filled"),
                         "R": mask.format("R", "_holes_filled_label2"),
                         "M": mask.format("M", "_holes_filled_label3")}
-    # anatfile = 'lrmask_dil_wd/R_mask_holes_filled.nii.gz'
     maths = fsl.ImageMaths(in_file=mask.format("R", "_holes_filled"),
-                           op_string='-mul 2', out_file=label_anat_masks["R"]) # mask_filled.format("R", "_label2"))
+                           op_string='-mul 2', out_file=label_anat_masks["R"])
     maths.run()
 
-    # anatfile = 'lrmask_dil_wd/M_mask_holes_filled.nii.gz'
     maths = fsl.ImageMaths(in_file=mask.format("M", "_holes_filled"),
                            op_string='-mul 3', out_file=label_anat_masks["M"])
     maths.run()
 
-    # recombine new L, R, and M mask files
-    # anatfile_left = 'lrmask_dil_wd/L_mask_holes_filled.nii.gz'
-    # anatfile_right = 'lrmask_dil_wd/R_mask_holes_filled_label2.nii.gz'
-    # anatfile_mid = 'lrmask_dil_wd/M_mask_holes_filled_label3.nii.gz'
+    # recombine new L, R, and M mask files and then dilate the result 
     masks_LR = {"dilated": mask.format("dilated_LR", ""),
                 "recombined": mask.format("recombined_", "_LR")}
     maths = fsl.ImageMaths(in_file=label_anat_masks["L"],
                            op_string='-add {}'.format(label_anat_masks["R"]),
-                           out_file=masks_LR["recombined"])  # 'lrmask_dil_wd/recombined_mask_LR.nii.gz')
+                           out_file=masks_LR["recombined"])
     maths.run()
-
     maths = fsl.ImageMaths(in_file=label_anat_masks["M"],
-                           op_string="-add {}".format(masks_LR["recombined"]),  # lrmask_dil_wd/recombined_mask_LR.nii.gz',
-                           out_file=masks_LR["dilated"])  # 'lrmask_dil_wd/dilated_LRmask.nii.gz')
+                           op_string="-add {}".format(masks_LR["recombined"]),
+                           out_file=masks_LR["dilated"])
     maths.run()
 
-    ## Fix incorrect values resulting from recombining dilated components
+    # Fix incorrect values resulting from recombining dilated components
     orig_LRmask_img = nib.load(os.path.join(sub_LRmask_dir, "LRmask.nii.gz"))
     orig_LRmask_data = orig_LRmask_img.get_fdata()
 
@@ -824,6 +817,13 @@ def get_subj_ses(j_args):
 
 
 def get_template_age_closest_to(age, templates_dir):
+    """
+    :param age: Int, participant age in months
+    :param templates_dir: String, valid path to existing directory which
+                          contains template image files
+    :return: String, the age (or range of ages) in months closest to the
+             participant's with a template image file in templates_dir
+    """
     template_ages = list()
     template_ranges = dict()
 
@@ -835,18 +835,21 @@ def get_template_age_closest_to(age, templates_dir):
             for each_age in tmpl_age.split("-"):
                 template_ages.append(int(each_age))
                 template_ranges[template_ages[-1]] = tmpl_age
-            # template_ages.append(int(tmpl_age.split("-")))
         else:
             template_ages.append(int(tmpl_age))
     
     # Get template age closest to subject age, then return template age
     closest_age = get_age_closest_to(age, template_ages)
     return (template_ranges[closest_age] if closest_age
-            in template_ranges else str(closest_age)) #final_template_age
-    # template_ages = [os.path.basename(f).split("mo", 1)[0] for f in glob(globber)]
+            in template_ranges else str(closest_age))
 
 
 def get_age_closest_to(subject_age, all_ages):
+    """
+    :param subject_age: Int, participant's actual age in months
+    :param all_ages: List of ints, each a potential participant age in months
+    :return: Int, the age in all_ages which is closest to subject_age
+    """
     return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
     
 
@@ -891,6 +894,12 @@ def make_given_or_default_dir(dirs_dict, dirname_key, default_dirpath):
 
 
 def only_Ts_needed_for_bibsnet_model(sub_ses_ID):
+    """
+    :param sub_ses_ID: Dictionary mapping subject-session-specific input
+                       parameters' names (as strings) to their values for
+                       this subject session; the same as j_args[ID]
+    :yield: Int, each T value (1 and/or 2) which inputs exist for
+    """
     for t in (1, 2):
         if sub_ses_ID[f"has_T{t}w"]:
             yield t
@@ -1107,7 +1116,6 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     """
     # String naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
-    
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
     logger.info("Input images for T1w registration:\n" + inputs_msg)
@@ -1116,7 +1124,6 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
     registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],
                             "cropT2tocropT1": os.path.join(xfm_vars["out_dir"],
                                                            "cropT2tocropT1.mat")}
-
     """
     ACPC Order:
     1. T1w Save cropped and aligned T1w image 
@@ -1145,7 +1152,7 @@ def registration_T2w_to_T1w(j_args, logger, xfm_vars, reg_input_var, acpc):
                             "-out", registration_outputs["T2w"],
                             '-cost', 'mutualinfo',
                             '-searchrx', '-15', '15', '-searchry', '-15', '15',
-                            '-searchrz', '-15', '15', '-dof', '6')  # Added changes suggested by Luci on 2022-03-30
+                            '-searchrz', '-15', '15', '-dof', '6')
 
         elif acpc:  # Save cropped and aligned T1w image 
             shutil.copy2(xfm_vars[reg_input_var.format(1)],
