@@ -4,5 +4,9 @@ plugins:
   - search
 docs_dir: docs
 nav:
-  - Table of contents: index.md
+  - 1. Overview: index.md
+  - 2. Installation: installation.md
+  - 3. Usage: usage.md
+  - 4. Multiple Participant Requirements: participants.md
+  - 5. Stages: stages.md
 
