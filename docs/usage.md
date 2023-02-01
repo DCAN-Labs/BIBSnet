@@ -132,11 +132,13 @@ This has been primarily tested in Singularity. We are less able to provide techn
 ### Application
 
 We do not recommend running `CABINET` outside of the container for the following reasons:
+
 1. Installing nnU-Net can be complicated.
 1. Running `CABINET` inside the container ensures you have the proper versions of all software.
 1. It is hard to diagnose your errors if you are working in a different environment.
 
 However, if you run `CABINET` outside of the container as an application, then you will need to do the following:
+
 1. Download the `data` directory from the `https://s3.msi.umn.edu/CABINET_data/data.zip` URL, unzip it, and move it into your cloned `CABINET` repository directory here: `CABINET/data/`
 1. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
 
