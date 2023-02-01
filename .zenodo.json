@@ -1,8 +1,7 @@
 {
     "title": "CABINET: BIDS-ified CABINET Application",
     "description": "<p>This software provides the utility of creating a nnU-Net anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within Nibabies.</p>", 
-    "license": "BSD-3-Clause license",
-    "upload_type": "software", 
+    "upload_type": "software",
     "creators": [
         {
             "name": "Houghton, Audrey",
