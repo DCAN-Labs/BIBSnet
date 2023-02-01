@@ -76,7 +76,6 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
     FSLREMOTECALL="" \
     FSLGECUDAQ="cuda.q" \
     LD_LIBRARY_PATH="/opt/fsl-6.0.5.1/lib:$LD_LIBRARY_PATH"
-RUN $FSLDIR/etc/fslconf/fslpython_install.sh -f $FSLDIR
 
 ENV PATH="/opt/afni-latest:$PATH" \
     AFNI_IMSAVE_WARNINGS="NO" \
