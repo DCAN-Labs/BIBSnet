@@ -3,10 +3,6 @@ theme: readthedocs
 plugins:
   - search
 docs_dir: docs
-markdown_extensions:
-  - def_list
-  - pymdownx.tasklist:
-      custom_checkbox: true
 nav:
   - 1. Overview: index.md
   - 2. Installation: installation.md
