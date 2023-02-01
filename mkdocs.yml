@@ -1,4 +1,4 @@
-site_name: DCAN Labs NDA BIDS Upload Tool
+site_name: CABINET - DCAN Labs
 theme: readthedocs
 plugins:
   - search
