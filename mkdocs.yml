@@ -1,0 +1,8 @@
+site_name: DCAN Labs NDA BIDS Upload Tool
+theme: readthedocs
+plugins:
+  - search
+docs_dir: docs
+nav:
+  - Table of contents: index.md
+

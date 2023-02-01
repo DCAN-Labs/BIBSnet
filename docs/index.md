@@ -1,0 +1,3 @@
+# CABINET
+
+Placeholder index file
