@@ -53,7 +53,7 @@ from src.utilities import (
     get_template_age_closest_to, make_given_or_default_dir,
     only_Ts_needed_for_bibsnet_model, register_preBIBSnet_imgs_ACPC, 
     register_preBIBSnet_imgs_non_ACPC, reverse_regn_revert_to_native,
-    run_FSL_sh_script, run_all_stages, valid_readable_json,
+    run_FSL_sh_script, run_all_stages, valid_output_dir, valid_readable_json,
     validate_parameter_types, valid_readable_dir,
     valid_subj_ses_ID, valid_whole_number
 )
@@ -149,6 +149,11 @@ def get_params_from_JSON(stage_names, logger):
               "the participants.tsv file inside the BIDS input directory.")
     )
     parser.add_argument(
+        "--clean-workdir", dest="clean_workdir", action="store_true",
+        help=("Include this flag to remove intermediate files"
+              "from the working directory.")
+    )
+    parser.add_argument(
         "-end", "--ending-stage", dest="end",
         choices=stage_names[:3], default=default_end_stage,  # TODO change to choices=stage_names,
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
@@ -185,6 +190,11 @@ def get_params_from_JSON(stage_names, logger):
         help=("Include this flag to print detailed information and every "
               "command being run by CABINET to stdout. Otherwise CABINET "
               "will only print warnings, errors, and minimal output.")
+    )
+    parser.add_argument(
+        "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
+        help=("Valid absolute path where intermediate results should be stored."
+              "Example: /path/to/working/directory")
     )
     parser.add_argument(
         "-z", "--brain-z-size", action="store_true",
@@ -231,7 +241,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "verbose"):
+    for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir", "clean_workdir"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
@@ -467,10 +477,16 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
                    j_args[common][bids_dir]. The last string is mapped by
                    j_args[optional_out_dirs] to the subdir path.
     :param sub_ses: List with either only the subject ID str or the session too
+    :param default_parent: The default parent directory where all output
+                   directories will be placed.
     :return: j_args, but with the (now-existing) subdirectory path
     """
+    parent_dir = default_parent
+    if j_args["work_dir"]:
+        parent_dir = j_args["work_dir"]
+
     j_args["optional_out_dirs"] = make_given_or_default_dir(
-        j_args["optional_out_dirs"], "derivatives", default_parent
+        j_args["optional_out_dirs"], "derivatives", parent_dir
     )
     for deriv in derivs:
         subdir_path = os.path.join(j_args["optional_out_dirs"]["derivatives"],
