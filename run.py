@@ -149,11 +149,6 @@ def get_params_from_JSON(stage_names, logger):
               "the participants.tsv file inside the BIDS input directory.")
     )
     parser.add_argument(
-        "--clean-workdir", dest="clean_workdir", action="store_true",
-        help=("Include this flag to remove intermediate files"
-              "from the working directory.")
-    )
-    parser.add_argument(
         "-end", "--ending-stage", dest="end",
         choices=stage_names[:3], default=default_end_stage,  # TODO change to choices=stage_names,
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
@@ -193,6 +188,7 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
+        default=os.path.join("/", "tmp"),
         help=("Valid absolute path where intermediate results should be stored."
               "Example: /path/to/working/directory")
     )
@@ -241,7 +237,7 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir", "clean_workdir"):
+    for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
@@ -481,16 +477,14 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
                    directories will be placed.
     :return: j_args, but with the (now-existing) subdirectory path
     """
-    parent_dir = default_parent
-    if j_args["work_dir"]:
-        parent_dir = j_args["work_dir"]
 
     j_args["optional_out_dirs"] = make_given_or_default_dir(
-        j_args["optional_out_dirs"], "derivatives", parent_dir
+        j_args["optional_out_dirs"], "derivatives", default_parent
     )
+    work_dir_list = ["prebibsnet", "bibsnet", "postbibsnet"]
     for deriv in derivs:
-        subdir_path = os.path.join(j_args["optional_out_dirs"]["derivatives"],
-                                   deriv)
+        subdir_path = j_args["work_dir"] if deriv in work_dir_list else os.path.join(
+                j_args["optional_out_dirs"]["derivatives"], deriv)
         j_args["optional_out_dirs"] = make_given_or_default_dir(
             j_args["optional_out_dirs"], deriv, subdir_path
         )
