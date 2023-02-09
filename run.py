@@ -483,7 +483,7 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     )
     work_dir_list = ["prebibsnet", "bibsnet", "postbibsnet"]
     for deriv in derivs:
-        subdir_path = j_args["work_dir"] if deriv in work_dir_list else os.path.join(
+        subdir_path = j_args["common"]["work_dir"] if deriv in work_dir_list else os.path.join(
                 j_args["optional_out_dirs"]["derivatives"], deriv)
         j_args["optional_out_dirs"] = make_given_or_default_dir(
             j_args["optional_out_dirs"], deriv, subdir_path
