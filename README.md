@@ -12,4 +12,4 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 ## Getting Started
 
-For comprehensive information on CABINET, including installation and usage, visit [our documentation](https://cabinet.readthedocs.io).
+For comprehensive information on CABINET, including installation and usage, visit <a href="https://cabinet.readthedocs.io" target="_blank">our documentation</a>.
