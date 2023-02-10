@@ -1,0 +1,12 @@
+site_name: CABINET - DCAN Labs
+theme: readthedocs
+plugins:
+  - search
+docs_dir: docs
+nav:
+  - 1. Overview: index.md
+  - 2. Installation: installation.md
+  - 3. Usage: usage.md
+  - 4. Multiple Participant Requirements: participants.md
+  - 5. Stages: stages.md
+
