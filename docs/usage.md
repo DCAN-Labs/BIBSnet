@@ -1,6 +1,6 @@
 ## Usage
 
-CABINET can be run with either a CPU or GPU. The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
+[CABINET](https://github.com/DCAN-Labs/CABINET) can be run with either a CPU or GPU. The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
 
 ### Command-Line Arguments
 
