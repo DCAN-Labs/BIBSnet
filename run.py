@@ -778,20 +778,26 @@ def run_postBIBSnet(j_args, logger):
     logger.info("A mask of the BIBSnet segmentation has been produced")
 
     # Make nibabies input dirs
-    precomputed_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
-                                   "precomputed")
-    derivs_dir = os.path.join(precomputed_dir, *sub_ses, "anat")
+    bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
+                                   "bibsnet")
+    derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
     os.makedirs(derivs_dir, exist_ok=True)
     copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
     copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
 
-    # Copy dataset_description.json into precomputed directory for nibabies
-    new_data_desc_json = os.path.join(precomputed_dir, "dataset_description.json")
+    # Copy dataset_description.json into bibsnet_derivs_dir directory for use in nibabies
+    new_data_desc_json = os.path.join(bibsnet_derivs_dir, "dataset_description.json")
     if j_args["common"]["overwrite"]:
         os.remove(new_data_desc_json)
     if not os.path.exists(new_data_desc_json):
         shutil.copy2(os.path.join(SCRIPT_DIR, "data",
                                   "dataset_description.json"), new_data_desc_json)
+    if j_args["common"]["work_dir"] == os.path.join("/", "tmp"):
+        shutil.rmtree(j_args["common"]["work_dir"])
+        logger.info("Working Directory removed at {}."
+                    "To keep the working directory in the future,"
+                    "set a directory with the --work-dir flag.\n"
+                    .format(j_args['common']['work_dir']))
     logger.info("PostBIBSnet has completed.")
     return j_args
 
