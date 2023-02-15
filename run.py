@@ -188,7 +188,7 @@ def get_params_from_JSON(stage_names, logger):
     )
     parser.add_argument(
         "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
-        default=os.path.join("/", "tmp"),
+        default=os.path.join("/", "tmp", "cabinet"),
         help=("Valid absolute path where intermediate results should be stored."
               "Example: /path/to/working/directory")
     )
@@ -792,7 +792,7 @@ def run_postBIBSnet(j_args, logger):
     if not os.path.exists(new_data_desc_json):
         shutil.copy2(os.path.join(SCRIPT_DIR, "data",
                                   "dataset_description.json"), new_data_desc_json)
-    if j_args["common"]["work_dir"] == os.path.join("/", "tmp"):
+    if j_args["common"]["work_dir"] == os.path.join("/", "tmp", "cabinet"):
         shutil.rmtree(j_args["common"]["work_dir"])
         logger.info("Working Directory removed at {}."
                     "To keep the working directory in the future,"
