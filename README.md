@@ -93,7 +93,7 @@ optional arguments:
                         be inferred from CABINET/data/models.csv based on
                         which data exists in the --bids-dir. BIBSnet will run 
                         model 514 by default for T1w-only, model 515 for 
-                        T2w-only, and model 5550 for both T1w and T2w.
+                        T2w-only, and model 550 for both T1w and T2w.
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous CABINET
                         outputs in the derivatives sub-directories. Otherwise,
@@ -107,6 +107,12 @@ optional arguments:
                         Name of the stage to run first. By default, this will
                         be the prebibsnet stage. Valid choices: prebibsnet,
                         bibsnet, postbibsnet
+  -w, --work-dir        Valid absolute path where intermediate results (prebibsnet 
+                        through postbibsnet stage outputs) should be stored. By 
+                        default, this outputs to /tmp/cabinet. This directory is 
+                        is deleted at the end of postbibsnet after results are  
+                        copied into the "bibsnet" derivatives directory. 
+                        Example: /path/to/working/directory
   -v, --verbose         Include this flag to print detailed information and
                         every command being run by CABINET to stdout.
                         Otherwise CABINET will only print warnings, errors,
@@ -120,6 +126,7 @@ optional arguments:
                         Valid path to the existing parent directory of this
                         run.py script. Include this argument if and only if
                         you are running the script as a SLURM/SBATCH job.
+                        
 ```
 
 <br />
@@ -255,7 +262,8 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 3. Registers the segmentation back into native T1 space using transform produced via optimal registration in preBIBSnet
 4. Generates a mask of the segmentation from the native T1 space segmentation
 5. Renames the native T1 space segmentation and mask to BIDS standard naming conventions to feed into Nibabies
-6. Creates a "precomputed" directory for input into Nibabies, containing the final segmentation and mask along with the `dataset_description.file`
+6. Creates a "bibsnet" derivatives directory for input into Nibabies, containing the final segmentation and mask along with the `dataset_description.file`
+7. Removes prebibsnet through postbibsnet working directories if a `--work-dir` path isn't set by the user.
 
 <br />
 
