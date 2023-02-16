@@ -32,7 +32,8 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 3. Registers the segmentation back into native T1 space using transform produced via optimal registration in preBIBSnet
 4. Generates a mask of the segmentation from the native T1 space segmentation
 5. Renames the native T1 space segmentation and mask to BIDS standard naming conventions to feed into Nibabies
-6. Creates a "precomputed" directory for input into Nibabies, containing the final segmentation and mask along with the `dataset_description.file`
+6. Creates a "bibsnet" derivatives directory for input into Nibabies, containing the final segmentation and mask along with the `dataset_description.file`
+7. Removes prebibsnet through postbibsnet working directories if the user does not specify a working directory.
 
 <br />
 
