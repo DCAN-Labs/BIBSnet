@@ -64,7 +64,7 @@ optional arguments:
                         every command being run by CABINET to stdout.
                         Otherwise CABINET will only print warnings, errors,
                         and minimal output.
-   -w, --work-dir        Valid absolute path where intermediate results (prebibsnet 
+  -w, --work-dir        Valid absolute path where intermediate results (prebibsnet 
                         through postbibsnet stage outputs) should be stored. By 
                         default, this outputs to /tmp/cabinet. This directory is 
                         is deleted at the end of postbibsnet after results are  
