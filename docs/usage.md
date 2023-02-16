@@ -64,6 +64,12 @@ optional arguments:
                         every command being run by CABINET to stdout.
                         Otherwise CABINET will only print warnings, errors,
                         and minimal output.
+   -w, --work-dir        Valid absolute path where intermediate results (prebibsnet 
+                        through postbibsnet stage outputs) should be stored. By 
+                        default, this outputs to /tmp/cabinet. This directory is 
+                        is deleted at the end of postbibsnet after results are  
+                        copied into the "bibsnet" derivatives directory. 
+                        Example: /path/to/working/directory
   -z, --brain-z-size    Include this flag to infer participants' brain height
                         (z) using the participants.tsv brain_z_size column.
                         Otherwise, CABINET will estimate the brain height from
