@@ -502,6 +502,7 @@ def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
     :return: Int, either the subject's age (in months) or the subject's
              brain_z_size (depending on col_name) as listed in participants.tsv
     """
+    print("sub_ses from read_participants_tsv: ", sub_ses)
     columns = {x: "str" for x in (col_name, "session", "participant_id")}
 
     # Read in participants.tsv
@@ -535,6 +536,7 @@ def run_preBIBSnet(j_args, logger):
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
+    print("sub_ses from run_preBIBSnet: " sub_ses)
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_averages(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
