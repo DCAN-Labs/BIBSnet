@@ -284,14 +284,14 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     
         # User only needs participants.tsv if they didn't specify age_months
         if not j_args["common"].get("age_months"): 
-            sub_ses_IDs[ix]["age_months"] = read_from_participants_tsv(
+            sub_ses_IDs[ix]["age_months"] = read_from_sessions_tsv(
                 j_args, logger, "age", *sub_ses
             )
         
         # Infer brain_z_size for this sub_ses using participants.tsv if the 
         # user said to (by using --brain-z-size flag), otherwise infer it 
         # using age_months and the age-to-head-radius table .csv file
-        sub_ses_IDs[ix]["brain_z_size"] = read_from_participants_tsv(
+        sub_ses_IDs[ix]["brain_z_size"] = read_from_sessions_tsv(
                 j_args, logger, "brain_z_size", *sub_ses
             ) if cli_args["brain_z_size"] else get_brain_z_size(
                 sub_ses_IDs[ix]["age_months"], j_args, logger
@@ -493,7 +493,7 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     return j_args
 
 
-def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
+def read_from_sessions_tsv(j_args, logger, col_name, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
@@ -502,26 +502,24 @@ def read_from_participants_tsv(j_args, logger, col_name, *sub_ses):
     :return: Int, either the subject's age (in months) or the subject's
              brain_z_size (depending on col_name) as listed in participants.tsv
     """
-    print("sub_ses from read_participants_tsv: ", sub_ses)
-    columns = {x: "str" for x in (col_name, "session", "participant_id")}
+    columns = {x: "str" for x in (col_name, "session")}
 
     # Read in participants.tsv
-    part_tsv_df = pd.read_csv(
-        os.path.join(j_args["common"]["bids_dir"],
-                     "participants.tsv"), sep="\t", dtype=columns
+    ses_tsv_df = pd.read_csv(
+        os.path.join(j_args["common"]["bids_dir"], [sub_ses[0]],
+                     "{}_sessions.tsv".format(sub_ses[0])), sep="\t", dtype=columns
     )
     # Subject and session column names in participants.tsv
-    sub_ID_col = "participant_id"
     ses_ID_col = "session"
 
     # Get and return the col_name value from participants.tsv
-    subj_row = part_tsv_df[
-        part_tsv_df[sub_ID_col] == ensure_prefixed(sub_ses[0], "sub-")  # TODO part_tsv_df[sub_ID_col] = part_tsv_df[sub_ID_col].apply(ensure_prefixed(...))
+    subj_row = ses_tsv_df[
+        ses_tsv_df[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[sub_ID_col] = part_tsv_df[sub_ID_col].apply(ensure_prefixed(...))
     ]  # select where "participant_id" matches
-    if len(sub_ses) > 1:
-        subj_row = subj_row[
-            subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[ses_ID_col] = part_tsv_df[ses_ID_col].apply(ensure_prefixed(...))
-        ]  # select where "session" matches
+    # if len(sub_ses) > 1:
+    #     subj_row = subj_row[
+    #         subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[ses_ID_col] = part_tsv_df[ses_ID_col].apply(ensure_prefixed(...))
+    #     ]  # select where "session" matches
     if j_args["common"]["verbose"]:
         logger.info(f"Subject details from participants.tsv row:\n{subj_row}")
     return int(subj_row[col_name])
@@ -536,7 +534,6 @@ def run_preBIBSnet(j_args, logger):
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
-    print("sub_ses from run_preBIBSnet: ", sub_ses)
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_averages(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
