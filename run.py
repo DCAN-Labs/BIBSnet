@@ -506,7 +506,7 @@ def read_from_sessions_tsv(j_args, logger, col_name, *sub_ses):
 
     # Read in participants.tsv
     ses_tsv_df = pd.read_csv(
-        os.path.join(j_args["common"]["bids_dir"], [sub_ses[0]],
+        os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
                      "{}_sessions.tsv".format(sub_ses[0])), sep="\t", dtype=columns
     )
     # Subject and session column names in participants.tsv
