@@ -146,7 +146,7 @@ def get_params_from_JSON(stage_names, logger):
         help=("Positive integer, the participant's age in months. For "
               "example, -age 5 would mean the participant is 5 months old. "
               "Include this argument unless the age in months is specified in "
-              "the participants.tsv file inside the BIDS input directory.")
+              "the sessions.tsv file inside the BIDS input directory.")
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -195,7 +195,7 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-z", "--brain-z-size", action="store_true",
         help=("Include this flag to infer participants' brain height (z) "
-              "using the participants.tsv brain_z_size column. Otherwise, "
+              "using the sessions.tsv brain_z_size column. Otherwise, "
               "CABINET will estimate the brain height from the participant "
               "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
@@ -282,13 +282,13 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
                          "that your participant_label and session are correct."
                          .format(sub_ses_dir))
     
-        # User only needs participants.tsv if they didn't specify age_months
+        # User only needs sessions.tsv if they didn't specify age_months
         if not j_args["common"].get("age_months"): 
             sub_ses_IDs[ix]["age_months"] = read_from_sessions_tsv(
                 j_args, logger, "age", *sub_ses
             )
         
-        # Infer brain_z_size for this sub_ses using participants.tsv if the 
+        # Infer brain_z_size for this sub_ses using sessions.tsv if the 
         # user said to (by using --brain-z-size flag), otherwise infer it 
         # using age_months and the age-to-head-radius table .csv file
         sub_ses_IDs[ix]["brain_z_size"] = read_from_sessions_tsv(
@@ -497,31 +497,28 @@ def read_from_sessions_tsv(j_args, logger, col_name, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
-    :param col_name: String naming the column of participants.tsv to return
+    :param col_name: String naming the column of sessions.tsv to return
                      a value from (for this subject or subject-session)
+    :param sub_ses: Tuple containing subject and session labels. 
     :return: Int, either the subject's age (in months) or the subject's
-             brain_z_size (depending on col_name) as listed in participants.tsv
+             brain_z_size (depending on col_name) as listed in sessions.tsv
     """
     columns = {x: "str" for x in (col_name, "session")}
 
-    # Read in participants.tsv
+    # Read in sessions.tsv
     ses_tsv_df = pd.read_csv(
         os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
                      "{}_sessions.tsv".format(sub_ses[0])), sep="\t", dtype=columns
     )
-    # Subject and session column names in participants.tsv
+    # Subject and session column names in sessions.tsv
     ses_ID_col = "session"
 
-    # Get and return the col_name value from participants.tsv
+    # Get and return the col_name value from sessions.tsv
     subj_row = ses_tsv_df[
         ses_tsv_df[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[sub_ID_col] = part_tsv_df[sub_ID_col].apply(ensure_prefixed(...))
     ]  # select where "participant_id" matches
-    # if len(sub_ses) > 1:
-    #     subj_row = subj_row[
-    #         subj_row[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[ses_ID_col] = part_tsv_df[ses_ID_col].apply(ensure_prefixed(...))
-    #     ]  # select where "session" matches
     if j_args["common"]["verbose"]:
-        logger.info(f"Subject details from participants.tsv row:\n{subj_row}")
+        logger.info(f"Subject details from sessions.tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
 
