@@ -536,7 +536,7 @@ def run_preBIBSnet(j_args, logger):
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
-    print("sub_ses from run_preBIBSnet: " sub_ses)
+    print("sub_ses from run_preBIBSnet: ", sub_ses)
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_averages(preBIBSnet_paths["avg"], logger)  # TODO make averaging optional with later BIBSnet model?
