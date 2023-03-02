@@ -6,7 +6,7 @@ At present, CABINET is unable to operate if there are two or more T1w or T2w ima
 
 ### BIDS Validation
 
-We will be integrating the BIDS validator into our system in the near future to ensure that all inputs are valid. This enhancement will save the user time by catching any BIDS input errors immediately that CABINET previously would not interact with (func, fmap, and dwi directories) and ensuring the user will not have to go back and BIDSify a database after running CABINET and before running a subsequent processing stage. This will ensure consistency between inputs of both stages.
+We will be integrating the BIDS validator into CABINET in the near future to ensure that all inputs are valid. This enhancement will save the user time by catching any BIDS input errors immediately that CABINET previously would not interact with (func, fmap, and dwi directories) and ensuring the user will not have to go back and BIDSify a database after running CABINET and before running a subsequent processing stage. This will ensure consistency between inputs of both stages.
 
 ### Nibabies and XCP-D Incorporation
 
