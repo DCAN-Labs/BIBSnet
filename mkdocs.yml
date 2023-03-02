@@ -5,8 +5,9 @@ plugins:
 docs_dir: docs
 nav:
   - 1. Overview: index.md
-  - 2. Installation: installation.md
-  - 3. Usage: usage.md
-  - 4. Multiple Participant Requirements: participants.md
-  - 5. Stages: stages.md
+  - 2. Coming Soon: comingsoon.md
+  - 3. Installation: installation.md
+  - 4. Usage: usage.md
+  - 5. Multiple Participant Requirements: participants.md
+  - 6. Stages: stages.md
 
