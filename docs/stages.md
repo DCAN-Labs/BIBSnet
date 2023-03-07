@@ -19,7 +19,7 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 
 | Model | Description |
 |:-:|:--|
-| 550 | Default T1w and T2w model |
+| 551 | Default T1w and T2w model |
 | 514 | Default T1w-only model |
 | 515 | Default T2w-only model |
 
