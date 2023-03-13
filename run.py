@@ -509,7 +509,7 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
     participant_tsv_path = os.path.join(j_args["common"]["bids_dir"],
                      "participants.tsv")
 
-    ID_col = "session" if os.path.exists(session_tsv_path) else "subject"
+    ID_col = "session" if os.path.exists(session_tsv_path) else "participant_id"
 
     tsv_path = session_tsv_path if ID_col == "session" else participant_tsv_path
 
@@ -519,10 +519,10 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
             raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
     except ValueError as exception:
         logger.info(exception)
-        if ID_col == "subject":
+        if ID_col == "participant_id":
             pass
         else:
-            ID_col = "subject"
+            ID_col = "participant_id"
             tsv_path = participant_tsv_path
             desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
             if not desired_output:
