@@ -514,7 +514,7 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
     tsv_path = session_tsv_path if ID_col == "session" else participant_tsv_path
 
     try:
-        desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name)
+        desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
         if not desired_output:
             raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
     except ValueError as exception:
@@ -524,7 +524,7 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
         else:
             ID_col = "subject"
             tsv_path = participant_tsv_path
-            desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name)
+            desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
             if not desired_output:
                 logger.error("Did not find {} in {}".format(col_name, tsv_path))
         
