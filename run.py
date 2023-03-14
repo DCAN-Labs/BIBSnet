@@ -538,6 +538,8 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
         os.path.join(tsv_path), sep="\t", dtype=columns
     )
 
+    print(tsv_df)
+
     # Get and return the col_name value from sessions.tsv
 
     subj_row = tsv_df[
