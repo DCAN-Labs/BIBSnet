@@ -535,7 +535,7 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
 
     # Read in sessions.tsv
     tsv_df = pd.read_csv(
-        os.path.join(tsv_path), sep="\t" ##, dtype=columns
+        os.path.join(tsv_path), delim_whitespace=True ##, dtype=columns
     )
 
     print(tsv_df)
@@ -548,13 +548,8 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
 
     # Get and return the col_name value from sessions.tsv
 
-    label = ensure_prefixed(sub_ses[1], "ses-")
-    if ID_col == "participant_id":
-        label = ensure_prefixed(sub_ses[0], "sub-")
-    print("label: ", label)
-
     subj_row = tsv_df.loc[
-        tsv_df[ID_col] == label
+        tsv_df[ID_col] == tsv_df[ID_col] == ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
         logger.info(f"Subject details from tsv row:\n{subj_row}")
