@@ -547,7 +547,7 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
 
     # Get and return the col_name value from sessions.tsv
 
-    subj_row = tsv_df[
+    subj_row = tsv_df.loc[
         tsv_df[ID_col] == ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
