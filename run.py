@@ -539,9 +539,11 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
     )
 
     print(tsv_df)
-    print(f"subses:{sub_ses}")
-    print(f"ID_col: {ID_col}")
+    print("subses: ",{sub_ses})
+    print("ID_col: ", ID_col)
+    print("tsv_df[ID_col]", tsv_df[ID_col])
     print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
+    print(tsv_df[ID_col] == ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
 
     # Get and return the col_name value from sessions.tsv
 
