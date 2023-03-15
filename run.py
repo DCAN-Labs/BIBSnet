@@ -543,6 +543,7 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
     print("ID_col: ", ID_col)
     print("tsv_df[ID_col]", tsv_df[ID_col])
     print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
+    print("inside .loc[]: "tsv_df[ID_col] == ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
     print("tsv_df.shape: ", tsv_df.shape)
     print("tsv_df.columns: ", tsv_df.columns)
 
