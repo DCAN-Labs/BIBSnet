@@ -1,5 +1,4 @@
-ARG FROM_IMAGE_NAME=nvcr.io/nvidia/pytorch:21.11-py3
-FROM ${FROM_IMAGE_NAME} 
+FROM nvcr.io/nvidia/pytorch:21.11-py3
 
 # Prepare environment
 RUN apt-get update && \
@@ -121,6 +120,7 @@ RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && \
     unzip -qq Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
 COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
+RUN bash /home/cabinet/src/fixpy.sh /opt/fsl-6.0.5.1
 COPY bin /home/cabinet/bin
 #COPY data /home/cabinet/data
 RUN wget https://s3.msi.umn.edu/CABINET_data/data.zip -O /home/cabinet/data/temp_data.zip && cd /home/cabinet/data && unzip -qq temp_data.zip && rm temp_data.zip
