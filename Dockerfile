@@ -120,6 +120,7 @@ RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && \
     unzip -qq Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
 COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
+RUN chmod 777 -R /opt/fsl-6.0.5.1
 RUN bash /home/cabinet/src/fixpy.sh /opt/fsl-6.0.5.1
 COPY bin /home/cabinet/bin
 #COPY data /home/cabinet/data
