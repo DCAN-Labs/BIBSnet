@@ -146,7 +146,9 @@ def get_params_from_JSON(stage_names, logger):
         help=("Positive integer, the participant's age in months. For "
               "example, -age 5 would mean the participant is 5 months old. "
               "Include this argument unless the age in months is specified in "
-              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory.")
+              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory "
+              "or inside the participants.tsv file inside the BIDS directory at the" 
+              "subject-level.")
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -195,8 +197,8 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-z", "--brain-z-size", action="store_true",
         help=("Include this flag to infer participants' brain height (z) "
-              "using the sub-{}_sessions.tsv brain_z_size column. Otherwise, "
-              "CABINET will estimate the brain height from the participant "
+              "using the sub-{}_sessions.tsv or participant.tsv brain_z_size column." 
+              "Otherwise, CABINET will estimate the brain height from the participant "
               "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
     parser.add_argument(
@@ -284,14 +286,14 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     
         # User only needs sessions.tsv if they didn't specify age_months
         if not j_args["common"].get("age_months"): 
-            sub_ses_IDs[ix]["age_months"] = read_from_sessions_tsv(
+            sub_ses_IDs[ix]["age_months"] = read_from_tsv(
                 j_args, logger, "age", *sub_ses
             )
         
         # Infer brain_z_size for this sub_ses using sessions.tsv if the 
         # user said to (by using --brain-z-size flag), otherwise infer it 
         # using age_months and the age-to-head-radius table .csv file
-        sub_ses_IDs[ix]["brain_z_size"] = read_from_sessions_tsv(
+        sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
                 j_args, logger, "brain_z_size", *sub_ses
             ) if cli_args["brain_z_size"] else get_brain_z_size(
                 sub_ses_IDs[ix]["age_months"], j_args, logger
@@ -493,7 +495,7 @@ def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     return j_args
 
 
-def read_from_sessions_tsv(j_args, logger, col_name, *sub_ses):
+def read_from_tsv(j_args, logger, col_name, *sub_ses):
     """
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
@@ -503,24 +505,56 @@ def read_from_sessions_tsv(j_args, logger, col_name, *sub_ses):
     :return: Int, either the subject's age (in months) or the subject's
              brain_z_size (depending on col_name) as listed in sessions.tsv
     """
-    columns = {x: "str" for x in (col_name, "session")}
+
+    session_tsv_path = os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
+                     "{}_sessions.tsv".format(sub_ses[0]))
+    participant_tsv_path = os.path.join(j_args["common"]["bids_dir"],
+                     "participants.tsv")
+
+    ID_col = "session" if os.path.exists(session_tsv_path) else "participant_id"
+
+    tsv_path = session_tsv_path if ID_col == "session" else participant_tsv_path
+
+    try:
+        desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
+        if not desired_output:
+            raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
+    except ValueError as exception:
+        logger.info(exception)
+        if ID_col == "participant_id":
+            pass
+        else:
+            ID_col = "participant_id"
+            tsv_path = participant_tsv_path
+            desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
+            if not desired_output:
+                logger.error("Did not find {} in {}".format(col_name, tsv_path))
+        
+    return desired_output
+
+def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
+    columns = {x: "str" for x in (col_name, ID_col)}
 
     # Read in sessions.tsv
-    ses_tsv_df = pd.read_csv(
-        os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
-                     "{}_sessions.tsv".format(sub_ses[0])), sep="\t", dtype=columns
+    tsv_df = pd.read_csv(
+        tsv_path, delim_whitespace=True, index_col=ID_col ##, dtype=columns
     )
-    # Subject and session column names in sessions.tsv
-    ses_ID_col = "session"
+
+    print(tsv_df)
+    print("subses: ",{sub_ses})
+    print("ID_col: ", ID_col)
+    print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
+    print("tsv_df.shape: ", tsv_df.shape)
+    print("tsv_df.columns: ", tsv_df.columns)
 
     # Get and return the col_name value from sessions.tsv
-    subj_row = ses_tsv_df[
-        ses_tsv_df[ses_ID_col] == ensure_prefixed(sub_ses[1], "ses-")  # TODO part_tsv_df[sub_ID_col] = part_tsv_df[sub_ID_col].apply(ensure_prefixed(...))
+
+    subj_row = tsv_df.loc[
+        ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
-        logger.info(f"Subject details from sessions.tsv row:\n{subj_row}")
+        logger.info(f"Subject details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
-
 
 def run_preBIBSnet(j_args, logger):
     """
