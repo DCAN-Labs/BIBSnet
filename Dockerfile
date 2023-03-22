@@ -97,7 +97,7 @@ ENV HOME="/home/cabinet" \
 # install nnUNet git repo
 RUN cd /home/cabinet && \
     mkdir SW && \
-    git clone https://github.com/MIC-DKFZ/nnUNet.git && \
+    git clone https://github.com/MIC-DKFZ/nnUNet.git@v1.7.1 && \
     cd nnUNet && \
     pip install -e .
 
