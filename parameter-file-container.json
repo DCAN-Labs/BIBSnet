@@ -15,7 +15,7 @@
 
     "bibsnet": {
         "model": "3d_fullres",
-        "nnUNet_predict_path": "/opt/conda/bin/nnUNetv2_predict",
+        "nnUNet_predict_path": "/opt/conda/bin/nnUNet_predict",
         "code_dir": "/home/cabinet/SW/BIBSnet"
     },
     
