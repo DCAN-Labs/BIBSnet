@@ -146,7 +146,9 @@ def get_params_from_JSON(stage_names, logger):
         help=("Positive integer, the participant's age in months. For "
               "example, -age 5 would mean the participant is 5 months old. "
               "Include this argument unless the age in months is specified in "
-              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory.")
+              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory "
+              "or inside the participants.tsv file inside the BIDS directory at the" 
+              "subject-level.")
     )
     parser.add_argument(
         "-end", "--ending-stage", dest="end",
@@ -195,8 +197,8 @@ def get_params_from_JSON(stage_names, logger):
     parser.add_argument(
         "-z", "--brain-z-size", action="store_true",
         help=("Include this flag to infer participants' brain height (z) "
-              "using the sub-{}_sessions.tsv brain_z_size column. Otherwise, "
-              "CABINET will estimate the brain height from the participant "
+              "using the sub-{}_sessions.tsv or participant.tsv brain_z_size column." 
+              "Otherwise, CABINET will estimate the brain height from the participant "
               "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
     parser.add_argument(

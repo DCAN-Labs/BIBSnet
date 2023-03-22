@@ -36,7 +36,8 @@ optional arguments:
                         example, -age 5 would mean the participant is 5 months
                         old. Include this argument unless the age in months is
                         specified in the sub-{}_sessions.tsv file inside the each subjects'
-                        BIDS input directory.
+                        BIDS input directory or the participants.tsv file inside the BIDS
+                        directory at the subject-level.
   -end {prebibsnet,bibsnet,postbibsnet}, --ending-stage {prebibsnet,bibsnet,postbibsnet}
                         Name of the stage to run last. By default, this will
                         be the postbibsnet stage. Valid choices: prebibsnet,
@@ -71,10 +72,10 @@ optional arguments:
                         copied into the "bibsnet" derivatives directory. 
                         Example: /path/to/working/directory
   -z, --brain-z-size    Include this flag to infer participants' brain height
-                        (z) using the sub-{}_sessions.tsv brain_z_size column.
-                        Otherwise, CABINET will estimate the brain height from
-                        the participant age and averages of a large sample of
-                        infant brain heights.
+                        (z) using the sub-{}_sessions.tsv or the participant.tsv 
+                        brain_z_size column. Otherwise, CABINET will estimate the
+                        brain height from the participant age and averages of a 
+                        large sample of infant brain heights.
   --script-dir SCRIPT_DIR
                         Valid path to the existing parent directory of this
                         run.py script. Include this argument if and only if
