@@ -97,8 +97,9 @@ ENV HOME="/home/cabinet" \
 # install nnUNet git repo
 RUN cd /home/cabinet && \
     mkdir SW && \
-    git clone https://github.com/MIC-DKFZ/nnUNet.git@v1.7.1 && \
+    git clone https://github.com/MIC-DKFZ/nnUNet.git && \
     cd nnUNet && \
+    git checkout -b v1.7.1 v1.7.1 && \
     pip install -e .
 
 # pull down main branch of BIBSNet
