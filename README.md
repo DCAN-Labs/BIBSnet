@@ -6,7 +6,7 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 <br />
 
-![CABINET - Stages for MRI Processing](https://user-images.githubusercontent.com/102316699/200946315-4983870b-9c8e-4a5f-b344-47d0e1d674c1.png)
+![CABINET - Stages for MRI Processing (5)](https://user-images.githubusercontent.com/102316699/228307095-08e51c30-e841-4c31-bb63-63c64cd7a548.png)
 
 <hr>
 
