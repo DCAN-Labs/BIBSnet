@@ -16,8 +16,8 @@ Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
 
 #### Singularity
 
-    singularity pull cabinet.sif docker://dcanumn/cabinet
+    singularity pull cabinet.sif docker://dcanumn/cabinet:latest
 
 #### Docker
 
-    docker pull dcanumn/cabinet:t1-only_t2-only
+    docker pull dcanumn/cabinet:latest
