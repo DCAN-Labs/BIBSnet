@@ -1,17 +1,17 @@
-##Funding Sources
+## Funding Sources
 
 - 1U01DA055371 Wilson (PI) 09/01/21 – 08/31/26 17/24 The Healthy Brain and Child Development National Consortium
 - U24 DA055330 Smyser (PI) 09/30/21 – 06/30/26 Healthy brain and child development national consortium data coordinating center
 - Sub 1016803_ UMINN/U01DA041148 Fair & Nagel (PI) 04/15/20 – 03/31/27 ABCD-USA 
  
-##Consortium
+## Consortium
 
 - RESEARCH PROJECT SITE AT OHSU
 - UG3 OD023349 Fair (Co-PI) 09/21/16–08/31/23 Pre- and Postnatal Exposure Periods for Child Health: Common Risks and Shared Mechanisms
 - 1R37MH125829-01 Fair, Satterwaithe (PI) 09/01/21 – 03/31/26 Precision mapping of individualized executive networks in youth
 - 2R01MH096773-08A1 Fair & Dosenbach (PI) 06/05/20– 03/31/25 Identification of outcome-based sub-populations using deep phenotyping and precision functional mapping across ADHD and ASD 
 
-##Software
+## Software
 
 - nvidia/pytorch:21.11-py3
 - nnU-Net
@@ -20,7 +20,7 @@
 - ANTS v2.3.3
 - BIBSnet v1.0.0
 
-##References
+## References
 
 Avants, Tustison, and Song. n.d. "Advanced Normalization Tools (ANTS)." The Insight Journal. https://scicomp.ethz.ch/public/manual/ants/2.x/ants2.pdf.
 
