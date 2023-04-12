@@ -1,16 +1,7 @@
 ## Funding Sources
 
-- 1U01DA055371 Wilson (PI) 09/01/21 – 08/31/26 17/24 The Healthy Brain and Child Development National Consortium
-- U24 DA055330 Smyser (PI) 09/30/21 – 06/30/26 Healthy brain and child development national consortium data coordinating center
-- Sub 1016803_ UMINN/U01DA041148 Fair & Nagel (PI) 04/15/20 – 03/31/27 ABCD-USA 
+This work was supported by the National Institutes of Health (NIH) through awards administered by the National Institute on Drug Abuse (NIDA) (1U01DA055371 *The Healthy Brain and Child Development National Consortium*; U24 DA055330 *Healthy brain and child development national consortium data coordinating center*; U01DA041148 *Consortium Research Project Site at OHSU*), Office of the Director (OD) (UG3 OD023349 *Pre- and Postnatal Exposure Periods for Child Health: Common Risks and Shared Mechanisms*), and National Institute of Mental Health (NIMH) (1R37MH125829-01 *Precision mapping of individualized executive networks in youth; 2R01MH096773-08A1 Identification of outcome-based sub-populations using deep phenotyping and precision functional mapping across ADHD and ASD*).
  
-## Consortium
-
-- RESEARCH PROJECT SITE AT OHSU
-- UG3 OD023349 Fair (Co-PI) 09/21/16–08/31/23 Pre- and Postnatal Exposure Periods for Child Health: Common Risks and Shared Mechanisms
-- 1R37MH125829-01 Fair, Satterwaithe (PI) 09/01/21 – 03/31/26 Precision mapping of individualized executive networks in youth
-- 2R01MH096773-08A1 Fair & Dosenbach (PI) 06/05/20– 03/31/25 Identification of outcome-based sub-populations using deep phenotyping and precision functional mapping across ADHD and ASD 
-
 ## Software
 
 - nvidia/pytorch:21.11-py3
