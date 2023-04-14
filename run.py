@@ -511,9 +511,9 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
     participant_tsv_path = os.path.join(j_args["common"]["bids_dir"],
                      "participants.tsv")
 
-    ID_col = "session" if os.path.exists(session_tsv_path) else "participant_id"
+    ID_col = "session_id" if os.path.exists(session_tsv_path) else "participant_id"
 
-    tsv_path = session_tsv_path if ID_col == "session" else participant_tsv_path
+    tsv_path = session_tsv_path if ID_col == "session_id" else participant_tsv_path
 
     try:
         desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
@@ -543,14 +543,14 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
     print(tsv_df)
     print("subses: ",{sub_ses})
     print("ID_col: ", ID_col)
-    print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-"))
+    print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-"))
     print("tsv_df.shape: ", tsv_df.shape)
     print("tsv_df.columns: ", tsv_df.columns)
 
     # Get and return the col_name value from sessions.tsv
 
     subj_row = tsv_df.loc[
-        ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session" else ensure_prefixed(sub_ses[0], "sub-")
+        ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
         logger.info(f"Subject details from tsv row:\n{subj_row}")
