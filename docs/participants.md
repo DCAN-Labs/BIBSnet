@@ -8,17 +8,17 @@ Below we go over what each TSV file should contain.
 
 `sub-{}_sessions.tsv`:
 
-| session | age |
+| session_id | age |
 |:-:|:-:|
 | ses-A | 1 |
 
 `participants.tsv`:
 
-| subject | session | age |
+| subject | session_id | age |
 |:-:|:-:|:-:|
 | sub-01 | ses-A | 1 |
 
-NOTE: the `ses-` prefix is currently required for `session` values.
+NOTE: the `ses-` prefix is currently required for `session_id` values.
 
 ### Content
 
@@ -32,15 +32,15 @@ If the user wants to specify the brain height (shown above) for each subject ses
 
 `sub-{}_sessions.tsv`
 
-| session | age | brain_z_size |
+| session_id | age | brain_z_size |
 |:-:|:-:|:-:|
 | ses-X | 1 | 120 |
 | ses-X | 6 | 145 |
 
 `participants.tsv`:
 
-| subject | session | age | brain_z_size |
-|:-:|:-:|:-:|:=:|
+| subject | session_id | age | brain_z_size |
+|:-:|:-:|:-:|:-:|
 | sub-01 | ses-A | 1 | 130 |
 
 Without a `brain_z_size` column, `CABINET` will calculate the `brain_z_size` value based on a table with [BCP](https://babyconnectomeproject.org/) participants' average head radius per age. That table is called `age_to_avg_head_radius_BCP.csv` under the `data` directory.
