@@ -14,7 +14,7 @@ Below we go over what each TSV file should contain.
 
 `participants.tsv`:
 
-| subject | session_id | age |
+| participant_id | session_id | age |
 |:-:|:-:|:-:|
 | sub-01 | ses-A | 1 |
 
@@ -39,7 +39,7 @@ If the user wants to specify the brain height (shown above) for each subject ses
 
 `participants.tsv`:
 
-| subject | session_id | age | brain_z_size |
+| participant_id | session_id | age | brain_z_size |
 |:-:|:-:|:-:|:-:|
 | sub-01 | ses-A | 1 | 130 |
 
