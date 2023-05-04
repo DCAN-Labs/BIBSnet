@@ -22,7 +22,7 @@ NOTE: the `ses-` prefix is currently required for `session_id` values.
 
 ### Content
 
-When running multiple subjects and/or sessions, the `sub-{}_sessions.tsv` file in each subject's directory (at the session directory level) must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session.
+When running multiple subjects and/or sessions, the `sub-{}_sessions.tsv` file in each subject's directory (at the session directory level) must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session. If processing a neonate subject, input 1 as the age, as there currently aren't any 0mo templates. 
 
 <br />
 <img src="https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png" width=555em style="margin-left: auto; margin-right: auto; display: block" />
