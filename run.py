@@ -791,7 +791,7 @@ def run_postBIBSnet(j_args, logger):
     logger.info("Finished dilating left/right segmentation mask")
     nifti_file_paths, chiral_out_dir, xfm_ref_img = run_correct_chirality(dilated_LRmask_fpath,
                                                       j_args, logger)
-    for t in only_Ts_needed_for_bibsnet_model:
+    for t in only_Ts_needed_for_bibsnet_model(sub_ses):
         nii_outfpath = reverse_regn_revert_to_native(
             nifti_file_paths, chiral_out_dir, xfm_ref_img, t, j_args, logger
         )
