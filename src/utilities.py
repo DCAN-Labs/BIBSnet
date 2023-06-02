@@ -1241,9 +1241,9 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
 
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
                       "-ref", xfm_ref_img, "-in", dummy_copy,
-                      "-init", seg2native, "-o", nifti_file_paths["native"],
+                      "-init", seg2native, "-o", f"{nifti_file_paths['native']}-t{t}",
                       "-interp", "nearestneighbour")
-    return nifti_file_paths["native"]
+    return f"{nifti_file_paths['native']}-t{t}"
 
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):

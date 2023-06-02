@@ -789,10 +789,9 @@ def run_postBIBSnet(j_args, logger):
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
+    nifti_file_paths, chiral_out_dir, xfm_ref_img = run_correct_chirality(dilated_LRmask_fpath,
+                                                      j_args, logger)
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        nifti_file_paths, chiral_out_dir, xfm_ref_img = run_correct_chirality(
-            dilated_LRmask_fpath, t, j_args, logger
-        )
         nii_outfpath = reverse_regn_revert_to_native(
             nifti_file_paths, chiral_out_dir, xfm_ref_img, t, j_args, logger
         )
@@ -891,11 +890,10 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args, logger):
     return left_right_mask_nifti_fpath
 
 
-def run_correct_chirality(l_r_mask_nifti_fpath, t, j_args, logger):
+def run_correct_chirality(l_r_mask_nifti_fpath, j_args, logger):
     """
     :param l_r_mask_nifti_fpath: String, valid path to existing left/right
                                  registration output mask file
-    :param t: 1 or 2, Whether to use the T1 or T2
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     :return: String, valid path to existing directory containing newly created
@@ -920,6 +918,9 @@ def run_correct_chirality(l_r_mask_nifti_fpath, t, j_args, logger):
                      .format(out_BIBSnet_seg))
         sys.exit()
 
+    # Select an arbitrary T1w image path to use to get T1w space
+    # (unless in T2w-only mode, in which case use an arbitrary T2w image)
+    t = 2 if not j_args["ID"]["has_T1w"] else 1
     chiral_ref_img_fpaths = glob(os.path.join(
         j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
     ))
