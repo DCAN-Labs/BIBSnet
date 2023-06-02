@@ -789,11 +789,11 @@ def run_postBIBSnet(j_args, logger):
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
-    nifti_file_paths, chiral_out_dir, xfm_ref_img = run_correct_chirality(dilated_LRmask_fpath,
+    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(dilated_LRmask_fpath,
                                                       j_args, logger)
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         nii_outfpath = reverse_regn_revert_to_native(
-            nifti_file_paths, chiral_out_dir, xfm_ref_img, t, j_args, logger
+            nifti_file_paths, chiral_out_dir, xfm_ref_img_dict[t], t, j_args, logger
         )
         
         logger.info("The BIBSnet segmentation has had its chirality checked and "
@@ -896,8 +896,9 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args, logger):
                                  registration output mask file
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
-    :return: String, valid path to existing directory containing newly created
-             chirality correction outputs
+    :return nii_fpaths: Dictionary output of correct_chirality
+    :return chiral_out_dir: String file path to output directory
+    :return chiral_ref_img_fpaths_dict: Dictionary containing T1w and T2w file paths
     """
     sub_ses = get_subj_ID_and_session(j_args)
 
@@ -920,11 +921,13 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args, logger):
 
     # Select an arbitrary T1w image path to use to get T1w space
     # (unless in T2w-only mode, in which case use an arbitrary T2w image)
-    t = 2 if not j_args["ID"]["has_T1w"] else 1
-    chiral_ref_img_fpaths = glob(os.path.join(
-        j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
-    ))
-    chiral_ref_img_fpaths.sort()
+    chiral_ref_img_fpaths_dict = {}
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        chiral_ref_img_fpaths = glob(os.path.join(
+            j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
+        ))
+        chiral_ref_img_fpaths.sort()
+        chiral_ref_img_fpaths_dict[t] = chiral_ref_img_fpaths[0]
     
     # Run chirality correction script and return the image to native space
     msg = "{} running chirality correction on " + seg_BIBSnet_outfiles[0]
@@ -935,7 +938,7 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args, logger):
     )
     logger.info(msg.format("Finished"))
 
-    return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths[0]
+    return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths_dict
 
 
 def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
