@@ -975,7 +975,7 @@ def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, space, new_fname_
     :param new_fname_pt: String to add to the end of the new filename
     """
     shutil.copy2(file_to_copy, os.path.join(derivs_dir, (
-        "{}_space-T{}_desc-{}.nii.gz".format("_".join(sub_ses), space, new_fname_pt)
+        "{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), space, new_fname_pt)
     )))
 
 
