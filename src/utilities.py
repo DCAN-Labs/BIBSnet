@@ -370,7 +370,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     :return: Dict with paths to native and chirality-corrected images
     """
     nifti_file_paths = dict()
-    for which_nii in ("native", "corrected"):
+    for which_nii in ("native-T1", "native-T2", "corrected"):
         nifti_file_paths[which_nii] = os.path.join(chiral_out_dir, "_".join((
             which_nii, os.path.basename(nifti_input_file_path)
         )))
@@ -1241,9 +1241,9 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
 
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
                       "-ref", xfm_ref_img, "-in", dummy_copy,
-                      "-init", seg2native, "-o", f"{nifti_file_paths['native']}-t{t}",
+                      "-init", seg2native, "-o", nifti_file_paths[f"native-T{t}"],
                       "-interp", "nearestneighbour")
-    return f"{nifti_file_paths['native']}-t{t}"
+    return nifti_file_paths[f"native-T{t}"]
 
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
