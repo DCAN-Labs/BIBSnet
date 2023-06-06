@@ -22,7 +22,7 @@ NOTE: the `ses-` prefix is currently required for `session_id` values.
 
 ### Content
 
-When running multiple subjects and/or sessions, the `sub-{}_sessions.tsv` file in each subject's directory (at the session directory level) must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session. Age is used to determine which template to use for chirality correction of the segmentation. The template used is determined by which age is closest to the subject's age. This means that all the subjects above the age of 38 months will use the 34-38 month-old template, the oldest template provided. When processing a neonate subject, if inputing 0 as the age throws an eroor, input 1 as the age. 
+When running multiple subjects and/or sessions, the `sub-{}_sessions.tsv` file in each subject's directory (at the session directory level) must include an `age` column. In that column, each row has one positive integer, the participant's age in months at that session. Age is used to determine which template to use for chirality correction of the segmentation. The template used is determined by which age is closest to the subject's age. This means that all the subjects above the age of 38 months will use the 34-38 month-old template, the oldest template provided. When processing a neonate subject, if inputting 0 as the age throws an error, input 1 as the age. It is on our development agenda to allow users to input 0 months for infants under 2 weeks old.
 
 <br />
 <img src="https://user-images.githubusercontent.com/102316699/184005162-0b1ebb76-3e5a-4bd3-b258-a686272e2ecc.png" width=555em style="margin-left: auto; margin-right: auto; display: block" />
