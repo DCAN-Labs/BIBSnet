@@ -533,19 +533,10 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
     return desired_output
 
 def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
-    columns = {x: "str" for x in (col_name, ID_col)}
-
     # Read in sessions.tsv
     tsv_df = pd.read_csv(
-        tsv_path, delim_whitespace=True, index_col=ID_col ##, dtype=columns
+        tsv_path, delim_whitespace=True, index_col=ID_col
     )
-
-    print(tsv_df)
-    print("subses: ",{sub_ses})
-    print("ID_col: ", ID_col)
-    print("ensure_prefixed: ", ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-"))
-    print("tsv_df.shape: ", tsv_df.shape)
-    print("tsv_df.columns: ", tsv_df.columns)
 
     # Get and return the col_name value from sessions.tsv
 
@@ -553,6 +544,7 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
+        logger.info(f"ID_col used to get details from tsv: {ID_col}")
         logger.info(f"Subject details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
@@ -797,23 +789,27 @@ def run_postBIBSnet(j_args, logger):
         left_right_mask_nifti_fpath
     )
     logger.info("Finished dilating left/right segmentation mask")
-    nii_outfpath = correct_chirality_revert_to_native(dilated_LRmask_fpath,
+    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(dilated_LRmask_fpath,
                                                       j_args, logger)
-    chiral_out_dir = os.path.dirname(nii_outfpath)
-    logger.info("The BIBSnet segmentation has had its chirality checked and "
-                "registered if needed. Now making aseg-derived mask.")
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        nii_outfpath = reverse_regn_revert_to_native(
+            nifti_file_paths, chiral_out_dir, xfm_ref_img_dict[t], t, j_args, logger
+        )
+        
+        logger.info("The BIBSnet segmentation has had its chirality checked and "
+                    "registered if needed. Now making aseg-derived mask.")
 
-    # TODO Skip mask creation if outputs already exist and not j_args[common][overwrite]
-    aseg_mask = make_asegderived_mask(j_args, chiral_out_dir, nii_outfpath)  # NOTE Mask must be in native T1 space too
-    logger.info("A mask of the BIBSnet segmentation has been produced")
+        # TODO Skip mask creation if outputs already exist and not j_args[common][overwrite]
+        aseg_mask = make_asegderived_mask(j_args, chiral_out_dir, t, nii_outfpath)  # NOTE Mask must be in native T1 space too
+        logger.info(f"A mask of the BIBSnet T{t} segmentation has been produced")
 
-    # Make nibabies input dirs
-    bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
-                                   "bibsnet")
-    derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
-    os.makedirs(derivs_dir, exist_ok=True)
-    copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, "aseg_dseg")
-    copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, "brain_mask")
+        # Make nibabies input dirs
+        bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
+                                    "bibsnet")
+        derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
+        os.makedirs(derivs_dir, exist_ok=True)
+        copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, t, "aseg_dseg")
+        copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, t, "brain_mask")
 
     # Copy dataset_description.json into bibsnet_derivs_dir directory for use in nibabies
     new_data_desc_json = os.path.join(bibsnet_derivs_dir, "dataset_description.json")
@@ -894,14 +890,15 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args, logger):
     return left_right_mask_nifti_fpath
 
 
-def correct_chirality_revert_to_native(l_r_mask_nifti_fpath, j_args, logger):
+def run_correct_chirality(l_r_mask_nifti_fpath, j_args, logger):
     """
     :param l_r_mask_nifti_fpath: String, valid path to existing left/right
                                  registration output mask file
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
-    :return: String, valid path to existing directory containing newly created
-             chirality correction outputs
+    :return nii_fpaths: Dictionary output of correct_chirality
+    :return chiral_out_dir: String file path to output directory
+    :return chiral_ref_img_fpaths_dict: Dictionary containing T1w and T2w file paths
     """
     sub_ses = get_subj_ID_and_session(j_args)
 
@@ -924,11 +921,13 @@ def correct_chirality_revert_to_native(l_r_mask_nifti_fpath, j_args, logger):
 
     # Select an arbitrary T1w image path to use to get T1w space
     # (unless in T2w-only mode, in which case use an arbitrary T2w image)
-    t = 2 if not j_args["ID"]["has_T1w"] else 1
-    chiral_ref_img_fpaths = glob(os.path.join(
-        j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
-    ))
-    chiral_ref_img_fpaths.sort()
+    chiral_ref_img_fpaths_dict = {}
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        chiral_ref_img_fpaths = glob(os.path.join(
+            j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
+        ))
+        chiral_ref_img_fpaths.sort()
+        chiral_ref_img_fpaths_dict[t] = chiral_ref_img_fpaths[0]
     
     # Run chirality correction script and return the image to native space
     msg = "{} running chirality correction on " + seg_BIBSnet_outfiles[0]
@@ -937,25 +936,24 @@ def correct_chirality_revert_to_native(l_r_mask_nifti_fpath, j_args, logger):
         seg_BIBSnet_outfiles[0], segment_lookup_table_path,
         l_r_mask_nifti_fpath, chiral_out_dir
     )
-    native_img_fpath = reverse_regn_revert_to_native(
-        nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths[0], j_args, logger
-    )
     logger.info(msg.format("Finished"))
-    return native_img_fpath
+
+    return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths_dict
 
 
-def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
+def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param aseg_dir: String, valid path to existing directory with output files
                      from chirality correction
+    :param t: 1 or 2, whether running on T1 or T2
     :param nii_outfpath: String, valid path to existing anat file
     :return: List of strings; each is a valid path to an aseg mask file
     """
     # binarize, fillh, and erode aseg to make mask:
     output_mask_fpath = os.path.join(
-        aseg_dir, "{}_mask.nii.gz".format(nii_outfpath.split(".nii.gz")[0])
+        aseg_dir, f"{nii_outfpath.split('.nii.gz')[0]}_T{t}_mask.nii.gz"
     )
     if (j_args["common"]["overwrite"] or not
             os.path.exists(output_mask_fpath)):
@@ -967,16 +965,17 @@ def make_asegderived_mask(j_args, aseg_dir, nii_outfpath):
     return output_mask_fpath
 
 
-def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, new_fname_pt):
+def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, space, new_fname_pt):
     """
     Copy file_to_copy into derivs_dir and rename it with the other 2 arguments
     :param file_to_copy: String, path to existing file to copy to derivs_dir
     :param derivs_dir: String, path to existing directory to copy file into
     :param sub_ses: List with either only the subject ID str or the session too
+    :param space: 1 or 2, the space which the mask/aseg is in
     :param new_fname_pt: String to add to the end of the new filename
     """
     shutil.copy2(file_to_copy, os.path.join(derivs_dir, (
-        "{}_space-orig_desc-{}.nii.gz".format("_".join(sub_ses), new_fname_pt)
+        "{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), space, new_fname_pt)
     )))
 
 

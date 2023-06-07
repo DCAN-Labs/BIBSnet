@@ -370,7 +370,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
     :return: Dict with paths to native and chirality-corrected images
     """
     nifti_file_paths = dict()
-    for which_nii in ("native", "corrected"):
+    for which_nii in ("native-T1", "native-T2", "corrected"):
         nifti_file_paths[which_nii] = os.path.join(chiral_out_dir, "_".join((
             which_nii, os.path.basename(nifti_input_file_path)
         )))
@@ -1209,7 +1209,7 @@ def reshape_volume_to_array(array_img):
 
 
 def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
-                                  xfm_ref_img, j_args, logger):
+                                  xfm_ref_img, t, j_args, logger):
     """
     :param nifti_file_paths: Dict with valid paths to native and
                              chirality-corrected images
@@ -1217,6 +1217,7 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
                            chirality-corrected images into
     :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
                         image to use as a reference when applying transform
+    :param t: 1 or 2, whether running on T1 or T2
     :param j_args: Dictionary containing all args from parameter .JSON file
     :param logger: logging.Logger object to show messages and raise warnings
     :return: String, valid path to existing image reverted to native
@@ -1227,7 +1228,6 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
     # padding isn't necessary; revert aseg to native space
     dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
     shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
-    t = 2 if not j_args["ID"]["has_T1w"] else 1
 
     seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
     preBIBSnet_mat_glob = os.path.join(
@@ -1241,9 +1241,9 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
 
     run_FSL_sh_script(j_args, logger, "flirt", "-applyxfm",
                       "-ref", xfm_ref_img, "-in", dummy_copy,
-                      "-init", seg2native, "-o", nifti_file_paths["native"],
+                      "-init", seg2native, "-o", nifti_file_paths[f"native-T{t}"],
                       "-interp", "nearestneighbour")
-    return nifti_file_paths["native"]
+    return nifti_file_paths[f"native-T{t}"]
 
 
 def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
