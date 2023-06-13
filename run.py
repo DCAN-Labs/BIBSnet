@@ -537,7 +537,7 @@ def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
 
     # Read in sessions.tsv
     tsv_df = pd.read_csv(
-        tsv_path, delim_whitespace=True, index_col=ID_col ##, dtype=columns
+        tsv_path, delim_whitespace=True, index_col=ID_col, dtype=object ##this might need to be dtype_backend instead (I don't think so though)
     )
 
     print(tsv_df)
