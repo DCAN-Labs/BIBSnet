@@ -1,5 +1,8 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
+# Manually update the CABINET version when building
+ENV CABINET_VERSION="2.4.3"
+
 # Prepare environment
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

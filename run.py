@@ -47,8 +47,8 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 from src.utilities import (
     apply_final_prebibsnet_xfms, as_cli_attr, as_cli_arg, correct_chirality, 
     create_anatomical_averages, crop_image, dilate_LR_mask, ensure_prefixed,
-    exit_with_time_info, extract_from_json, get_age_closest_to,
-    get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
+    exit_with_time_info, extract_from_json, generate_sidecar_json,
+    get_age_closest_to, get_and_make_preBIBSnet_work_dirs, get_optional_args_in,
     get_preBIBS_final_img_fpath_T, get_stage_name, get_subj_ID_and_session,
     get_template_age_closest_to, make_given_or_default_dir,
     only_Ts_needed_for_bibsnet_model, register_preBIBSnet_imgs_ACPC, 
@@ -810,6 +810,12 @@ def run_postBIBSnet(j_args, logger):
         os.makedirs(derivs_dir, exist_ok=True)
         copy_to_derivatives_dir(nii_outfpath, derivs_dir, sub_ses, t, "aseg_dseg")
         copy_to_derivatives_dir(aseg_mask, derivs_dir, sub_ses, t, "brain_mask")
+        input_path = os.path.join(j_args["common"]["bids_dir"],
+                                               *sub_ses, "anat",
+                                               f"*T{t}w.nii.gz")
+        reference_path = glob(input_path)[0]
+        generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, "aseg_dseg")
+        generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, "brain_mask")
 
     # Copy dataset_description.json into bibsnet_derivs_dir directory for use in nibabies
     new_data_desc_json = os.path.join(bibsnet_derivs_dir, "dataset_description.json")
