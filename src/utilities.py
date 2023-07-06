@@ -620,7 +620,7 @@ def extract_from_json(json_path):
 def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     """
     :param sub_ses: List with either only the subject ID str or the session too
-    :param reference: String, filepath to the referenced image
+    :param reference_path: String, filepath to the referenced image
     :param derivs_dir: String, directory to place the output JSON
     :param t: 1 or 2, T1w or T2w
     :param desc: the type of image the sidecar json is being paired with
