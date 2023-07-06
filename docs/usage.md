@@ -1,6 +1,6 @@
 ## Usage
 
-[CABINET](https://github.com/DCAN-Labs/CABINET) can be run with either a CPU or GPU. The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
+[CABINET](https://github.com/DCAN-Labs/CABINET) can only be run with a GPU, and cannot currently be run with a CPU. The BIBSnet portion of CABINET needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
 
 ### Command-Line Arguments
 
@@ -112,7 +112,7 @@ The repository contains two parameter files, one recommended to run CABINET insi
 
 ### Container
 
-When running CABINET using a GPU, the job typically takes about 45 minutes, 20 tasks, and one node with 40 gb of memory to run effectively. When running CABINET with a CPU, the job typically takes about 1.5 hours, 20 tasks, and a node with 80 gb of memory to run effectively. Less memory could result in holes in the segmentation produced by BIBSnet.
+When running CABINET using a GPU, the job typically takes about 45 minutes, 20 tasks, and one node with 40 gb of memory to run effectively. Less memory could result in holes in the segmentation produced by BIBSnet.
 
 This has been primarily tested in Singularity. We are less able to provide technical support for Docker execution.
 
