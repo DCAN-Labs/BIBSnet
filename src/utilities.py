@@ -633,14 +633,14 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     bids_version = "1.4.0"
 
     reference = os.path.basename(reference_path)
-    spatial_reference = f"{sub_ses[1]}/anat/{reference}"
+    spatial_reference = '/'.join(sub_ses) + f"/anat/{reference}"
 
     sidecar["SpatialReference"] = spatial_reference
     sidecar["BIDSVersion"] = bids_version
     sidecar["GeneratedBy"][0]["Version"] = version
     sidecar["GeneratedBy"][0]["Container"]["Tag"] = f"dcanumn/cabinet:{version}"
     
-    filename = f"{sub_ses[0]}_{sub_ses[1]}_space-T{t}w_desc-{desc}.json"
+    filename = '_'.join(sub_ses) + f"_space-T{t}w_desc-{desc}.json"
     file_path = os.path.join(derivs_dir, filename)
 
     with open(file_path, "w+") as file:
