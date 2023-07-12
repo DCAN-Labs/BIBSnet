@@ -1,0 +1,16 @@
+{
+  "Name": "CABINET Outputs",
+  "BIDSVersion": "1.4.0",
+  "DatasetType": "derivative",
+  "GeneratedBy": [
+    {
+      "Name": "CABINET",
+      "Version": "VERSION",
+      "Container": {
+        "Type": "docker",
+        "Tag": "dcanumn/cabinet:VERSION"
+        }
+    }
+  ],
+  "SpatialReference":""
+}
