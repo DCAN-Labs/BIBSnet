@@ -538,22 +538,6 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
                 raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
             else:
                 col_value = get_col_value_from_tsv(j_args, logger, tsv_df, ID_col, col_name, sub_ses)
-
-    # try:
-    #     desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
-    #     if desired_output == None:
-    #     # if not desired_output:
-    #         raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-    # except ValueError as exception:
-    #     logger.info(exception)
-    #     if ID_col == "participant_id":
-    #         pass
-    #     else:
-    #         ID_col = "participant_id"
-    #         tsv_path = participant_tsv_path
-    #         desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
-    #         if not desired_output:
-    #             logger.error("Did not find {} in {}".format(col_name, tsv_path))
         
     return col_value
 
