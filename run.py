@@ -515,29 +515,33 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
 
     tsv_path = session_tsv_path if ID_col == "session_id" else participant_tsv_path
 
-    try:
-        desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
-        if not desired_output:
-            raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-    except ValueError as exception:
-        logger.info(exception)
-        if ID_col == "participant_id":
-            pass
-        else:
-            ID_col = "participant_id"
-            tsv_path = participant_tsv_path
-            desired_output = get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses)
-            if not desired_output:
-                logger.error("Did not find {} in {}".format(col_name, tsv_path))
-        
-    return desired_output
-
-def get_col_value_from_tsv(j_args, logger, tsv_path, ID_col, col_name, sub_ses):
-    # Read in sessions.tsv
     tsv_df = pd.read_csv(
         tsv_path, delim_whitespace=True, index_col=ID_col
     )
+    # Check if column name exists in either tsv, grab the value if column name exists
+    try:
+        if col_name not in tsv_df.columns:
+            raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
+        else:
+            col_value = get_col_value_from_tsv(j_args, logger, tsv_df, ID_col, col_name, sub_ses)
+    except ValueError as exception:
+        logger.info(exception)
+        if ID_col == "participant_id":
+            pass 
+        else:
+            ID_col = "participant_id"
+            tsv_path = participant_tsv_path
+            tsv_df = pd.read_csv(
+                tsv_path, delim_whitespace=True, index_col=ID_col
+            )
+            if col_name not in tsv_df.columns:
+                raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
+            else:
+                col_value = get_col_value_from_tsv(j_args, logger, tsv_df, ID_col, col_name, sub_ses)
+        
+    return col_value
 
+def get_col_value_from_tsv(j_args, logger, tsv_df, ID_col, col_name, sub_ses):
     # Get and return the col_name value from sessions.tsv
 
     subj_row = tsv_df.loc[
