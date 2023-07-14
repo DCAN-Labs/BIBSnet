@@ -518,6 +518,7 @@ def read_from_tsv(j_args, logger, col_name, *sub_ses):
     tsv_df = pd.read_csv(
         tsv_path, delim_whitespace=True, index_col=ID_col
     )
+    
     # Check if column name exists in either tsv, grab the value if column name exists
     try:
         if col_name not in tsv_df.columns:
