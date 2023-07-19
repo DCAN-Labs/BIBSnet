@@ -64,17 +64,13 @@ def main():
     logger = make_logger()  # Make object to log error/warning/status messages
 
     # Get and validate command-line arguments and parameters from .JSON file
-    STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet, run_nibabies,
-              run_XCPD]
-    json_args, sub_ses_IDs = get_params_from_JSON([get_stage_name(stg) for stg
-                                                   in STAGES], logger)  # TODO Un-capitalize "BIBS" everywhere (except import BIBSnet.run?)
-
+    json_args, sub_ses_IDs = get_params_from_JSON(logger)
+    STAGES = json_args['stages'].keys()
     # Set output dir environment variable for BIBSnet to user-defined output dir
     os.environ["nnUNet_raw_data_base"] = json_args["optional_out_dirs"]["derivatives"]
     
     # Run every stage that the parameter file says to run
-    run_all_stages(STAGES, sub_ses_IDs, json_args["stage_names"]["start"],
-                   json_args["stage_names"]["end"], json_args, logger)
+    run_all_stages(STAGES, sub_ses_IDs, json_args, logger)
     # TODO default to running all stages if not specified by the user
 
     # Show user how long the pipeline took and end the pipeline here
@@ -93,14 +89,10 @@ def make_logger():
     return logging.getLogger(os.path.basename(sys.argv[0]))
 
 
-def get_params_from_JSON(stage_names, logger):
+def get_params_from_JSON(logger):
     """
-    :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
-    default_end_stage = "postbibsnet"  # TODO Change to stage_names[-1] once nibabies and XCPD run from CABINET
-    msg_stage = ("Name of the stage to run {}. By default, this will be "
-                 "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser("CABINET")
     # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
 
@@ -151,11 +143,6 @@ def get_params_from_JSON(stage_names, logger):
               "subject-level.")
     )
     parser.add_argument(
-        "-end", "--ending-stage", dest="end",
-        choices=stage_names[:3], default=default_end_stage,  # TODO change to choices=stage_names,
-        help=msg_stage.format("last", default_end_stage, ", ".join(stage_names[:3]))
-    )
-    parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
@@ -176,11 +163,6 @@ def get_params_from_JSON(stage_names, logger):
         "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
         help=("The name of the session to processes participant data for. "
               "Example: baseline_year1")
-    )
-    parser.add_argument(
-        "-start", "--starting-stage", dest="start",
-        choices=stage_names[:3], default=stage_names[0],   # TODO Change default to start where we left off by checking which stages' prerequisites and outputs already exist
-        help=msg_stage.format("first", stage_names[0], ", ".join(stage_names[:3]))  # TODO Change to include all stage names; right now it just includes the segmentation pipeline
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true",
@@ -208,14 +190,12 @@ def get_params_from_JSON(stage_names, logger):
               "script. Include this argument if and only if you are running "
               "the script as a SLURM/SBATCH job.")
     )
-    return validate_cli_args(vars(parser.parse_args()), stage_names,
-                             parser, logger)
+    return validate_cli_args(vars(parser.parse_args()), parser, logger)
 
 
-def validate_cli_args(cli_args, stage_names, parser, logger):
+def validate_cli_args(cli_args, parser, logger):
     """
     :param cli_args: Dictionary containing all command-line input arguments
-    :param stage_names: List of strings naming stages to run (in order)
     :param logger: logging.Logger object to show messages and raise warnings
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Tuple of 2 objects:
@@ -230,15 +210,8 @@ def validate_cli_args(cli_args, stage_names, parser, logger):
     j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
                       "slurm": bool(cli_args[script_dir_attr])}
 
-    # Crash immediately if the end is given as a stage that happens before start
-    if (stage_names.index(cli_args["start"])
-            > stage_names.index(cli_args["end"])):
-        parser.error("Error: {} stage must happen before {} stage."
-                     .format(cli_args["start"], cli_args["end"]))
-
+    stage_names = j_args['stages'].keys()
     # Add command-line arguments to j_args
-    j_args["stage_names"] = {"start": cli_args["start"],
-                             "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
     for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 

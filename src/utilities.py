@@ -1316,15 +1316,12 @@ def run_FSL_sh_script(j_args, logger, fsl_fn_name, *fsl_args):
     # pdb.set_trace()  # TODO Add "debug" flag?
 
 
-def run_all_stages(all_stages, sub_ses_IDs, start, end,
-                   ubiquitous_j_args, logger):
+def run_all_stages(all_stages, sub_ses_IDs, ubiquitous_j_args, logger):
     """
     Run stages sequentially, starting and ending at stages specified by user
     :param all_stages: List of functions in order where each runs one stage
     :param sub_ses_IDs: List of dicts mapping "age_months", "subject",
                         "session", etc. to unique values per subject session
-    :param start: String naming the first stage the user wants to run
-    :param end: String naming the last stage the user wants to run
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     :param logger: logging.Logger object to show messages and raise warnings
     """
@@ -1349,18 +1346,47 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
 
         # ...run all stages that the user said to run
         for stage in all_stages:
-            name = get_stage_name(stage)
-            if name == start:
+            if stage == all_stages[0]:
                 running = True
             if running:
                 stage_start = datetime.now()
                 if sub_ses_j_args["common"]["verbose"]:
                     logger.info("Now running {} stage on:\n{}"
-                                .format(name, sub_ses_j_args["ID"]))
-                sub_ses_j_args = stage(sub_ses_j_args, logger)
-                log_stage_finished(name, stage_start, sub_ses, logger)
-            if name == end:
+                                .format(stage, sub_ses_j_args["ID"]))
+                run_stage(stage, sub_ses_j_args, logger)
+                log_stage_finished(stage, stage_start, sub_ses, logger)
+            if stage == all_stages[-1]:
                 running = False
+
+def run_stage(stage, sub_ses_j_args, logger):
+    '''
+    :param stage: String, name of the stage to run
+    :param sub_ses_j_args: Dictionary, copy of j_args with subject ID session ID and age added
+    :param logger: logging.Logger object to show messages and raise warnings
+    '''
+    if sub_ses_j_args['common']['container_type'] == 'singularity':
+        binds = get_binds(sub_ses_j_args['containers'][stage]['binds'])
+        run_args = get_optional_args_in(sub_ses_j_args['containers'][stage]['run_args'])
+        container = sub_ses_j_args['containers'][stage]['path']
+        stage_args = get_optional_args_in(sub_ses_j_args['stages'][stage])
+        try:
+            subprocess.check_call(["singularity", "run", *binds, *run_args, container, *stage_args])
+        except Exception:
+            logger.exception(f"Error running {stage}")
+    else:
+        pass
+
+def get_binds(b_dict):
+    '''
+    :param b_dict: Dictionary, dict where keys are paths on the host and values are paths in the container
+    :return binds: list of formatted binds for use in subprocess.check_call
+    '''
+    binds = []
+    for host_bind, container_bind in b_dict.items():
+        binds.append("-B")
+        binds.append(f"{host_bind}:{container_bind}")
+        
+    return binds
 
 
 def split_2_exts(a_path):
