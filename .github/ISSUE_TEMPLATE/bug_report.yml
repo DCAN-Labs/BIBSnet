@@ -29,6 +29,12 @@ body:
     validations:
       required: true
   - type: textarea
+    id: tree
+    attributes:
+      label: Directory Structure
+      description: Please include a tree output to show your directory structure. [See this link for assistance](https://www.cyberciti.biz/faq/linux-show-directory-structure-command-line/) 
+      placeholder: Directory Structure
+  - type: textarea
     id: logs
     attributes:
       label: Relevant log output
