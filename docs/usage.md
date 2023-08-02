@@ -47,7 +47,7 @@ optional arguments:
                         be inferred from CABINET/data/models.csv based on
                         which data exists in the --bids-dir. BIBSnet will run 
                         model 514 by default for T1w-only, model 515 for 
-                        T2w-only, and model 551 for both T1w and T2w.
+                        T2w-only, and model 552 for both T1w and T2w.
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous CABINET
                         outputs in the derivatives sub-directories. Otherwise,
