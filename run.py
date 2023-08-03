@@ -48,7 +48,9 @@ def main():
     logger = make_logger()  # Make object to log error/warning/status messages
 
     # Get and validate command-line arguments and parameters from .JSON file
-    json_args = get_params_from_JSON()
+    args = get_args()
+    logger.info(f"args: {args}")
+    json_args = extract_from_json(args.parameter_json)
     STAGES = json_args['stages'].keys()
     
     # Run every stage that the parameter file says to run
@@ -71,7 +73,7 @@ def make_logger():
     return logging.getLogger(os.path.basename(sys.argv[0]))
 
 
-def get_params_from_JSON():
+def get_args():
     """
     :return: Dictionary containing all parameters from parameter .JSON file
     """
@@ -89,7 +91,7 @@ def get_params_from_JSON():
         # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
     )
     args = parser.parse_args()
-    return extract_from_json(args['parameter_json'])
+    return args
 
 if __name__ == "__main__":
     main()
