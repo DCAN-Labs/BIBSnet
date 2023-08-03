@@ -1,5 +1,5 @@
 {
-    "common": {
+    "cabinet": {
         "container_type": "singularity",
         "verbose": true
     },

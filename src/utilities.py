@@ -14,17 +14,9 @@ import json
 import os
 import subprocess
 import sys
+import logging
 
 # NOTE All functions below are in alphabetical order.
-
-def argify(argname, argval):
-    """
-    :param argname: String naming a parameter for a script called from terminal
-    :param argval: Object to assign in string form as the value of the argument
-    :return: String, a parameter assignment for a script called from terminal
-    """
-    return "--{}={}".format(argname, argval)
-
 
 def as_cli_arg(arg_str):
     """
@@ -33,21 +25,13 @@ def as_cli_arg(arg_str):
     """
     return "--" + arg_str.replace("_", "-")
 
-
-def as_cli_attr(cli_arg_str):
-    """
-    :param cli_arg_str: String in command-line argument form
-    :return: cli_arg_str, but formatted as a stored command-line argument
-    """
-    return cli_arg_str.strip("-").replace("-", "_")
-
 def exit_with_time_info(start_time, exit_code=0):
     """
     Terminate the pipeline after displaying a message showing how long it ran
     :param start_time: datetime.datetime object of when the script started
     :param exit_code: exit code
     """
-    print("The pipeline for this subject took this long to run {}: {}"
+    print("The pipeline took this long to run {}: {}"
           .format("successfully" if exit_code == 0 else "and then crashed",
                   datetime.now() - start_time))
     sys.exit(exit_code)
@@ -59,6 +43,23 @@ def extract_from_json(json_path):
     """
     with open(json_path, "r") as infile:
         return json.load(infile)
+
+def get_args():
+    """
+    :return args: Namespace object containing the command line arguments
+    """
+    parser = argparse.ArgumentParser("CABINET")
+
+    # Required flag arguments
+    parser.add_argument(
+        "-jargs", "-params", "--parameter-json", dest="parameter_json",
+        type=valid_readable_json, required=True,
+        help=("Required. Valid path to existing readable parameter .JSON "
+              "file. See README.md and example parameter .JSON files for more "
+              "information on parameters.")
+    )
+    args = parser.parse_args()
+    return args
 
 def get_binds(to_bind):
     '''
@@ -103,6 +104,18 @@ def log_stage_finished(stage_name, event_time, logger):
                 "Time elapsed since {0} started: {1}"
                 .format(stage_name, datetime.now() - event_time))
 
+def make_logger():
+    """
+    Make logger to log status updates, warnings, and other important info
+    :return: logging.Logger able to print info to stdout and problems to stderr
+    """  # TODO Incorporate pprint to make printed JSONs/dicts more readable
+    fmt = "\n%(levelname)s %(asctime)s: %(message)s"
+    logging.basicConfig(stream=sys.stdout, format=fmt, level=logging.INFO)  
+    logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.ERROR)
+    logging.basicConfig(stream=sys.stderr, format=fmt, level=logging.WARNING)
+    return logging.getLogger(os.path.basename(sys.argv[0]))
+
+
 def run_all_stages(all_stages, j_args, logger):
     """
     Run stages sequentially, starting and ending at stages specified by user
@@ -112,14 +125,14 @@ def run_all_stages(all_stages, j_args, logger):
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     :param logger: logging.Logger object to show messages and raise warnings
     """
-    if j_args["common"]["verbose"]:
+    if j_args["cabinet"]["verbose"]:
         logger.info("All parameters from input args and input .JSON file:\n{}"
                     .format(j_args))
 
     # ...run all stages that the user said to run
     for stage in all_stages:
         stage_start = datetime.now()
-        if j_args["common"]["verbose"]:
+        if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
                         .format(stage))
         run_stage(stage, j_args, logger)
@@ -132,7 +145,7 @@ def run_stage(stage, j_args, logger):
     :param j_args: Dictionary, copy of j_args
     :param logger: logging.Logger object to show messages and raise warnings
     '''
-    if j_args['common']['container_type'] == 'singularity':
+    if j_args['cabinet']['container_type'] == 'singularity':
         binds = get_binds(j_args['stages'][stage]['binds'])
         run_args = get_optional_args_in(j_args['stages'][stage]['run_args'])
         container = j_args['stages'][stage]['container_path']

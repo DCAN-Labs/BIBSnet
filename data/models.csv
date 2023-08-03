@@ -1,6 +1,0 @@
-model_num,T1w,T2w,is_default,description,sørensen_dice_coefficient,image_augmentation,details
-551,TRUE,TRUE,TRUE,"Default model for both T1w and T2w","not applicable",TRUE,"not applicable"
-513,TRUE,TRUE,FALSE,"Like 512, but no image augmentation",0.89,FALSE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/513/Task513.md"
-514,TRUE,FALSE,TRUE,"T1-only model","https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/514/514-by-age.md",TRUE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/514/514.md"
-515,FALSE,TRUE,TRUE,"T2-only model","https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/515/515-by-age.md",TRUE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/515/515.md"
-526,TRUE,TRUE,FALSE,"Like 512, but trained on all data. No test set.","not applicable",TRUE,"not applicable"
