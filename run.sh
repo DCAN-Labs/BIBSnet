@@ -20,4 +20,4 @@ singularity=`which singularity`
 
 # conda activate /home/support/public/pytorch_1.11.0_agate
 
-./run.py
+./run.py -jargs parameter-file-application.json
