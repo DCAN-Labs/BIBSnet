@@ -136,9 +136,8 @@ def run_stage(stage, j_args, logger):
         binds = get_binds(j_args['stages'][stage]['binds'])
         run_args = get_optional_args_in(j_args['stages'][stage]['run_args'])
         container = j_args['stages'][stage]['container_path']
-        positional_stage_args =j_args['stages'][stage]['stage_args']
+        positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
         flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
-        logger.info(f"binds: {binds}\nrun_args: {run_args}\ncontainer: {container}\npositional_stage_args: {positional_stage_args}\nflag_stage_args: {flag_stage_args}\n")
         try:
             subprocess.check_call(["singularity", "run", *binds, *run_args, container, *positional_stage_args *flag_stage_args])
         except Exception:
