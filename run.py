@@ -13,7 +13,6 @@ from datetime import datetime
 from glob import glob
 import logging
 import math
-from nipype.interfaces import fsl
 import os
 import pandas as pd
 import shutil
