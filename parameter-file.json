@@ -4,15 +4,6 @@
         "verbose": true
     },
 
-    "resource_management": {
-        "mem_mb": null,
-        "n_cpus": null,
-        "nipype_plugin_file": null,
-        "nthreads": null,
-        "omp_nthreads": null,
-        "resource_monitor": null
-    },
-
     "stages": {
         "bibsnet": {
             "container_path": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
