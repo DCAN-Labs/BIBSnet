@@ -1365,10 +1365,10 @@ def run_stage(stage, sub_ses_j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     '''
     if sub_ses_j_args['common']['container_type'] == 'singularity':
-        binds = get_binds(sub_ses_j_args['containers'][stage]['binds'])
-        run_args = get_optional_args_in(sub_ses_j_args['containers'][stage]['run_args'])
-        container = sub_ses_j_args['containers'][stage]['path']
-        stage_args = get_optional_args_in(sub_ses_j_args['stages'][stage])
+        binds = get_binds(sub_ses_j_args['stages'][stage]['binds'])
+        run_args = get_optional_args_in(sub_ses_j_args['stages'][stage]['run_args'])
+        container = sub_ses_j_args['stages'][stage]['container_path']
+        stage_args = get_optional_args_in(sub_ses_j_args['stages'][stage]['stage_args'])
         try:
             subprocess.check_call(["singularity", "run", *binds, *run_args, container, *stage_args])
         except Exception:
@@ -1376,15 +1376,15 @@ def run_stage(stage, sub_ses_j_args, logger):
     else:
         pass
 
-def get_binds(b_dict):
+def get_binds(to_bind):
     '''
-    :param b_dict: Dictionary, dict where keys are paths on the host and values are paths in the container
+    :param to_bind: List of dicts, list of dicts with 'host_path' and 'container_path'
     :return binds: list of formatted binds for use in subprocess.check_call
     '''
     binds = []
-    for host_bind, container_bind in b_dict.items():
+    for bind in to_bind:
         binds.append("-B")
-        binds.append(f"{host_bind}:{container_bind}")
+        binds.append(f"{bind['host_path']}:{bind['container_path']}")
         
     return binds
 
