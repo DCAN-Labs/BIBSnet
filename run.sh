@@ -14,16 +14,10 @@
 #SBATCH -A faird
 
 module load singularity
+module load python
 
 singularity=`which singularity`
 
 # conda activate /home/support/public/pytorch_1.11.0_agate
 
-/usr/bin/singularity run --nv \
--B /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/input/:/input \
--B /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/:/output \
--B /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/:/work \
-/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_derivative-json.sif \
-/input /output participant -jargs /home/cabinet/parameter-file-container.json -start prebibsnet -end postbibsnet -v \
---participant-label M1003 \
--w /work
+./run.py
