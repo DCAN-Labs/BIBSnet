@@ -31,7 +31,7 @@ def as_cli_arg(arg_str):
     :param arg_str: String naming a stored argument taken from the command line
     :return: String which is the command-line argument form of arg_str
     """
-    return "--" + arg_str
+    return "--" + arg_str.replace("_", "-")
 
 
 def as_cli_attr(cli_arg_str):
@@ -126,19 +126,20 @@ def run_all_stages(all_stages, j_args, logger):
         log_stage_finished(stage, stage_start, logger)
 
 
-def run_stage(stage, sub_ses_j_args, logger):
+def run_stage(stage, j_args, logger):
     '''
     :param stage: String, name of the stage to run
-    :param sub_ses_j_args: Dictionary, copy of j_args with subject ID session ID and age added
+    :param j_args: Dictionary, copy of j_args
     :param logger: logging.Logger object to show messages and raise warnings
     '''
-    if sub_ses_j_args['common']['container_type'] == 'singularity':
-        binds = get_binds(sub_ses_j_args['stages'][stage]['binds'])
-        run_args = get_optional_args_in(sub_ses_j_args['stages'][stage]['run_args'])
-        container = sub_ses_j_args['stages'][stage]['container_path']
-        stage_args = get_optional_args_in(sub_ses_j_args['stages'][stage]['stage_args'])
+    if j_args['common']['container_type'] == 'singularity':
+        binds = get_binds(j_args['stages'][stage]['binds'])
+        run_args = get_optional_args_in(j_args['stages'][stage]['run_args'])
+        container = j_args['stages'][stage]['container_path']
+        positional_stage_args =j_args['stages'][stage]['stage_args']
+        flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
         try:
-            subprocess.check_call(["singularity", "run", *binds, *run_args, container, *stage_args])
+            subprocess.check_call(["singularity", "run", *binds, *run_args, container, *positional_stage_args *flag_stage_args])
         except Exception:
             logger.exception(f"Error running {stage}")
     else:

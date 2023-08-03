@@ -35,15 +35,17 @@
                 }
             ],
             "stage_args": {
-                "bids_dir":"/input",
-                "output_dir":"/output",
-                "analysis_level":"participant",
-                "parameter-json":"/home/cabinet/parameter-file-container.json",
-                "starting-stage":"prebibsnet",
-                "ending-stage":"postbibsnet",
-                "verbose": true,
-                "participant-label":"M1003",
-                "work_dir":"/work"
+                "positional_args": [
+                    "/input", "/output", "participant"
+                ],
+                "flags": {
+                    "parameter-json":"/home/cabinet/parameter-file-container.json",
+                    "starting-stage":"prebibsnet",
+                    "ending-stage":"postbibsnet",
+                    "verbose": true,
+                    "participant-label":"M1003",
+                    "work_dir":"/work"
+                }
             }
         }
     }
