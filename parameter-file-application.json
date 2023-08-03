@@ -1,7 +1,5 @@
 {
     "common": {
-        "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
-        "task_id": null,
         "container_type": "singularity",
         "verbose": true
     },
@@ -32,7 +30,7 @@
                     "container_path":"/output"
                 },
                 {
-                    "host_path":"home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
                     "container_path":"/work"
                 }
             ],

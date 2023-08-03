@@ -1,0 +1,50 @@
+{
+    "common": {
+        "container_type": "singularity",
+        "verbose": true
+    },
+
+    "resource_management": {
+        "mem_mb": null,
+        "n_cpus": null,
+        "nipype_plugin_file": null,
+        "nthreads": null,
+        "omp_nthreads": null,
+        "resource_monitor": null
+    },
+
+    "stages": {
+        "bibsnet": {
+            "container_path": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
+            "run_args": {
+                "cleanenv": true,
+                "nv": true
+            },
+            "binds": [
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/input/",
+                    "container_path":"/input"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/",
+                    "container_path":"/output"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
+                    "container_path":"/work"
+                }
+            ],
+            "stage_args": {
+                "bids_dir":"/input",
+                "output_dir":"/output",
+                "analysis_level":"/participant",
+                "parameter-json":"/home/cabinet/parameter-file-container.json",
+                "starting-stage":"prebibsnet",
+                "ending-stage":"postbibsnet",
+                "verbose": true,
+                "participant-label":"M1003",
+                "work_dir":"/work"
+            }
+        }
+    }
+}

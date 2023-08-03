@@ -49,9 +49,10 @@ def main():
 
     # Get and validate command-line arguments and parameters from .JSON file
     args = get_args()
-    logger.info(f"args: {args}")
+    logger.info(f"Getting Arguments from arg file: {args}")
     json_args = extract_from_json(args.parameter_json)
     STAGES = json_args['stages'].keys()
+    logger.info(f"Identified stages to be run: {STAGES}")
     
     # Run every stage that the parameter file says to run
     run_all_stages(STAGES, json_args, logger)
