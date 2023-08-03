@@ -51,7 +51,7 @@ def main():
     args = get_args()
     logger.info(f"Getting Arguments from arg file: {args}")
     json_args = extract_from_json(args.parameter_json)
-    STAGES = json_args['stages'].keys()
+    STAGES = list(json_args['stages'].keys())
     logger.info(f"Identified stages to be run: {STAGES}")
     
     # Run every stage that the parameter file says to run
