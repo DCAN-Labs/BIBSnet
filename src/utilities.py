@@ -31,7 +31,7 @@ def as_cli_arg(arg_str):
     :param arg_str: String naming a stored argument taken from the command line
     :return: String which is the command-line argument form of arg_str
     """
-    return "--" + arg_str.replace("_", "-")
+    return "--" + arg_str
 
 
 def as_cli_attr(cli_arg_str):
