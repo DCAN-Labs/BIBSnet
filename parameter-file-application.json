@@ -2,7 +2,8 @@
     "common": {
         "fsl_bin_path": "/panfs/roc/msisoft/fsl/6.0.2/bin/",
         "task_id": null,
-        "container_type": "singularity"
+        "container_type": "singularity",
+        "verbose": true
     },
 
     "resource_management": {
