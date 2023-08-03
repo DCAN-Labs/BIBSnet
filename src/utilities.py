@@ -120,7 +120,7 @@ def run_all_stages(all_stages, j_args, logger):
     for stage in all_stages:
         stage_start = datetime.now()
         if j_args["common"]["verbose"]:
-            logger.info("Now running {} stage\n"
+            logger.info("Now running stage: {}\n"
                         .format(stage))
         run_stage(stage, j_args, logger)
         log_stage_finished(stage, stage_start, logger)
@@ -138,6 +138,7 @@ def run_stage(stage, j_args, logger):
         container = j_args['stages'][stage]['container_path']
         positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
         flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
+        logger.info(f"binds: {binds}\nrun_args: {run_args}\ncontainer: {container}\npositional_stage_args: {positional_stage_args}\nflag_stage_args: {flag_stage_args}\n")
         try:
             subprocess.check_call(["singularity", "run", *binds, *run_args, container, *positional_stage_args *flag_stage_args])
         except Exception:
