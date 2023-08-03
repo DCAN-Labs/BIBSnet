@@ -11,7 +11,6 @@ Updated: 2023-01-26
 import argparse
 from datetime import datetime  # for seeing how long scripts take to run
 import json
-import numpy as np
 import os
 import subprocess
 import sys
@@ -52,6 +51,14 @@ def exit_with_time_info(start_time, exit_code=0):
           .format("successfully" if exit_code == 0 else "and then crashed",
                   datetime.now() - start_time))
     sys.exit(exit_code)
+
+def extract_from_json(json_path):
+    """
+    :param json_path: String, a valid path to a real readable .json file
+    :return: Dictionary, the contents of the file at json_path
+    """
+    with open(json_path, "r") as infile:
+        return json.load(infile)
 
 def get_binds(to_bind):
     '''

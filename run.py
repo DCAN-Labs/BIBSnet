@@ -39,7 +39,7 @@ TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 # Custom local imports
 from src.utilities import (
-    exit_with_time_info, run_all_stages, valid_readable_json,
+    exit_with_time_info, run_all_stages, valid_readable_json, extract_from_json
 )
 
 
@@ -50,8 +50,6 @@ def main():
     # Get and validate command-line arguments and parameters from .JSON file
     json_args = get_params_from_JSON()
     STAGES = json_args['stages'].keys()
-    # Set output dir environment variable for BIBSnet to user-defined output dir
-    os.environ["nnUNet_raw_data_base"] = json_args["optional_out_dirs"]["derivatives"]
     
     # Run every stage that the parameter file says to run
     run_all_stages(STAGES, json_args, logger)
@@ -90,7 +88,8 @@ def get_params_from_JSON():
         # TODO: Add description of all nibabies and XCP-D parameters to the README?
         # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return extract_from_json(args['parameter_json'])
 
 if __name__ == "__main__":
     main()
