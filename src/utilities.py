@@ -12,11 +12,8 @@ import argparse
 from datetime import datetime  # for seeing how long scripts take to run
 from glob import glob
 import json
-import nibabel as nib
-from nipype.interfaces import fsl
 import numpy as np
 import os
-import pdb
 import shutil
 import subprocess
 import sys
