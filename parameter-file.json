@@ -38,6 +38,49 @@
                     "work_dir":"/work"
                 }
             }
+        },
+        "nibabies": {
+            "container_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_unstable_04182023.sif",
+            "run_args": {
+                "cleanenv": true
+            },
+            "binds": [
+                {
+                    "host_path":"{data_dir}/bids_dir/sub-${subj_id}_ses-${ses_id}",
+                    "container_path":"/bids_dir"
+                },
+                {
+                    "host_path":"{data_dir}/processed/nibabies/sub-${subj_id}_ses-${ses_id}",
+                    "container_path":"/output_dir"
+                },
+                {
+                    "host_path":"{data_dir}/work_dir/nibabies/sub-${subj_id}_ses-${ses_id}",
+                    "container_path":"/wd"
+                },
+                {
+                    "host_path":"{run_dir}/license.txt",
+                    "container_path":"/opt/freesurfer/license.txt"
+                },
+                {
+                    "host_path":"{data_dir}/bids_dir/sub-${subj_id}_ses-${ses_id}/derivatives/bibsnet",
+                    "container_path":"/derivatives"
+                }
+            ],
+            "stage_args": {
+                "positional_args": [
+                    "/bids_dir", "/output_dir", "participant"
+                ],
+                "flags": {
+                    "omp-threads": 3,
+                    "resource-monitor": true,
+                    "cifti-output": "91k",
+                    "verbose": 2,
+                    "work-dir": "/wd", 
+                    "fd-radius": 35,
+                    "derivatives": "/derivatives",
+                    "age-months": 1
+                }
+            }
         }
     }
 }
