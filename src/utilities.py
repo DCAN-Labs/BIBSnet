@@ -52,8 +52,7 @@ def get_args():
 
     # Required flag arguments
     parser.add_argument(
-        "-jargs", "-params", "--parameter-json", dest="parameter_json",
-        type=valid_readable_json, required=True,
+        "parameter_json", type=valid_readable_json,
         help=("Required. Valid path to existing readable parameter .JSON "
               "file. See README.md and example parameter .JSON files for more "
               "information on parameters.")
