@@ -9,7 +9,7 @@ Updated: 2023-01-26
 """
 # Import standard libraries
 import argparse
-from datetime import datetime  # for seeing how long scripts take to run
+from datetime import datetime
 import json
 import os
 import subprocess
@@ -31,8 +31,8 @@ def exit_with_time_info(start_time, exit_code=0):
     :param start_time: datetime.datetime object of when the script started
     :param exit_code: exit code
     """
-    print("The pipeline took this long to run {}: {}"
-          .format("successfully" if exit_code == 0 else "and then crashed",
+    print("CABINET {}: {}"
+          .format("took this long to run all stages successfully" if exit_code == 0 else "ran for this long and then crashed",
                   datetime.now() - start_time))
     sys.exit(exit_code)
 
