@@ -1,0 +1,14 @@
+name: Question
+description: Ask a question about this project
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check our [documentation](https://cabinet.readthedocs.io/en/latest/) prior to asking a question here! 
+  - type: textarea
+    id: summary
+    attributes:
+      label: A short summary of a question you have for the CABINET development team.
+    validations:
+      required: true
