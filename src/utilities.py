@@ -50,7 +50,7 @@ def get_args():
     """
     parser = argparse.ArgumentParser("CABINET")
 
-    # Required flag arguments
+    # Required positional arguments
     parser.add_argument(
         "parameter_json", type=valid_readable_json,
         help=("Required. Valid path to existing readable parameter .JSON "
