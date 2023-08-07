@@ -11,5 +11,6 @@
 /src/img_processing/R_mask_holes_filled.nii.gz
 /src/img_processing/recombined_mask_LR.nii.gz
 /src/img_processing/Rmask.nii.gz
+/src/__pycache__/
 /data/*/
 **/trained_models
