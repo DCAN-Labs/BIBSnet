@@ -25,6 +25,8 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 
 <br />
 
+**NOTE:** For running the T1w- and T2w-only models, you need to remove the unused anatomical image. For example, if you're running the T1w-only model, remove the T2w images from the subject folder and vice versa. 
+
 ## 3. PostBIBSnet
 
 1. Generates a left-right mask and dilates it
