@@ -46,15 +46,15 @@
             },
             "binds": [
                 {
-                    "host_path":"{data_dir}/bids_dir/sub-${subj_id}_ses-${ses_id}",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/input/",
                     "container_path":"/bids_dir"
                 },
                 {
-                    "host_path":"{data_dir}/processed/nibabies/sub-${subj_id}_ses-${ses_id}",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/nibabies/",
                     "container_path":"/output_dir"
                 },
                 {
-                    "host_path":"{data_dir}/work_dir/nibabies/sub-${subj_id}_ses-${ses_id}",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
                     "container_path":"/wd"
                 },
                 {
@@ -62,7 +62,7 @@
                     "container_path":"/opt/freesurfer/license.txt"
                 },
                 {
-                    "host_path":"{data_dir}/bids_dir/sub-${subj_id}_ses-${ses_id}/derivatives/bibsnet",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/bibsnet/",
                     "container_path":"/derivatives"
                 }
             ],
