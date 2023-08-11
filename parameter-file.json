@@ -13,15 +13,15 @@
             },
             "binds": [
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/input/",
+                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/",
                     "container_path":"/input"
                 },
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/",
                     "container_path":"/output"
                 },
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
                     "container_path":"/work"
                 }
             ],
@@ -34,7 +34,7 @@
                     "starting-stage":"prebibsnet",
                     "ending-stage":"postbibsnet",
                     "verbose": true,
-                    "participant-label":"M1003",
+                    "participant-label":"470437",
                     "work_dir":"/work"
                 }
             }
@@ -46,23 +46,23 @@
             },
             "binds": [
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/input/",
+                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/",
                     "container_path":"/bids_dir"
                 },
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/nibabies/",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/nibabies/",
                     "container_path":"/output_dir"
                 },
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/work/",
-                    "container_path":"/wd"
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
+                    "container_path":"/work"
                 },
                 {
                     "host_path":"/home/faird/shared/code/external/utilities/freesurfer_license/license.txt",
                     "container_path":"/opt/freesurfer/license.txt"
                 },
                 {
-                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/derivatives/bibsnet/",
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/bibsnet/",
                     "container_path":"/derivatives"
                 }
             ],
@@ -77,11 +77,50 @@
                     "resource-monitor": true,
                     "cifti-output": "91k",
                     "verbose": 2,
-                    "work-dir": "/wd", 
+                    "work-dir": "/work", 
                     "fd-radius": 35,
                     "derivatives": "/derivatives",
                     "age-months": 1,
-                    "participant-label":"M1003"
+                    "participant-label":"470437"
+                }
+            }
+        },
+        "xcpd": {
+            "container_path": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_0.5.0rc2.sif",
+            "run_args": {
+                "cleanenv": true
+            },
+            "binds": [
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
+                    "container_path":"/work"
+                },
+                {
+                    "host_path":"/home/faird/shared/code/external/utilities/freesurfer_license/license.txt",
+                    "container_path":"/opt/freesurfer/license.txt"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/",
+                    "container_path":"/output_dir"
+                }
+            ],
+            "stage_args": {
+                "positional_args": [
+                    "/output_dir/nibabies", "/output_dir/", "participant"
+                ],
+                "flags": {
+                    "input-type": "nibabies",
+                    "cifti": true,
+                    "despike":true,
+                    "resource-monitor": true,
+                    "dcan-qc": true,
+                    "work-dir": "/work",
+                    "omp-nthreads": 3,
+                    "warp-surfaces-native2std": true,
+                    "fd-thresh": 0.3,
+                    "combineruns": true,
+                    "verbose": 2,
+                    "participant-label": "470437" 
                 }
             }
         }
