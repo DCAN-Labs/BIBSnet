@@ -40,7 +40,7 @@
             }
         },
         "nibabies": {
-            "container_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_unstable_04182023.sif",
+            "container_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
             "run_args": {
                 "cleanenv": true
             },
@@ -58,7 +58,7 @@
                     "container_path":"/wd"
                 },
                 {
-                    "host_path":"{run_dir}/license.txt",
+                    "host_path":"/home/faird/shared/code/external/utilities/freesurfer_license/license.txt",
                     "container_path":"/opt/freesurfer/license.txt"
                 },
                 {
@@ -71,14 +71,17 @@
                     "/bids_dir", "/output_dir", "participant"
                 ],
                 "flags": {
-                    "omp-threads": 3,
+                    "project-goodvoxels": true,
+                    "surface-recon-method": "mcribs",
+                    "omp-nthreads": 3,
                     "resource-monitor": true,
                     "cifti-output": "91k",
                     "verbose": 2,
                     "work-dir": "/wd", 
                     "fd-radius": 35,
                     "derivatives": "/derivatives",
-                    "age-months": 1
+                    "age-months": 1,
+                    "participant-label":"M1003"
                 }
             }
         }
