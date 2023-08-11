@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH -t 2:00:00
+#SBATCH -t 12:00:00
 #SBATCH -N 1
 #SBATCH --ntasks 20
 #SBATCH --gres=gpu:1
@@ -8,10 +8,10 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=tikal004@umn.edu
 #SBATCH -p v100
-#SBATCH -o /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_bibsnet.out
-#SBATCH -e /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_bibsnet.err
+#SBATCH -o /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_cbaw.out
+#SBATCH -e /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_cbaw.err
 #SBATCH -J cabinet
-#SBATCH -A faird
+#SBATCH -A feczk001
 
 module load singularity
 module load python
