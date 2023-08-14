@@ -144,7 +144,10 @@ def run_stage(stage, j_args, logger):
         positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
         flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
 
-        action = "exec" if  j_args['stages'][stage]['exec'] else "run"
+        action = "run"
+        if 'exec' in j_args['stages'][stage].keys():
+            if j_args['stages'][stage].keys():
+                action = "exec"
 
         cmd = ["singularity", action, *binds, *run_args, container, *positional_stage_args, *flag_stage_args]
         logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
