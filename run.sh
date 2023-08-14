@@ -8,8 +8,8 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=tikal004@umn.edu
 #SBATCH -p v100
-#SBATCH -o /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_cbaw.out
-#SBATCH -e /home/feczk001/shared/projects/segpipeline_testing/Barry_test/roo_data/logs/%A_cbaw.err
+#SBATCH -o /home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/logs/%A_cbaw.out
+#SBATCH -e /home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/logs/%A_cbaw.err
 #SBATCH -J cabinet
 #SBATCH -A feczk001
 

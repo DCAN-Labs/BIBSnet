@@ -76,7 +76,7 @@
                     "omp-nthreads": 3,
                     "resource-monitor": true,
                     "cifti-output": "91k",
-                    "verbose": 2,
+                    "verbose": true,
                     "work-dir": "/work", 
                     "fd-radius": 35,
                     "derivatives": "/derivatives",
@@ -119,9 +119,22 @@
                     "warp-surfaces-native2std": true,
                     "fd-thresh": 0.3,
                     "combineruns": true,
-                    "verbose": 2,
+                    "verbose": true,
                     "participant-label": "470437" 
                 }
+            }
+        },
+        "lolcow": {
+            "container_path": "/home/faird/tikal004/lolcow.sif",
+            "run_args": {
+                "cleanenv": true
+            },
+            "binds":[],
+            "stage_args": {
+                "positional_args": [
+                    "cowsay", "\"Thank you for testing CABINET\""
+                ],
+                "flags": {}
             }
         }
     }
