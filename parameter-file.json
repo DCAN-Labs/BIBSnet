@@ -86,7 +86,7 @@
             }
         },
         "xcpd": {
-            "container_path": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_0.5.0rc2.sif",
+            "container_path": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_unstable_07172023a.sif",
             "run_args": {
                 "cleanenv": true
             },
