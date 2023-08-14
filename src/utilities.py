@@ -150,7 +150,10 @@ def run_stage(stage, j_args, logger):
         container = j_args['stages'][stage]['container_path']
         positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
         flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
-        cmd = ["singularity", "run", *binds, *run_args, container, *positional_stage_args, *flag_stage_args]
+
+        action = "exec" if  "exec" in j_args['stages'][stage].keys() else "run"
+
+        cmd = ["singularity", action, *binds, *run_args, container, *positional_stage_args, *flag_stage_args]
         logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
         try:
             subprocess.check_call(cmd)
