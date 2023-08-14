@@ -8,8 +8,8 @@
         "bibsnet": {
             "container_path": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
             "run_args": {
-                "cleanenv": true,
-                "nv": true
+                "--cleanenv": true,
+                "--nv": true
             },
             "binds": [
                 {
@@ -30,19 +30,19 @@
                     "/input", "/output", "participant"
                 ],
                 "flags": {
-                    "parameter-json":"/home/cabinet/parameter-file-container.json",
-                    "starting-stage":"prebibsnet",
-                    "ending-stage":"postbibsnet",
-                    "verbose": true,
-                    "participant-label":"470437",
-                    "work_dir":"/work"
+                    "--parameter-json":"/home/cabinet/parameter-file-container.json",
+                    "-start":"prebibsnet",
+                    "-end":"postbibsnet",
+                    "-v": true,
+                    "--participant-label":"470437",
+                    "-w":"/work"
                 }
             }
         },
         "nibabies": {
             "container_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
             "run_args": {
-                "cleanenv": true
+                "--cleanenv": true
             },
             "binds": [
                 {
@@ -71,17 +71,17 @@
                     "/bids_dir", "/output_dir", "participant"
                 ],
                 "flags": {
-                    "project-goodvoxels": true,
-                    "surface-recon-method": "mcribs",
-                    "omp-nthreads": 3,
-                    "resource-monitor": true,
-                    "cifti-output": "91k",
-                    "verbose": true,
-                    "work-dir": "/work", 
-                    "fd-radius": 35,
-                    "derivatives": "/derivatives",
-                    "age-months": 1,
-                    "participant-label":"470437"
+                    "--project-goodvoxels": true,
+                    "--surface-recon-method": "mcribs",
+                    "--omp-nthreads": 3,
+                    "--resource-monitor": true,
+                    "--cifti-output": "91k",
+                    "-vv": true,
+                    "-w": "/work", 
+                    "--fd-radius": 35,
+                    "--derivatives": "/derivatives",
+                    "--age-months": 1,
+                    "--participant-label":"470437"
                 }
             }
         },
@@ -102,6 +102,10 @@
                 {
                     "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/",
                     "container_path":"/output_dir"
+                },
+                {
+                    "host_path":"/home/faird/shared/code/external/pipelines/xcp_d_test_binds/20230712_fix-collection/xcp_d/xcp_d",
+                    "container_path":"/usr/local/miniconda/lib/python3.8/site-packages/xcp_d"
                 }
             ],
             "stage_args": {
@@ -109,18 +113,18 @@
                     "/output_dir/nibabies", "/output_dir/", "participant"
                 ],
                 "flags": {
-                    "input-type": "nibabies",
-                    "cifti": true,
-                    "despike":true,
-                    "resource-monitor": true,
-                    "dcan-qc": true,
-                    "work-dir": "/work",
-                    "omp-nthreads": 3,
-                    "warp-surfaces-native2std": true,
-                    "fd-thresh": 0.3,
-                    "combineruns": true,
-                    "verbose": true,
-                    "participant-label": "470437" 
+                    "--input-type": "nibabies",
+                    "--cifti": true,
+                    "--despike":true,
+                    "--resource-monitor": true,
+                    "--dcan-qc": true,
+                    "-w": "/work",
+                    "--omp-nthreads": 3,
+                    "--warp-surfaces-native2std": true,
+                    "-f": 0.3,
+                    "-m": true,
+                    "-vv": true,
+                    "--participant-label": "470437" 
                 }
             }
         },

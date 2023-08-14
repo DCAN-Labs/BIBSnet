@@ -18,13 +18,6 @@ import logging
 
 # NOTE All functions below are in alphabetical order.
 
-def as_cli_arg(arg_str):
-    """
-    :param arg_str: String naming a stored argument taken from the command line
-    :return: String which is the command-line argument form of arg_str
-    """
-    return "--" + arg_str.replace("_", "-")
-
 def exit_with_time_info(start_time, exit_code=0):
     """
     Terminate the pipeline after displaying a message showing how long it ran
@@ -81,7 +74,7 @@ def get_optional_args_in(a_dict):
     optional_args = list()
     for arg in a_dict.keys():
         if a_dict[arg]:
-            optional_args.append(as_cli_arg(arg))
+            optional_args.append(arg)
             if isinstance(a_dict[arg], list):
                 for el in a_dict[arg]:
                     optional_args.append(str(el))
@@ -151,7 +144,7 @@ def run_stage(stage, j_args, logger):
         positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
         flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
 
-        action = "exec" if  "exec" in j_args['stages'][stage].keys() else "run"
+        action = "exec" if  j_args['stages'][stage]['exec'] else "run"
 
         cmd = ["singularity", action, *binds, *run_args, container, *positional_stage_args, *flag_stage_args]
         logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
