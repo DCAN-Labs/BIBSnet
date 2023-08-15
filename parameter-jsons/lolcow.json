@@ -8,9 +8,7 @@
         "lolcow": {
             "container_path": "/home/faird/tikal004/lolcow.sif",
             "exec": true,
-            "run_args": {
-                "cleanenv": true
-            },
+            "run_args": {},
             "binds":[],
             "stage_args": {
                 "positional_args": [
