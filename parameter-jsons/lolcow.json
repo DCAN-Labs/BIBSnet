@@ -8,13 +8,10 @@
         "lolcow": {
             "container_path": "/home/faird/tikal004/lolcow.sif",
             "exec": true,
-            "run_args": {},
-            "binds":[],
             "stage_args": {
                 "positional_args": [
                     "cowsay", "\"Thank you for testing CABINET\""
-                ],
-                "flags": {}
+                ]
             }
         }
     }
