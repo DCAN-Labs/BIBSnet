@@ -69,21 +69,24 @@ def get_binds(stage_args):
         
     return binds
 
-def get_optional_args_in(a_dict):
+def get_optional_args_in(a_dict, dict_key):
     """
     :param a_dict: Dictionary with validated parameters,
                    all of which are used by this function
+    :param dict_key: String, key of a_dict to check for.
+                    If this key does not exist, returns empty list.
     :return: List of most a_dict optional arguments and their values
     """
-    optional_args = list()
-    for arg in a_dict.keys():
-        if a_dict[arg]:
-            optional_args.append(arg)
-            if isinstance(a_dict[arg], list):
-                for el in a_dict[arg]:
-                    optional_args.append(str(el))
-            elif not isinstance(a_dict[arg], bool):
-                optional_args.append(str(a_dict[arg]))
+    optional_args = []
+    if dict_key in a_dict.keys():
+        for arg in a_dict[dict_key].keys():
+            if a_dict[arg]:
+                optional_args.append(arg)
+                if isinstance(a_dict[arg], list):
+                    for el in a_dict[arg]:
+                        optional_args.append(str(el))
+                elif not isinstance(a_dict[arg], bool):
+                    optional_args.append(str(a_dict[arg]))
     return optional_args
 
 def log_stage_finished(stage_name, event_time, logger):
@@ -145,10 +148,10 @@ def run_stage(stage, j_args, logger):
     if j_args['cabinet']['container_type'] == 'singularity':
         stage_args = j_args['stages'][stage]
         binds = get_binds(stage_args)
-        singularity_args = get_optional_args_in(stage_args['singularity_args'])
+        singularity_args = get_optional_args_in(stage_args, 'singularity_args')
         container_path = stage_args['sif_filepath']
         positional_stage_args = stage_args['positional_args']
-        flag_stage_args = get_optional_args_in(stage_args['flags'])
+        flag_stage_args = get_optional_args_in(stage_args, 'flags')
 
         action = "run"
         if 'exec' in j_args['stages'][stage].keys():

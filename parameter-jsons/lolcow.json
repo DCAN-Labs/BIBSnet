@@ -8,12 +8,9 @@
         "lolcow": {
             "sif_filepath": "/home/faird/tikal004/lolcow.sif",
             "exec": true,
-            "singularity_args": {},
-            "binds":[],
             "positional_args": [
                 "cowsay", "\"Thank you for testing CABINET\""
-            ],
-            "flags": {}
+            ]
         }
     }
 }
