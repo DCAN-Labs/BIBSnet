@@ -151,7 +151,7 @@ def run_stage(stage, j_args, logger):
         singularity_args = get_optional_args_in(stage_args, 'singularity_args')
         container_path = stage_args['sif_filepath']
         flag_stage_args = get_optional_args_in(stage_args, 'flags')
-        
+
         positional_stage_args = []
         if 'positional_args' in stage_args.keys():
             positional_stage_args = stage_args['positional_args']
@@ -162,11 +162,16 @@ def run_stage(stage, j_args, logger):
                 action = "exec"
 
         cmd = ["singularity", action, *binds, *singularity_args, container_path, *positional_stage_args, *flag_stage_args]
-        logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
+
+        if j_args["cabinet"]["verbose"]:
+            logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
+
         try:
             subprocess.check_call(cmd)
+
         except Exception:
             logger.exception(f"Error running {stage}")
+            
     else:
         logger.error(f"Unsupported container type: {j_args['cabinet']['container_type']}/nCurrently supported container types include [singularity]\n")
         sys.exit()
