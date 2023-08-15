@@ -150,8 +150,11 @@ def run_stage(stage, j_args, logger):
         binds = get_binds(stage_args)
         singularity_args = get_optional_args_in(stage_args, 'singularity_args')
         container_path = stage_args['sif_filepath']
-        positional_stage_args = stage_args['positional_args']
         flag_stage_args = get_optional_args_in(stage_args, 'flags')
+        
+        positional_stage_args = []
+        if 'positional_args' in stage_args.keys():
+            positional_stage_args = stage_args['positional_args']
 
         action = "run"
         if 'exec' in j_args['stages'][stage].keys():
