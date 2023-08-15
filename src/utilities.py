@@ -53,12 +53,16 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def get_binds(to_bind):
+def get_binds(stage_args):
     '''
     :param to_bind: List of dicts, list of dicts with 'host_path' and 'container_path'
     :return binds: list of formatted binds for use in subprocess.check_call
     '''
     binds = []
+    to_bind = []
+    if 'binds' in stage_args.keys():
+        to_bind = stage_args['binds']
+        
     for bind in to_bind:
         binds.append("-B")
         binds.append(f"{bind['host_path']}:{bind['container_path']}")
@@ -133,30 +137,33 @@ def run_all_stages(all_stages, j_args, logger):
 
 def run_stage(stage, j_args, logger):
     '''
+    Gathers arguments form parameter file, constructs container run command and runs it.
     :param stage: String, name of the stage to run
     :param j_args: Dictionary, copy of j_args
     :param logger: logging.Logger object to show messages and raise warnings
     '''
     if j_args['cabinet']['container_type'] == 'singularity':
-        binds = get_binds(j_args['stages'][stage]['binds'])
-        run_args = get_optional_args_in(j_args['stages'][stage]['run_args'])
-        container = j_args['stages'][stage]['container_path']
-        positional_stage_args =j_args['stages'][stage]['stage_args']['positional_args']
-        flag_stage_args = get_optional_args_in(j_args['stages'][stage]['stage_args']['flags'])
+        stage_args = j_args['stages'][stage]
+        binds = get_binds(stage_args)
+        singularity_args = get_optional_args_in(stage_args['singularity_args'])
+        container_path = stage_args['sif_filepath']
+        positional_stage_args = stage_args['positional_args']
+        flag_stage_args = get_optional_args_in(stage_args['flags'])
 
         action = "run"
         if 'exec' in j_args['stages'][stage].keys():
             if j_args['stages'][stage].keys():
                 action = "exec"
 
-        cmd = ["singularity", action, *binds, *run_args, container, *positional_stage_args, *flag_stage_args]
+        cmd = ["singularity", action, *binds, *singularity_args, container_path, *positional_stage_args, *flag_stage_args]
         logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
         try:
             subprocess.check_call(cmd)
         except Exception:
             logger.exception(f"Error running {stage}")
     else:
-        pass
+        logger.error(f"Unsupported container type: {j_args['cabinet']['container_type']}/nCurrently supported container types include [singularity]\n")
+        sys.exit()
 
 def valid_readable_file(path):
     """

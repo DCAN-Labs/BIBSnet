@@ -6,8 +6,8 @@
 
     "stages": {
         "bibsnet": {
-            "container_path": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
-            "run_args": {
+            "sif_filepath": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
+            "singularity_args": {
                 "--cleanenv": true,
                 "--nv": true
             },
@@ -25,23 +25,21 @@
                     "container_path":"/work"
                 }
             ],
-            "stage_args": {
-                "positional_args": [
-                    "/input", "/output", "participant"
-                ],
-                "flags": {
-                    "--parameter-json":"/home/cabinet/parameter-file-container.json",
-                    "-start":"prebibsnet",
-                    "-end":"postbibsnet",
-                    "-v": true,
-                    "--participant-label":"470437",
-                    "-w":"/work"
-                }
+            "positional_args": [
+                "/input", "/output", "participant"
+            ],
+            "flags": {
+                "--parameter-json":"/home/cabinet/parameter-file-container.json",
+                "-start":"prebibsnet",
+                "-end":"postbibsnet",
+                "-v": true,
+                "--participant-label":"470437",
+                "-w":"/work"
             }
         },
         "nibabies": {
-            "container_path": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
-            "run_args": {
+            "sif_filepath": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
+            "singularity_args": {
                 "--cleanenv": true
             },
             "binds": [
@@ -66,29 +64,27 @@
                     "container_path":"/derivatives"
                 }
             ],
-            "stage_args": {
-                "positional_args": [
-                    "/bids_dir", "/output_dir", "participant"
-                ],
-                "flags": {
-                    "--project-goodvoxels": true,
-                    "--surface-recon-method": "mcribs",
-                    "--omp-nthreads": 3,
-                    "--resource-monitor": true,
-                    "--cifti-output": "91k",
-                    "-vv": true,
-                    "-w": "/work", 
-                    "--fd-radius": 35,
-                    "--derivatives": "/derivatives",
-                    "--age-months": 1,
-                    "--participant-label":"470437"
-                }
+            "positional_args": [
+                "/bids_dir", "/output_dir", "participant"
+            ],
+            "flags": {
+                "--project-goodvoxels": true,
+                "--surface-recon-method": "mcribs",
+                "--omp-nthreads": 3,
+                "--resource-monitor": true,
+                "--cifti-output": "91k",
+                "-vv": true,
+                "-w": "/work", 
+                "--fd-radius": 35,
+                "--derivatives": "/derivatives",
+                "--age-months": 1,
+                "--participant-label":"470437"
             }
         },
         "xcpd": {
-            "container_path": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_unstable_07172023a.sif",
-            "run_args": {
-                "cleanenv": true
+            "sif_filepath": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_unstable_07172023a.sif",
+            "singularity_args": {
+                "--cleanenv": true
             },
             "binds": [
                 {
@@ -108,37 +104,33 @@
                     "container_path":"/usr/local/miniconda/lib/python3.8/site-packages/xcp_d"
                 }
             ],
-            "stage_args": {
-                "positional_args": [
-                    "/output_dir/nibabies", "/output_dir/", "participant"
-                ],
-                "flags": {
-                    "--input-type": "nibabies",
-                    "--cifti": true,
-                    "--despike":true,
-                    "--resource-monitor": true,
-                    "--dcan-qc": true,
-                    "-w": "/work",
-                    "--omp-nthreads": 3,
-                    "--warp-surfaces-native2std": true,
-                    "-f": 0.3,
-                    "-m": true,
-                    "-vv": true,
-                    "--participant-label": "470437" 
-                }
+            "positional_args": [
+                "/output_dir/nibabies", "/output_dir/", "participant"
+            ],
+            "flags": {
+                "--input-type": "nibabies",
+                "--cifti": true,
+                "--despike":true,
+                "--resource-monitor": true,
+                "--dcan-qc": true,
+                "-w": "/work",
+                "--omp-nthreads": 3,
+                "--warp-surfaces-native2std": true,
+                "-f": 0.3,
+                "-m": true,
+                "-vv": true,
+                "--participant-label": "470437" 
             }
         },
         "lolcow": {
-            "container_path": "/home/faird/tikal004/lolcow.sif",
+            "sif_filepath": "/home/faird/tikal004/lolcow.sif",
             "exec": true,
-            "run_args": {},
+            "singularity_args": {},
             "binds":[],
-            "stage_args": {
-                "positional_args": [
-                    "cowsay", "\"Thank you for testing CABINET\""
-                ],
-                "flags": {}
-            }
+            "positional_args": [
+                "cowsay", "\"Thank you for testing CABINET\""
+            ],
+            "flags": {}
         }
     }
 }

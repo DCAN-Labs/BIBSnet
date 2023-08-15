@@ -6,13 +6,14 @@
 
     "stages": {
         "lolcow": {
-            "container_path": "/home/faird/tikal004/lolcow.sif",
+            "sif_filepath": "/home/faird/tikal004/lolcow.sif",
             "exec": true,
-            "stage_args": {
-                "positional_args": [
-                    "cowsay", "\"Thank you for testing CABINET\""
-                ]
-            }
+            "singularity_args": {},
+            "binds":[],
+            "positional_args": [
+                "cowsay", "\"Thank you for testing CABINET\""
+            ],
+            "flags": {}
         }
     }
 }
