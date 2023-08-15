@@ -80,13 +80,13 @@ def get_optional_args_in(a_dict, dict_key):
     optional_args = []
     if dict_key in a_dict.keys():
         for arg in a_dict[dict_key].keys():
-            if a_dict[arg]:
+            if a_dict[dict_key][arg]:
                 optional_args.append(arg)
-                if isinstance(a_dict[arg], list):
-                    for el in a_dict[arg]:
+                if isinstance(a_dict[dict_key][arg], list):
+                    for el in a_dict[dict_key][arg]:
                         optional_args.append(str(el))
-                elif not isinstance(a_dict[arg], bool):
-                    optional_args.append(str(a_dict[arg]))
+                elif not isinstance(a_dict[dict_key][arg], bool):
+                    optional_args.append(str(a_dict[dict_key][arg]))
     return optional_args
 
 def log_stage_finished(stage_name, event_time, logger):
