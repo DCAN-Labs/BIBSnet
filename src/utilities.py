@@ -124,9 +124,9 @@ def run_all_stages(j_args, logger):
         stage_start = datetime.now()
         if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
-                        .format(stage))
+                        .format(stage['name']))
         run_stage(stage, j_args, logger)
-        log_stage_finished(stage, stage_start, logger)
+        log_stage_finished(stage['name'], stage_start, logger)
 
 
 def run_stage(stage, j_args, logger):
