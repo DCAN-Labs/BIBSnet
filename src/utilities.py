@@ -138,11 +138,11 @@ def run_stage(stage, j_args, logger):
     '''
     if j_args['cabinet']['container_type'] == 'singularity':
         binds = get_binds(stage)
-        singularity_args = get_optional_args_in(stage.singularity_args)
+        singularity_args = get_optional_args_in(stage['singularity_args'])
         container_path = stage['sif_filepath']
-        flag_stage_args = get_optional_args_in(stage.flags)
-        action = stage.action
-        stage_name = stage.name
+        flag_stage_args = get_optional_args_in(stage['flags'])
+        action = stage['action']
+        stage_name = stage['name']
         positional_stage_args = stage['positional_args']
 
         cmd = ["singularity", action, *binds, *singularity_args, container_path, *positional_stage_args, *flag_stage_args]
@@ -234,7 +234,7 @@ def validate_parameter_json(j_args, json_path, logger):
                                 logger.error("Unnamed stage found. Please provide a name for all stages.")
                                 is_valid = False
                             else:
-                                stage_name = stage.name
+                                stage_name = stage['name']
                             if "sif_filepath" not in stage.keys():
                                 logger.error(f"Missing key 'sif_filepath' in stage {stage_name}")
                                 is_valid = False                            
@@ -242,7 +242,7 @@ def validate_parameter_json(j_args, json_path, logger):
                             for arg, default in optional_args.items():
                                 if arg not in stage.keys():
                                     stage[arg] = default
-                            if stage.action not in ['run', 'exec']:
+                            if stage['action'] not in ['run', 'exec']:
                                 logger.error(f"Invalid action: {stage['action']} in {stage_name}, must be 'run' or 'exec'")
                             j_args['stages'][stage_index] = stage
 
