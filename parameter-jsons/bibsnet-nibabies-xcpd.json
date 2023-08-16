@@ -4,8 +4,9 @@
         "verbose": true
     },
 
-    "stages": {
-        "bibsnet": {
+    "stages": [
+        {
+            "name":"bibsnet",
             "sif_filepath": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
             "singularity_args": {
                 "--cleanenv": true,
@@ -37,7 +38,8 @@
                 "-w":"/work"
             }
         },
-        "nibabies": {
+        {  
+            "name":"nibabies",
             "sif_filepath": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
             "singularity_args": {
                 "--cleanenv": true
@@ -81,7 +83,8 @@
                 "--participant-label":"470437"
             }
         },
-        "xcpd": {
+        {
+            "name": "xcpd",
             "sif_filepath": "/home/faird/shared/code/external/pipelines/xcp_d/xcp_d_unstable_07172023a.sif",
             "singularity_args": {
                 "--cleanenv": true
@@ -122,12 +125,13 @@
                 "--participant-label": "470437" 
             }
         },
-        "lolcow": {
+        {
+            "name": "lolcow",
             "sif_filepath": "/home/faird/tikal004/lolcow.sif",
-            "exec": true,
+            "action": "exec",
             "positional_args": [
                 "cowsay", "\"Thank you for testing CABINET\""
             ]
         }
-    }
+    ]
 }

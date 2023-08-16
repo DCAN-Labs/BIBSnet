@@ -4,9 +4,18 @@
         "verbose": true
     },
 
-    "stages": {
-        "lolcow": {
+    "stages": [
+        {
+            "name": "lolcow",
             "sif_filepath": "/home/faird/tikal004/lolcow.sif"
+        },
+        {
+            "name": "lolcow-exec",
+            "action": "exec",
+            "sif_filepath": "/home/faird/tikal004/lolcow.sif",
+            "positional_args": [
+                "cowsay", "\"Thank you for testing CABINET\""
+            ]
         }
-    }
+    ]
 }

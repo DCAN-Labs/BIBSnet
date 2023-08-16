@@ -16,7 +16,8 @@ from src.utilities import (
     extract_from_json,
     get_args,
     make_logger,
-    run_all_stages
+    run_all_stages,
+    validate_parameter_json
 )
 
 
@@ -26,13 +27,15 @@ def main():
 
     # Get and validate command-line arguments and parameters from .JSON file
     args = get_args()
-    logger.info(f"Getting Arguments from arg file: {args}")
+    json_path = args.parameter_json
+    logger.info(f"Getting Arguments from arg file: {json_path}")
     json_args = extract_from_json(args.parameter_json)
-    STAGES = list(json_args['stages'].keys())
+    json_args = validate_parameter_json(json_args, json_path, logger)
+    STAGES = [stage.name for stage in json_args.stages]
     logger.info(f"Identified stages to be run: {STAGES}")
     
     # Run every stage that the parameter file says to run
-    run_all_stages(STAGES, json_args, logger)
+    run_all_stages(json_args, logger)
     # TODO default to running all stages if not specified by the user
 
     # Show user how long the pipeline took and end the pipeline here

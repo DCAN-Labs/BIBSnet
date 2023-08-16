@@ -115,7 +115,7 @@ def make_logger():
     return logging.getLogger(os.path.basename(sys.argv[0]))
 
 
-def run_all_stages(all_stages, j_args, logger):
+def run_all_stages(j_args, logger):
     """
     Run stages sequentially, starting and ending at stages specified by user
     :param all_stages: List of functions in order where each runs one stage
@@ -124,12 +124,8 @@ def run_all_stages(all_stages, j_args, logger):
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     :param logger: logging.Logger object to show messages and raise warnings
     """
-    if j_args["cabinet"]["verbose"]:
-        logger.info("All parameters from input args and input .JSON file:\n{}"
-                    .format(j_args))
-
     # ...run all stages that the user said to run
-    for stage in all_stages:
+    for stage in j_args.stages:
         stage_start = datetime.now()
         if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
@@ -146,35 +142,28 @@ def run_stage(stage, j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     '''
     if j_args['cabinet']['container_type'] == 'singularity':
-        stage_args = j_args['stages'][stage]
-        binds = get_binds(stage_args)
-        singularity_args = get_optional_args_in(stage_args, 'singularity_args')
-        container_path = stage_args['sif_filepath']
-        flag_stage_args = get_optional_args_in(stage_args, 'flags')
+        binds = get_binds(stage)
+        singularity_args = get_optional_args_in(stage, 'singularity_args')
+        container_path = stage['sif_filepath']
+        flag_stage_args = get_optional_args_in(stage, 'flags')
+        action = stage.action
+        stage_name = stage.name
 
         positional_stage_args = []
-        if 'positional_args' in stage_args.keys():
-            positional_stage_args = stage_args['positional_args']
-
-        action = "run"
-        if 'exec' in j_args['stages'][stage].keys():
-            if j_args['stages'][stage].keys():
-                action = "exec"
+        if 'positional_args' in stage.keys():
+            positional_stage_args = stage['positional_args']
 
         cmd = ["singularity", action, *binds, *singularity_args, container_path, *positional_stage_args, *flag_stage_args]
 
         if j_args["cabinet"]["verbose"]:
-            logger.info(f"run command for {stage}:\n{' '.join(cmd)}\n")
+            logger.info(f"run command for {stage_name}:\n{' '.join(cmd)}\n")
 
         try:
             subprocess.check_call(cmd)
 
         except Exception:
-            logger.exception(f"Error running {stage}")
-            
-    else:
-        logger.error(f"Unsupported container type: {j_args['cabinet']['container_type']}/nCurrently supported container types include [singularity]\n")
-        sys.exit()
+            logger.exception(f"Error running {stage_name}")
+
 
 def valid_readable_file(path):
     """
@@ -215,3 +204,60 @@ def validate(to_validate, is_real, make_valid, err_msg, prepare=None):
     except (OSError, TypeError, AssertionError, ValueError,
             argparse.ArgumentTypeError):
         raise argparse.ArgumentTypeError(err_msg.format(to_validate))
+
+def validate_parameter_json(j_args, json_path, logger):
+    logger.info("Validating parameter JSON\n")
+
+    is_valid = True
+
+    # validate cabinet key
+    if "cabinet" not in j_args.keys():
+        logger.error("Missing key in parameter JSON: 'cabinet'")
+        is_valid = False
+    else:
+        if "verbose" in j_args.cabinet.keys():
+            if not isinstance(j_args.cabinet.verbose, bool):
+                logger.error("Invalid value for cabinet.verbose, must be true or false.")
+                is_valid = False
+        else:
+            j_args.cabinet.verbose = False
+        if "container_type" not in j_args['cabinet']:
+            logger.error("Missing key in parameter JSON: 'cabinet.container_type'")
+            is_valid = False
+        else:
+            container_types = ["singularity"]
+            if j_args.cabinet.container_type not in container_types:
+                logger.error(f"Invalid container type in parameter JSON.\ncabinet.container_type must be in {container_types}")
+                is_valid = False
+            else:
+                # validate stages key based on specified container type
+                if j_args.cabinet.container_type == "singularity":
+                    if "stages" not in j_args.keys():
+                        logger.error("Missing key in parameter JSON: 'stages'")
+                        is_valid = False
+                    else:
+                        for stage_index, stage in j_args.stages.enumerate():
+                            stage_name = "Unnamed Stage"
+                            if "name" not in stage.keys():
+                                logger.error("Unnamed stage found. Please provide a name for all stages.")
+                                is_valid = False
+                            else:
+                                stage_name = stage.name
+                            if "sif_filepath" not in stage.keys():
+                                logger.error(f"Missing key 'sif_filepath' in stage f{stage_name}")
+                                is_valid = False                            
+                            optional_args = { "singularity_args": {}, "binds": [], "positional_args": [], "flags": {}, "action": "run" }
+                            for arg, default in optional_args.items():
+                                if arg not in stage.keys():
+                                    stage[arg] = default
+                            if stage.action not in ['run', 'exec']:
+                                logger.error(f"Invalid action: {stage.action} in {stage_name}, must be 'run' or 'exec'")
+                            j_args.stages[stage_index] = stage
+
+    if not is_valid:
+        logger.error(f"Parameter JSON {json_path} is invalid. See https://cabinet.readthedocs.io/ for examples.")
+        sys.exit()
+    elif j_args.cabinet.verbose:
+        logger.info(f"Parameter JSON {json_path} is valid.\nValidated JSON: {j_args}")
+
+    return j_args
