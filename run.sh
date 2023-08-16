@@ -1,10 +1,10 @@
 #!/bin/bash -l
 
-#SBATCH -t 12:00:00
+#SBATCH -t 24:00:00
 #SBATCH -N 1
-#SBATCH --ntasks 20
+#SBATCH -c 24
 #SBATCH --gres=gpu:1
-#SBATCH --mem=80gb
+#SBATCH --mem=240gb
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=tikal004@umn.edu
 #SBATCH -p v100
