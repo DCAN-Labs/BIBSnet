@@ -120,7 +120,7 @@ def run_all_stages(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     """
     # ...run all stages that the user said to run
-    for stage in j_args.stages:
+    for stage in j_args['stages']:
         stage_start = datetime.now()
         if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
@@ -214,21 +214,21 @@ def validate_parameter_json(j_args, json_path, logger):
         else:
             j_args['cabinet']['verbose'] = False
         if "container_type" not in j_args['cabinet']:
-            logger.error("Missing key in parameter JSON: 'cabinet.container_type'")
+            logger.error("Missing key in parameter JSON: cabinet container_type")
             is_valid = False
         else:
             container_types = ["singularity"]
-            if j_args['cabinet'].container_type not in container_types:
-                logger.error(f"Invalid container type in parameter JSON.\ncabinet.container_type must be in {container_types}")
+            if j_args['cabinet']['container_type'] not in container_types:
+                logger.error(f"Invalid container type in parameter JSON.\ncabinet container_type must be in {container_types}")
                 is_valid = False
             else:
                 # validate stages key based on specified container type
-                if j_args['cabinet'].container_type == "singularity":
+                if j_args['cabinet']['container_type'] == "singularity":
                     if "stages" not in j_args.keys():
                         logger.error("Missing key in parameter JSON: 'stages'")
                         is_valid = False
                     else:
-                        for stage_index, stage in j_args.stages.enumerate():
+                        for stage_index, stage in j_args['stages'].enumerate():
                             stage_name = "Unnamed Stage"
                             if "name" not in stage.keys():
                                 logger.error("Unnamed stage found. Please provide a name for all stages.")
@@ -236,15 +236,15 @@ def validate_parameter_json(j_args, json_path, logger):
                             else:
                                 stage_name = stage.name
                             if "sif_filepath" not in stage.keys():
-                                logger.error(f"Missing key 'sif_filepath' in stage f{stage_name}")
+                                logger.error(f"Missing key 'sif_filepath' in stage {stage_name}")
                                 is_valid = False                            
                             optional_args = { "singularity_args": {}, "binds": [], "positional_args": [], "flags": {}, "action": "run" }
                             for arg, default in optional_args.items():
                                 if arg not in stage.keys():
                                     stage[arg] = default
                             if stage.action not in ['run', 'exec']:
-                                logger.error(f"Invalid action: {stage.action} in {stage_name}, must be 'run' or 'exec'")
-                            j_args.stages[stage_index] = stage
+                                logger.error(f"Invalid action: {stage['action']} in {stage_name}, must be 'run' or 'exec'")
+                            j_args['stages'][stage_index] = stage
 
     if not is_valid:
         logger.error(f"Parameter JSON {json_path} is invalid. See https://cabinet.readthedocs.io/ for examples.")
