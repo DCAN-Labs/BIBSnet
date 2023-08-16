@@ -228,7 +228,7 @@ def validate_parameter_json(j_args, json_path, logger):
                         logger.error("Missing key in parameter JSON: 'stages'")
                         is_valid = False
                     else:
-                        for stage_index, stage in j_args['stages'].enumerate():
+                        for stage_index, stage in enumerate(j_args['stages']):
                             stage_name = "Unnamed Stage"
                             if "name" not in stage.keys():
                                 logger.error("Unnamed stage found. Please provide a name for all stages.")
