@@ -208,22 +208,22 @@ def validate_parameter_json(j_args, json_path, logger):
         is_valid = False
     else:
         if "verbose" in j_args['cabinet'].keys():
-            if not isinstance(j_args.cabinet.verbose, bool):
-                logger.error("Invalid value for cabinet.verbose, must be true or false.")
+            if not isinstance(j_args['cabinet']['verbose'], bool):
+                logger.error("Invalid value for cabinet verbosity, must be true or false.")
                 is_valid = False
         else:
-            j_args.cabinet.verbose = False
+            j_args['cabinet']['verbose'] = False
         if "container_type" not in j_args['cabinet']:
             logger.error("Missing key in parameter JSON: 'cabinet.container_type'")
             is_valid = False
         else:
             container_types = ["singularity"]
-            if j_args.cabinet.container_type not in container_types:
+            if j_args['cabinet'].container_type not in container_types:
                 logger.error(f"Invalid container type in parameter JSON.\ncabinet.container_type must be in {container_types}")
                 is_valid = False
             else:
                 # validate stages key based on specified container type
-                if j_args.cabinet.container_type == "singularity":
+                if j_args['cabinet'].container_type == "singularity":
                     if "stages" not in j_args.keys():
                         logger.error("Missing key in parameter JSON: 'stages'")
                         is_valid = False
@@ -249,7 +249,7 @@ def validate_parameter_json(j_args, json_path, logger):
     if not is_valid:
         logger.error(f"Parameter JSON {json_path} is invalid. See https://cabinet.readthedocs.io/ for examples.")
         sys.exit()
-    elif j_args.cabinet.verbose:
+    elif j_args['cabinet']['verbose']:
         logger.info(f"Parameter JSON {json_path} is valid.\nValidated JSON: {j_args}")
 
     return j_args
