@@ -207,7 +207,7 @@ def validate_parameter_json(j_args, json_path, logger):
         logger.error("Missing key in parameter JSON: 'cabinet'")
         is_valid = False
     else:
-        if "verbose" in j_args.cabinet.keys():
+        if "verbose" in j_args['cabinet'].keys():
             if not isinstance(j_args.cabinet.verbose, bool):
                 logger.error("Invalid value for cabinet.verbose, must be true or false.")
                 is_valid = False
