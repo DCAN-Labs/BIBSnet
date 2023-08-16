@@ -59,9 +59,7 @@ def get_binds(stage_args):
     :return binds: list of formatted binds for use in subprocess.check_call
     '''
     binds = []
-    to_bind = []
-    if 'binds' in stage_args.keys():
-        to_bind = stage_args['binds']
+    to_bind = stage_args['binds']
         
     for bind in to_bind:
         binds.append("-B")
@@ -69,24 +67,21 @@ def get_binds(stage_args):
         
     return binds
 
-def get_optional_args_in(a_dict, dict_key):
+def get_optional_args_in(a_dict):
     """
     :param a_dict: Dictionary with validated parameters,
                    all of which are used by this function
-    :param dict_key: String, key of a_dict to check for.
-                    If this key does not exist, returns empty list.
     :return: List of most a_dict optional arguments and their values
     """
     optional_args = []
-    if dict_key in a_dict.keys():
-        for arg in a_dict[dict_key].keys():
-            if a_dict[dict_key][arg]:
-                optional_args.append(arg)
-                if isinstance(a_dict[dict_key][arg], list):
-                    for el in a_dict[dict_key][arg]:
-                        optional_args.append(str(el))
-                elif not isinstance(a_dict[dict_key][arg], bool):
-                    optional_args.append(str(a_dict[dict_key][arg]))
+    for arg in a_dict.keys():
+        if a_dict[arg]:
+            optional_args.append(arg)
+            if isinstance(a_dict[arg], list):
+                for el in a_dict[arg]:
+                    optional_args.append(str(el))
+            elif not isinstance(a_dict[arg], bool):
+                optional_args.append(str(a_dict[arg]))
     return optional_args
 
 def log_stage_finished(stage_name, event_time, logger):
@@ -143,15 +138,12 @@ def run_stage(stage, j_args, logger):
     '''
     if j_args['cabinet']['container_type'] == 'singularity':
         binds = get_binds(stage)
-        singularity_args = get_optional_args_in(stage, 'singularity_args')
+        singularity_args = get_optional_args_in(stage.singularity_args)
         container_path = stage['sif_filepath']
-        flag_stage_args = get_optional_args_in(stage, 'flags')
+        flag_stage_args = get_optional_args_in(stage.flags)
         action = stage.action
         stage_name = stage.name
-
-        positional_stage_args = []
-        if 'positional_args' in stage.keys():
-            positional_stage_args = stage['positional_args']
+        positional_stage_args = stage['positional_args']
 
         cmd = ["singularity", action, *binds, *singularity_args, container_path, *positional_stage_args, *flag_stage_args]
 
