@@ -253,3 +253,26 @@ def validate_parameter_json(j_args, json_path, logger):
         logger.info(f"Parameter JSON {json_path} is valid.\nValidated JSON: {j_args}")
 
     return j_args
+
+def validate_path(path, type, logger):
+    """
+    :param path: String, filepath
+    :param type: String, 'file' or 'directory'
+    :param logger: cabinet's logger object
+    :return is_valid: bool, whether the path has passed validation
+    """
+    is_valid = True
+    if type == "directory":
+        if not os.is_dir(path):
+            try:
+                os.makedirs(path)
+                logger.info(f"Created output directory: {path}")
+            except:
+                logger.error(f"Error creating non-existant directory: {path}")
+                is_valid = False
+    else:
+        if not os.is_file(path):
+            logger.error(f"File does not exist: {path}")
+            is_valid = False
+
+    return is_valid

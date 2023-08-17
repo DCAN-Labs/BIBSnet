@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""
-Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
-Greg Conan: gconan@umn.edu
-Created: 2021-11-12
-Updated: 2023-01-25
-"""
 # Import standard libraries
 from datetime import datetime
 
