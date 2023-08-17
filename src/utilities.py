@@ -244,6 +244,11 @@ def validate_parameter_json(j_args, json_path, logger):
                                     stage[arg] = default
                             if stage['action'] not in ['run', 'exec']:
                                 logger.error(f"Invalid action: {stage['action']} in {stage_name}, must be 'run' or 'exec'")
+                            for binds in stage["binds"]:
+                                if 'host_path' not in binds.keys() or 'container_path' not in binds.keys():
+                                    logger.error(f"Invalid bind in {stage_name}. Must have 'host_path' and 'container_path'")
+                                    is_valid = False
+
                             j_args['stages'][stage_index] = stage
 
     if not is_valid:
