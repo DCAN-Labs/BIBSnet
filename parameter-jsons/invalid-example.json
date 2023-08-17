@@ -1,0 +1,134 @@
+{
+    "cabinet": {
+        "container_type": "singularity",
+        "verbose": true
+    },
+
+    "stages": [
+        {
+            "name":"bibsnet",
+            "sif_filepath": "/home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_v2.4.3.sif",
+            "singularity_args": {
+                "--cleanenv": true,
+                "--nv": true
+            },
+            "binds": [
+                {
+                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/",
+                    "container_path":"/input"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
+                    "container_path":"/work"
+                }
+            ],
+            "positional_args": [
+                "/input", "/output", "participant"
+            ],
+            "flags": {
+                "--parameter-json":"/home/cabinet/parameter-file-container.json",
+                "-start":"prebibsnet",
+                "-end":"postbibsnet",
+                "-v": true,
+                "--participant-label":"470437",
+                "-w":"/work"
+            }
+        },
+        {  
+            "sif_filepath": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
+            "singularity_args": {
+                "--cleanenv": true
+            },
+            "binds": [
+                {
+                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/",
+                    "container_path":"/bids_dir"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/nibabies/",
+                    "container_path":"/output_dir"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
+                    "container_path":"/work"
+                },
+                {
+                    "host_path":"/home/faird/shared/code/external/utilities/freesurfer_license/license.txt",
+                    "container_path":"/opt/freesurfer/license.txt"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/bibsnet/",
+                    "container_path":"/derivatives"
+                }
+            ],
+            "positional_args": [
+                "/bids_dir", "/output_dir", "participant"
+            ],
+            "flags": {
+                "--project-goodvoxels": true,
+                "--surface-recon-method": "mcribs",
+                "--omp-nthreads": 3,
+                "--resource-monitor": true,
+                "--cifti-output": "91k",
+                "-vv": true,
+                "-w": "/work", 
+                "--fd-radius": 35,
+                "--derivatives": "/derivatives",
+                "--age-months": 1,
+                "--participant-label":"470437"
+            }
+        },
+        {
+            "name": "xcpd",
+            "singularity_args": {
+                "--cleanenv": true
+            },
+            "binds": [
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/work/",
+                    "container_path":"/work"
+                },
+                {
+                    "host_path":"/home/faird/shared/code/external/utilities/freesurfer_license/license.txt",
+                    "container_path":"/opt/freesurfer/license.txt"
+                },
+                {
+                    "host_path":"/home/feczk001/shared/projects/segpipeline_testing/Barry_test/cbaw-test/derivatives/",
+                    "container_path":"/output_dir"
+                },
+                {
+                    "host_path":"/home/faird/shared/code/external/pipelines/xcp_d_test_binds/20230712_fix-collection/xcp_d/xcp_d",
+                    "container_path":"/usr/local/miniconda/lib/python3.8/site-packages/xcp_d"
+                }
+            ],
+            "positional_args": [
+                "/output_dir/nibabies", "/output_dir/", "participant"
+            ],
+            "flags": {
+                "--input-type": "nibabies",
+                "--cifti": true,
+                "--despike":true,
+                "--resource-monitor": true,
+                "--dcan-qc": true,
+                "-w": "/work",
+                "--omp-nthreads": 3,
+                "--warp-surfaces-native2std": true,
+                "-f": 0.3,
+                "-m": true,
+                "-vv": true,
+                "--participant-label": "470437" 
+            }
+        },
+        {
+            "name": "lolcow",
+            "sif_filepath": "/home/faird/tikal004/lolcow.sif",
+            "action": "exe",
+            "positional_args": [
+                "cowsay", "\"Thank you for testing CABINET\""
+            ]
+        }
+    ]
+}
