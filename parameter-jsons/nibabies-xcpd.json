@@ -7,7 +7,7 @@
     "stages": [
         {  
             "name":"nibabies",
-            "sif_filepath": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08102023.sif",
+            "sif_filepath": "/home/faird/shared/code/external/pipelines/nibabies/nibabies_t1-t2-derivatives_08142023.sif",
             "singularity_args": {
                 "--cleanenv": true
             },
