@@ -1,7 +1,8 @@
 {
     "cabinet": {
         "container_type": "singularity",
-        "verbose": true
+        "verbose": true,
+        "handle_missing_host_paths": "make_directories"
     },
 
     "stages": [

@@ -207,12 +207,26 @@ def validate_parameter_json(j_args, json_path, logger):
         logger.error("Missing key in parameter JSON: 'cabinet'")
         is_valid = False
     else:
+        # set verbose
         if "verbose" in j_args['cabinet'].keys():
             if not isinstance(j_args['cabinet']['verbose'], bool):
                 logger.error("Invalid value for cabinet verbosity, must be true or false.")
                 is_valid = False
         else:
             j_args['cabinet']['verbose'] = False
+        #set handle_missing_host_paths
+        if "handle_missing_host_paths" in j_args["cabinet"].keys():
+            options = [ # for any given bind, if the host path doesnt exist...
+                'allow', # do nothing
+                'make_directories', # make a directory there
+                'stop'  # fail validation and do not execute cabinet.
+            ]
+            if j_args['cabinet']['handle_missing_host_paths'] not in options:
+                logger.error(f"Invalid argument for handle_missing_host_paths. must be in f{options}")
+                is_valid = False
+        else:
+            j_args['cabinet']['handle_missing_host_paths'] = "allow"
+        # validate container_type
         if "container_type" not in j_args['cabinet']:
             logger.error("Missing key in parameter JSON: cabinet container_type")
             is_valid = False
@@ -249,8 +263,12 @@ def validate_parameter_json(j_args, json_path, logger):
                                     logger.error(f"Invalid bind in {stage_name}. 'host_path' and 'container_path' are required for all binds.")
                                     is_valid = False
                                 if not os.path.exists(binds['host_path']):
-                                    logger.error(f"Host filepath for {stage_name} does not exist: {binds['host_path']}")
-                                    is_valid = False
+                                    if j_args["cabinet"]["handle_missing_host_paths"] == 'stop':
+                                        logger.error(f"Host filepath for {stage_name} does not exist: {binds['host_path']}")
+                                        is_valid = False
+                                    elif j_args["cabinet"]["handle_missing_host_paths"] == 'make_directories':
+                                        os.mkdir(binds["host_path"])
+                                        logger.info(f"Made directory {binds['host_path']}")
 
                             j_args['stages'][stage_index] = stage
 
