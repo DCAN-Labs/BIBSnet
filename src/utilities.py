@@ -267,7 +267,7 @@ def validate_parameter_json(j_args, json_path, logger):
                                         logger.error(f"Host filepath for {stage_name} does not exist: {binds['host_path']}")
                                         is_valid = False
                                     elif j_args["cabinet"]["handle_missing_host_paths"] == 'make_directories':
-                                        os.mkdir(binds["host_path"])
+                                        os.makedirs(binds["host_path"])
                                         logger.info(f"Made directory {binds['host_path']}")
 
                             j_args['stages'][stage_index] = stage

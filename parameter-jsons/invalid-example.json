@@ -45,7 +45,7 @@
             },
             "binds": [
                 {
-                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/non/existant/filepath",
+                    "host_path":"/home/faird/shared/data/BCP-MVP_BIBSNet/input/",
                     "container_path":"/bids_dir"
                 },
                 {
