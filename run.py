@@ -29,11 +29,11 @@ def main():
     logger.info(f"Identified stages to be run: {STAGES}")
     
     # Run every stage that the parameter file says to run
-    run_all_stages(json_args, logger)
+    success = run_all_stages(json_args, logger)
     # TODO default to running all stages if not specified by the user
 
     # Show user how long the pipeline took and end the pipeline here
-    exit_with_time_info(start_time)
+    exit_with_time_info(start_time, success)
 
 
 if __name__ == "__main__":

@@ -3,9 +3,7 @@
 
 """
 Common source for utility functions used by CABINET :)
-Greg Conan: gconan@umn.edu
-Created: 2021-11-12
-Updated: 2023-01-26
+Barry Tikalsky: tikal004@umn.edu
 """
 # Import standard libraries
 import argparse
@@ -18,16 +16,16 @@ import logging
 
 # NOTE All functions below are in alphabetical order.
 
-def exit_with_time_info(start_time, exit_code=0):
+def exit_with_time_info(start_time, success):
     """
     Terminate the pipeline after displaying a message showing how long it ran
     :param start_time: datetime.datetime object of when the script started
-    :param exit_code: exit code
+    :param success: bool, whether all stages were successful
     """
     print("CABINET {}: {}"
-          .format("took this long to run all stages successfully" if exit_code == 0 else "ran for this long and then crashed",
+          .format("took this long to run all stages successfully" if success else "ran for this long but some stages were not successful",
                   datetime.now() - start_time))
-    sys.exit(exit_code)
+    sys.exit(0 if success else 1)
 
 def extract_from_json(json_path):
     """
@@ -120,13 +118,16 @@ def run_all_stages(j_args, logger):
     :param logger: logging.Logger object to show messages and raise warnings
     """
     # ...run all stages that the user said to run
+    success = True
     for stage in j_args['stages']:
         stage_start = datetime.now()
         if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
                         .format(stage['name']))
-        run_stage(stage, j_args, logger)
+        success = run_stage(stage, j_args, logger) and success
         log_stage_finished(stage['name'], stage_start, logger)
+    
+    return success
 
 
 def run_stage(stage, j_args, logger):
@@ -152,9 +153,11 @@ def run_stage(stage, j_args, logger):
 
         try:
             subprocess.check_call(cmd)
+            return True
 
         except Exception:
             logger.exception(f"Error running {stage_name}")
+            return False
 
 
 def valid_readable_file(path):
