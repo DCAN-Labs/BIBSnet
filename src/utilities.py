@@ -82,7 +82,7 @@ def get_optional_args_in(a_dict):
                 optional_args.append(str(a_dict[arg]))
     return optional_args
 
-def log_stage_finished(stage_name, event_time, logger):
+def log_stage_finished(stage_name, event_time, logger, success):
     """
     Print and return a string showing how much time has passed since the
     current running script reached a certain part of its process
@@ -92,9 +92,11 @@ def log_stage_finished(stage_name, event_time, logger):
     :return: String with an easily human-readable message showing how much time
              has passed since {stage_start} when {stage_name} started.
     """
-    logger.info("{0} finished. "
+    successful = 'finished' if success else 'failed'
+    logger.info("{0} {2}. "
                 "Time elapsed since {0} started: {1}"
-                .format(stage_name, datetime.now() - event_time))
+                .format(stage_name, datetime.now() - event_time), successful)
+    
 
 def make_logger():
     """
@@ -124,8 +126,9 @@ def run_all_stages(j_args, logger):
         if j_args["cabinet"]["verbose"]:
             logger.info("Now running stage: {}\n"
                         .format(stage['name']))
-        success = run_stage(stage, j_args, logger) and success
-        log_stage_finished(stage['name'], stage_start, logger)
+        stage_success = run_stage(stage, j_args, logger)
+        log_stage_finished(stage['name'], stage_start, logger, stage_success)
+        success = success and stage_success
     
     return success
 
