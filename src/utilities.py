@@ -95,7 +95,7 @@ def log_stage_finished(stage_name, event_time, logger, success):
     successful = 'finished' if success else 'failed'
     logger.info("{0} {2}. "
                 "Time elapsed since {0} started: {1}"
-                .format(stage_name, datetime.now() - event_time), successful)
+                .format(stage_name, datetime.now() - event_time, successful))
     
 
 def make_logger():
