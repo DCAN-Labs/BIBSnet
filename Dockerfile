@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
 # Manually update the CABINET version when building
-ENV CABINET_VERSION="2.4.3"
+ENV CABINET_VERSION="2.4.5"
 
 # Prepare environment
 RUN apt-get update && \
@@ -120,8 +120,12 @@ RUN wget https://s3.msi.umn.edu/CABINET_data/Task552_uniform_distribution_synths
     wget https://s3.msi.umn.edu/CABINET_data/Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip -O /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
 RUN cd /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet && \
     unzip -qq Task552_uniform_distribution_synthseg.zip && \
+    rm Task552_uniform_distribution_synthseg.zip && \
     unzip -qq Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.zip && \
-    unzip -qq Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
+    rm Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.zip && \
+    unzip -qq Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip && \
+    rm Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.zip
+
 COPY run.py /home/cabinet/run.py
 COPY src /home/cabinet/src
 RUN chmod 777 -R /opt/fsl-6.0.5.1
