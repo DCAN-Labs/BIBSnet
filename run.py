@@ -52,7 +52,7 @@ from src.utilities import (
     get_preBIBS_final_img_fpath_T, get_stage_name, get_subj_ID_and_session,
     get_template_age_closest_to, make_given_or_default_dir,
     only_Ts_needed_for_bibsnet_model, register_preBIBSnet_imgs_ACPC, 
-    register_preBIBSnet_imgs_non_ACPC, reverse_regn_revert_to_native,
+    register_preBIBSnet_imgs_non_ACPC, remove_extra_clusters_from_mask, reverse_regn_revert_to_native,
     run_FSL_sh_script, run_all_stages, valid_output_dir, valid_readable_json,
     validate_parameter_types, valid_readable_dir,
     valid_subj_ses_ID, valid_whole_number
@@ -972,6 +972,9 @@ def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
                                           "-fillh -ero -ero -ero -ero"),
                                out_file=output_mask_fpath)
         maths.run()
+
+    remove_extra_clusters_from_mask(output_mask_fpath, path_to_aseg=nii_outfpath)
+
     return output_mask_fpath
 
 
