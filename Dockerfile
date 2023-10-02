@@ -239,7 +239,7 @@ RUN cp /home/cabinet/run.py /home/cabinet/cabinet
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
 RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet data
-RUN find /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres -type f -name 'postprocessing.json' -exec chmod 666 {} \;
 RUN chmod -R a+r /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres
+RUN chmod 666 -R /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task*/nnUNetTrainerV2__nnUNetPlansv2.1/
 
 ENTRYPOINT ["cabinet"]
