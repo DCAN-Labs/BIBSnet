@@ -17,6 +17,7 @@ from src.utilities import (
     reverse_regn_revert_to_native
 )
 
+SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
 
 
