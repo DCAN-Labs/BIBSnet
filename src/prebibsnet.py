@@ -34,7 +34,7 @@ def run_preBIBSnet(j_args):
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
-                                  cropped[t], j_args, LOGGER)
+                                  cropped[t], j_args)
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
