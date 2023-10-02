@@ -101,7 +101,6 @@ The repository contains two parameter files, one recommended to run CABINET insi
 #### "BIBSnet": parameters used only for the BIBSnet stage
 - `"model"`: string, the model to run. Example: `"3d_fullres"`
 - `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
-- `"code_dir"`: string, a valid path to directory containing BIBSnet python wrapper `run.py`. Example: `"/home/cabinet/SW/BIBSnet"`
 - `"singularity_image_path"`: string, a valid path to BIBSnet singularity image `.sif` file: Example: `"/home/cabinet/user/bibsnet.sif"`
 
 #### "nibabies": [see here](https://nibabies.readthedocs.io/en/latest/index.html)
