@@ -26,7 +26,7 @@ def run_preBIBSnet(j_args):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_averages(preBIBSnet_paths["avg"], LOGGER)  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
     # Crop T1w and T2w images
     cropped = dict()
