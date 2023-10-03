@@ -9,7 +9,6 @@ from src.logger import LOGGER
 
 from src.validate import ( 
     valid_output_dir,
-    valid_readable_json,
     valid_readable_dir,
     valid_subj_ses_ID,
     valid_whole_number,
@@ -32,7 +31,7 @@ AGE_TO_HEAD_RADIUS_TABLE = os.path.join(SCRIPT_DIR, "data",
 def get_params(stage_names):
     """
     :param stage_names: List of strings; each names a stage to run
-    :return: Dictionary containing all parameters from parameter .JSON file
+    :return: Dictionary containing all parameters
     """
     default_end_stage = stage_names[-1]
     default_fsl_bin_path = "/opt/fsl-6.0.5.1/bin/"
@@ -169,12 +168,12 @@ def validate_cli_args(cli_args, stage_names, parser):
     :param stage_names: List of strings naming stages to run (in order)
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Tuple of 2 objects:
-        1. Dictionary of validated parameters from parameter .JSON file
+        1. Dictionary of validated parameters
         2. List of dicts which each map "subject" to the subject ID string,
            "age_months" to the age in months (int) during the session, & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
-    # Get command-line input arguments and use them to get .JSON parameters
+    # Get command-line input arguments
     j_args = {
         "common": {
             "fsl_bin_path": cli_args["fsl_bin_path"]
@@ -276,7 +275,7 @@ def validate_cli_args(cli_args, stage_names, parser):
 
 def ensure_j_args_has_bids_subdirs(j_args, derivs, sub_ses, default_parent):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param derivs: Unpacked list of strings. Each names 1 part of a path under
                    j_args[common][bids_dir]. The last string is mapped by
                    j_args[optional_out_dirs] to the subdir path.
@@ -321,7 +320,7 @@ def get_df_with_valid_bibsnet_models(sub_ses_ID):
 
 def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param subj_or_none: String (the subject ID) or a falsey value
     :param ses_or_none: String (the session name) or a falsey value
     :return: List of dicts; each dict maps "subject" to its subject ID string
@@ -358,7 +357,7 @@ def get_brain_z_size(age_months, j_args, buffer=5):
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
     :param age_months: Int, participant's age in months
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param buffer: Int, extra space (in mm), defaults to 5
     :return: Int, the brain z-size (height) in millimeters
     """
@@ -389,7 +388,7 @@ def get_brain_z_size(age_months, j_args, buffer=5):
 
 def read_from_tsv(j_args, col_name, *sub_ses):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param col_name: String naming the column of sessions.tsv to return
                      a value from (for this subject or subject-session)
     :param sub_ses: Tuple containing subject and session labels. 

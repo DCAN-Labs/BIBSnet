@@ -5,7 +5,7 @@
 ### Command-Line Arguments
 
 ```
-usage: CABINET [-h] -jargs PARAMETER_JSON [-participant PARTICIPANT_LABEL]
+usage: CABINET [-h] [-participant PARTICIPANT_LABEL]
                [-age AGE_MONTHS] [-end {prebibsnet,bibsnet,postbibsnet}]
                [-model MODEL] [--overwrite] [-ses SESSION]
                [-start {prebibsnet,bibsnet,postbibsnet}] [-v] [-z]
@@ -24,10 +24,6 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -jargs PARAMETER_JSON, -params PARAMETER_JSON, --parameter-json PARAMETER_JSON
-                        Required. Valid path to existing readable parameter
-                        .JSON file. See README.md and example parameter .JSON
-                        files for more information on parameters.
   -participant PARTICIPANT_LABEL, --subject PARTICIPANT_LABEL, -sub PARTICIPANT_LABEL, --participant-label PARTICIPANT_LABEL
                         The participant's unique subject identifier, without
                         'sub-' prefix. Example: 'ABC12345'
@@ -96,16 +92,10 @@ The repository contains two parameter files, one recommended to run CABINET insi
 - `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FMRIB Software Library](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
 - `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback` (note: this is not utilized by cabinet yet, please designate it as null)
 
-#### "resource_management": parameters to determine resource use when running parallel scripts. These parameters are only needed for nibabies and XCPD.
-
 #### "BIBSnet": parameters used only for the BIBSnet stage
 - `"model"`: string, the model to run. Example: `"3d_fullres"`
 - `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
 - `"singularity_image_path"`: string, a valid path to BIBSnet singularity image `.sif` file: Example: `"/home/cabinet/user/bibsnet.sif"`
-
-#### "nibabies": [see here](https://nibabies.readthedocs.io/en/latest/index.html)
-
-#### "XCPD": [see here](https://xcp-d.readthedocs.io/en/latest/)
 
 <br />
 

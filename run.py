@@ -27,7 +27,7 @@ from src.utilities import (
 def main():
     start_time = datetime.now()  # Time how long the script takes
 
-    # Get and validate command-line arguments and parameters from .JSON file
+    # Get and validate command-line arguments
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet]
     json_args, sub_ses_IDs = get_params([get_stage_name(stg) for stg in STAGES])
 

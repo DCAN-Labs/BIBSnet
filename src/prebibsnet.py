@@ -21,7 +21,7 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 def run_preBIBSnet(j_args):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: j_args, but with preBIBSnet working directory names added
     """
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
@@ -159,7 +159,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
                       {"vars": {...}, "imgs": {...}} 
     :param averaged_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
                           (valid paths to existing image files to resize)
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: Dict with paths to either ACPC- or non-ACPC image & .mat files
     """
     out_ACPC = dict()
@@ -199,7 +199,7 @@ def apply_final_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs, outputs,
                      (valid paths to existing image files to resize)
     :param outputs: Dict that will have T1w &/or T2w ACPC transformed images
     :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: outputs, with paths to ACPC-transformed image and transform .mat
     """
     outputs[f"T{t}w"] = get_preBIBS_final_img_fpath_T(
@@ -256,7 +256,7 @@ def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                      (valid paths to existing image files to resize)
     :param outputs: Dict that will have T1w &/or T2w ACPC transformed images
     :param t: Int, either 1 or 2 (to signify T1w or T2w respectively)
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: outputs, with paths to ACPC-transformed image and transform .mat
     """
     outputs[f"T{t}w"] = get_preBIBS_final_img_fpath_T(
@@ -312,7 +312,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     or the ACPC-alignment-and-T2-to-T1-registration is better (check whether
     ACPC alignment improves the T2-to-T1 registration; compare the T2-to-T1
     with and without first doing the ACPC registration)
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     """
     msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}"
     eta = dict()
@@ -506,7 +506,7 @@ def crop_image(input_avg_img, output_crop_img, j_args):
     Run robustFOV to crop image
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
     :param output_crop_img: String, valid path to save cropped image file at
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: String, path to crop2full.mat file in same dir as output_crop_img
     """
     output_crop_dir = os.path.dirname(output_crop_img)
@@ -519,7 +519,7 @@ def crop_image(input_avg_img, output_crop_img, j_args):
 
 def get_and_make_preBIBSnet_work_dirs(j_args):
     """ 
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: Dictionary mapping j_args[preBIBSnet] dir keys to preBIBSnet
              subdirectories and "avg" to this dictionary:
              {"T?w_input": Lists (possibly empty) of T?w img file path strings
@@ -585,7 +585,7 @@ def register_preBIBSnet_imgs_ACPC(cropped_imgs, output_dir, xfm_non_ACPC_vars,
     :param crop2full: String, valid path to existing crop2full.mat file
     :param averaged_imgs: Dictionary mapping ints, (T) 1 or 2, to strings
                           (valid paths to existing image files to resize)
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     """
     # Build dict of variables used for image transformation with ACPC alignment
     xfm_ACPC_vars = xfm_non_ACPC_vars.copy()
@@ -633,7 +633,7 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
     """ 
     Functionality copied from the DCAN Infant Pipeline:
     github.com/DCAN-Labs/dcan-infant-pipeline/blob/master/PreFreeSurfer/scripts/ACPCAlignment_with_crop.sh
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param xfm_ACPC_vars: Dictionary mapping strings (ACPC input arguments'
                           names) to strings (ACPC arguments, file/dir paths)
     :param crop2full: String, valid path to existing crop2full.mat file
@@ -693,7 +693,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
                        The ACPC string has a "{}" in it to represent (T) 1 or 2
     :param ident_mx: String, valid path to existing identity matrix .mat file
     :param resolution:
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     """
     # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
 
@@ -733,7 +733,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
 def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     """
     T2w to T1w registration for use in preBIBSnet
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param xfm_vars: Dictionary containing paths to files used in registration
     :param reg_input_var: String naming the key in xfm_vars mapped to the path
                           to the image to use as an input for registration
@@ -811,7 +811,7 @@ def transform_image_T(t, cropped_in_img, xfm_vars, regn_outs, j_args):
     :param cropped_in_img: String, valid path to cropped T1w or T2w image
     :param xfm_vars: Dict with paths to reference image & identity matrix files
     :param regn_outs: Dict with paths to transformed output images to make
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     """
     run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
         j_args, "flirt",

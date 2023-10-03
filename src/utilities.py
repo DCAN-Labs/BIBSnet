@@ -104,7 +104,7 @@ def get_stage_name(stage_fn):
 
 def get_subj_ID_and_session(j_args):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: List of 2 strings (subject ID and session from parameter file,
              with their correct "sub-" and "ses-" prefixes) if the parameter
              file has a session, otherwise just with the prefixed subject ID
@@ -155,7 +155,7 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
     """
     Run any FSL function in a Bash subprocess, unless its outputs exist and the
     parameter file said not to overwrite outputs
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param fsl_fn_name: String naming the FSL function which is an
                         executable file in j_args[common][fsl_bin_path]
     """
@@ -252,7 +252,7 @@ def verify_CABINET_inputs_exist(sub_ses, j_args):
     Given a stage, verify that all of the necessary inputs for that stage exist 
     :param a_stage: String naming a stage
     :param sub_ses: List with either only the subject ID str or the session too
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     """
     # Define globbable paths to prereq files for the script to check
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],

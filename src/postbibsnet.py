@@ -28,7 +28,7 @@ RIGHT = "Right-"
 
 def run_postBIBSnet(j_args):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: j_args, unchanged
     """
     sub_ses = get_subj_ID_and_session(j_args)
@@ -115,7 +115,7 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args):
     """
     :param l_r_mask_nifti_fpath: String, valid path to existing left/right
                                  registration output mask file
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return nii_fpaths: Dictionary output of correct_chirality
     :return chiral_out_dir: String file path to output directory
     :return chiral_ref_img_fpaths_dict: Dictionary containing T1w and T2w file paths
@@ -166,7 +166,7 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
     :param sub_ses: List with either only the subject ID str or the session too
     :param age_months: String or int, the subject's age [range] in months
     :param t1or2: Int, 1 to use T1w image for registration or 2 to use T2w
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: String, path to newly created left/right registration output file
     """
     # Paths for left & right registration
@@ -225,7 +225,7 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
 def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :param aseg_dir: String, valid path to existing directory with output files
                      from chirality correction
     :param t: 1 or 2, whether running on T1 or T2
@@ -271,7 +271,7 @@ def correct_chirality(nifti_input_file_path, segment_lookup_table,
                               distinguishes between left and right
     :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
                         image to use as a reference when applying transform
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: Dict with paths to native and chirality-corrected images
     """
     nifti_file_paths = dict()
@@ -535,7 +535,7 @@ def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
     :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
                         image to use as a reference when applying transform
     :param t: 1 or 2, whether running on T1 or T2
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: String, valid path to existing image reverted to native
     """
     sub_ses = get_subj_ID_and_session(j_args)

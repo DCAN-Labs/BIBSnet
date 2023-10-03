@@ -225,8 +225,6 @@ COPY bin /home/cabinet/bin
 #COPY data /home/cabinet/data
 RUN curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/data.tar.gz" | tar -xzC /home/cabinet/data --no-same-owner --strip-components 1
 
-COPY parameter-file-application.json /home/cabinet/parameter-file-application.json
-COPY parameter-file-container.json /home/cabinet/parameter-file-container.json
 COPY requirements.txt  /home/cabinet/requirements.txt
 
 #Add cabinet dir to path
@@ -234,7 +232,6 @@ ENV PATH="${PATH}:/home/cabinet/"
 RUN cp /home/cabinet/run.py /home/cabinet/cabinet
 
 RUN cd /home/cabinet/ && pip install -r requirements.txt 
-RUN cd /home/cabinet/ && chmod 555 -R run.py bin src parameter-file-application.json parameter-file-container.json cabinet data
 RUN chmod -R a+r /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres
 RUN chmod 666 -R /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres/Task*/nnUNetTrainerV2__nnUNetPlansv2.1/
 

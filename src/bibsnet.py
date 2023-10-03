@@ -26,7 +26,7 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 def run_BIBSnet(j_args):
     """
-    :param j_args: Dictionary containing all args from parameter .JSON file
+    :param j_args: Dictionary containing all args
     :return: j_args, unchanged
     """    # TODO Test BIBSnet functionality once it's containerized
     sub_ses = get_subj_ID_and_session(j_args)
