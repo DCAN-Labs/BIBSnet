@@ -74,16 +74,6 @@ def valid_readable_file(path):
                     os.path.abspath, "Cannot read file at '{}'")
 
 
-def valid_readable_json(path):
-    """
-    :param path: Parameter to check if it represents a valid .json file path
-    :return: String representing a valid .json file path
-    """
-    return validate(path, lambda _: os.path.splitext(path)[-1] == ".json",
-                    valid_readable_file,
-                    "'{}' is not a path to a readable .json file")
-
-
 def valid_subj_ses(in_arg, pfx, name): 
     """
     :param in_arg: Object to check if it is a valid subject ID or session name

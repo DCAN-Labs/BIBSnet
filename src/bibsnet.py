@@ -11,7 +11,6 @@ Updated: 2022-10-24
 from fnmatch import fnmatch
 from glob import glob
 import os
-import pandas as pd
 import subprocess
 import sys
 

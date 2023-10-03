@@ -10,7 +10,6 @@ Updated: 2023-01-26
 # Import standard libraries
 from datetime import datetime
 from glob import glob
-from nipype.interfaces import fsl
 import numpy as np
 import os
 import subprocess
@@ -203,7 +202,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     """
     if ubiquitous_j_args["common"]["verbose"]:
-        LOGGER.info("All parameters from input args and input .JSON file:\n{}"
+        LOGGER.info("All parameters from input args:\n{}"
                     .format(ubiquitous_j_args))
 
     # For every session of every subject...

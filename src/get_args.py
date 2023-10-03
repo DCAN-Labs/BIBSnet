@@ -41,7 +41,6 @@ def get_params(stage_names):
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser("CABINET")
-    # TODO will want to add positional 'input' and 'output' arguments and '--participant-label' and '--session-label' arguments. For the HBCD study, we won't to have to create a JSON per scanning session, but this will likely be fine for the pilot.
 
     # BIDS-App required positional args, validated later in j_args
     parser.add_argument(
