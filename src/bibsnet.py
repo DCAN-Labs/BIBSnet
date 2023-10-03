@@ -111,7 +111,7 @@ def validate_bibsnet_inputs(cli_args, script_dir):
     """
     # Get info about which task ID(s) need T1s and which need T2s from .csv
     try:
-        models_csv_path = os.path.join(script_dir, "models.csv")  # TODO Should we make this file path an input argument?
+        models_csv_path = os.path.join(script_dir, "data", "models.csv")  # TODO Should we make this file path an input argument?
         tasks = pd.read_csv(models_csv_path, index_col=0)
         specified_task = tasks.loc[cli_args["task"]]
 
