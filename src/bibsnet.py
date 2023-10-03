@@ -21,8 +21,6 @@ from src.utilities import (
     get_subj_ID_and_session
 )
 
-SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-
 
 def run_BIBSnet(j_args):
     """
@@ -50,7 +48,6 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
-            validate_bibsnet_inputs(inputs_BIBSnet, SCRIPT_DIR)
             if j_args["common"]["verbose"]:
                 LOGGER.info("Now running BIBSnet with these parameters:\n{}\n"
                             .format(inputs_BIBSnet))
@@ -101,50 +98,4 @@ def run_nnUNet_predict(cli_args):
                  "inspect them if needed.\n{}\n\n"
                  .format(cli_args["output"], cli_args["input"]))
 
-
-def validate_bibsnet_inputs(cli_args, script_dir):
-    """
-    Verify that at least 1 T1w and/or 1 T2w file (depending on the task ID)
-    exists in the --input directory
-    :param cli_args: Dictionary containing all command-line input arguments
-    :param script_dir: String, valid path to existing dir containing run.py
-    """
-    # Get info about which task ID(s) need T1s and which need T2s from .csv
-    try:
-        models_csv_path = os.path.join(script_dir, "data", "models.csv")  # TODO Should we make this file path an input argument?
-        tasks = pd.read_csv(models_csv_path, index_col=0)
-        specified_task = tasks.loc[cli_args["task"]]
-
-    # Verify that the specified --task number is a valid task ID
-    except OSError:
-        LOGGER.error("{} not found. This file is needed to determine nnUNet "
-                     "requirements for BIBSnet task {}."
-                     .format(models_csv_path, cli_args["task"]))
-    except KeyError:
-        LOGGER.error("BIBSnet task {0} is not in {1} so its requirements are "
-                     "unknown. Add a task {0} row in that .csv or try one of "
-                     "these tasks: {2}"
-                     .format(cli_args["task"], models_csv_path, 
-                             tasks.index.values.tolist()))
-
-    # Validate that BIBSnet has all T1w/T2w input file(s) needed for --task
-    err_msg = ("BIBSnet task {} requires image file(s) at the path(s) below, "
-               "and at least 1 is missing. Either save the image file(s) "
-               "there or try a different task.\n{}")
-    img_glob_path = os.path.join(cli_args["input"], "*_000{}.nii.gz")
-    how_many_T_expected = 0
-    for t1or2 in (1, 2):
-        # TODO Should this verify that ONLY one T1w file and/or ONLY one T2w file exists?
-        if specified_task.get("T{}w".format(t1or2)):
-            how_many_T_expected += 1
-    img_files = glob(img_glob_path.format("?"))
-    if how_many_T_expected == 2 and len(img_files) < 2:
-        LOGGER.error(err_msg.format(cli_args["task"], "\n".join((
-            img_glob_path.format(0), img_glob_path.format(1)
-        ))))
-    elif how_many_T_expected == 1 and (
-            len(img_files) < 1 or not fnmatch(img_files[0],
-                                              img_glob_path.format(0))
-        ):
-        LOGGER.error(err_msg.format(cli_args["task"], img_glob_path.format(0)))
         
