@@ -65,16 +65,8 @@ def get_params(stage_names):
 
     # Required flag arguments
     parser.add_argument(
-        "-jargs", "-params", "--parameter-json", dest="parameter_json",
-        type=valid_readable_json, required=True,
-        help=("Required. Valid path to existing readable parameter .JSON "
-              "file. See README.md and example parameter .JSON files for more "
-              "information on parameters.")
-        # TODO: In the README.md file, mention which arguments are required and which are optional (with defaults)
-    )
-    parser.add_argument(
         "-participant", "--subject", "-sub", "--participant-label",
-        dest="participant_label", type=valid_subj_ses_ID,
+        dest="participant_label", type=valid_subj_ses_ID, required=True,
         help=("The participant's unique subject identifier, without 'sub-' "
               "prefix. Example: 'ABC12345'")  # TODO Make CABINET able to accept with OR without 'sub-' prefix
     )
