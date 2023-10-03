@@ -109,7 +109,7 @@ def get_params(stage_names):
               "be the path used by the container: {}".format(default_nnUNet_predict_path))
     )
     parser.add_argument(
-        "--nnUNet-configuration",
+        "--nnUNet-configuration", dest="nnUNet_configuration",
         choices=["2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres"],
         default=default_nnUNet_configuration,
         help=("The nnUNet configuration to use."
