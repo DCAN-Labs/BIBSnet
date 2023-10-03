@@ -181,7 +181,7 @@ def validate_cli_args(cli_args, stage_names, parser):
         },
 
         "bibsnet": {
-            "model": cli_args["nnuNet_configuration"],
+            "model": cli_args["nnUNet_configuration"],
             "nnUNet_predict_path": cli_args["nnUNet"]
         }
     }
