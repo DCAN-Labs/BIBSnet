@@ -10,18 +10,16 @@ from src.logger import LOGGER
 from src.validate import ( 
     valid_output_dir,
     valid_readable_json,
-    validate_parameter_types,
     valid_readable_dir,
     valid_subj_ses_ID,
-    valid_whole_number
+    valid_whole_number,
+    valid_readable_file
 )
 
 from src.utilities import (
-    as_cli_attr,
+    dict_has,
     ensure_prefixed,
-    extract_from_json,
     get_age_closest_to,
-    make_given_or_default_dir,
     only_Ts_needed_for_bibsnet_model
 )
 
@@ -29,15 +27,18 @@ SCRIPT_DIR_ARG = "--script-dir"
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 AGE_TO_HEAD_RADIUS_TABLE = os.path.join(SCRIPT_DIR, "data",
                                         "age_to_avg_head_radius_BCP.csv")
-TYPES_JSON = os.path.join(SCRIPT_DIR, "src", "param-types.json")
 
 
-def get_params_from_JSON(stage_names):
+def get_params(stage_names):
     """
     :param stage_names: List of strings; each names a stage to run
     :return: Dictionary containing all parameters from parameter .JSON file
     """
     default_end_stage = stage_names[-1]
+    default_fsl_bin_path = "/opt/fsl-6.0.5.1/bin/"
+    default_nnUNet_configuration = "3d_fullres"
+    default_nnUNet_predict_path = "/opt/conda/bin/nnUNet_predict"
+
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
     parser = argparse.ArgumentParser("CABINET")
@@ -94,6 +95,13 @@ def get_params_from_JSON(stage_names):
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names))
     )
     parser.add_argument(
+        "--fsl-bin-path",
+        type=valid_readable_dir,
+        default=default_fsl_bin_path,
+        help=("Valid path to fsl bin."
+              "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
+    )
+    parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
@@ -101,6 +109,19 @@ def get_params_from_JSON(stage_names):
               "--bids-dir. BIBSnet will run model 514 by default for T1w-"
               "only, model 515 for T2w-only, and model 552 for both T1w and "
               "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
+    )
+    parser.add_argument(
+        "--nnUNet", "-n", type=valid_readable_file, default=default_nnUNet_predict_path,
+        help=("Valid path to existing executable file to run nnU-Net_predict. "
+              "By default, this script will assume that nnU-Net_predict will "
+              "be the path used by the container: {}".format(default_nnUNet_predict_path))
+    )
+    parser.add_argument(
+        "--nnUNet-configuration",
+        choices=["2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres"],
+        default=default_nnUNet_configuration,
+        help=("The nnUNet configuration to use."
+              "Defaults to {}".format(default_nnUNet_configuration))
     )
     parser.add_argument(
         "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"
@@ -162,7 +183,16 @@ def validate_cli_args(cli_args, stage_names, parser):
            also "session" to the session ID string. Each will be j_args[IDs]
     """
     # Get command-line input arguments and use them to get .JSON parameters
-    j_args = extract_from_json(cli_args["parameter_json"])
+    j_args = {
+        "common": {
+            "fsl_bin_path": cli_args["fsl_bin_path"]
+        },
+
+        "bibsnet": {
+            "model": cli_args["nnuNet_configuration"],
+            "nnUNet_predict_path": cli_args["nnUNet"]
+        }
+    }
     script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
     j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
                       "slurm": bool(cli_args[script_dir_attr])}
@@ -184,17 +214,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     j_args["optional_out_dirs"] = {stagename: None for stagename in stage_names} 
     j_args["optional_out_dirs"]["derivatives"] = cli_args["output_dir"]
 
-    # TODO Automatically assign j_args[common][fsl_bin_path] and 
-    #      j_args[bibsnet][nnUNet_predict_path] if in the Singularity container
-
-    # TODO Check whether the script is being run from a container...
-    # - Docker: stackoverflow.com/a/25518538
-    # - Singularity: stackoverflow.com/a/71554776
-    # ...and if it is, then assign default values to these j_args, overwriting user's values:
-    # j_args[common][fsl_bin_path]
-    # j_args[BIBSnet][nnUNet_predict_path]
-    # Also, check whether the Docker/Singularity environment variables show up in os.environ for us to use here
-    # print(vars(os.environ))
 
     # Define (and create) default paths in derivatives directory structure for 
     # each stage of each session of each subject
@@ -234,12 +253,6 @@ def validate_cli_args(cli_args, stage_names, parser):
             ) if cli_args["brain_z_size"] else get_brain_z_size(
                 sub_ses_IDs[ix]["age_months"], j_args)
 
-        # TODO Check if this adds more sub_ses-dependent stuff to j_args
-        # Verify that every parameter in the parameter .JSON file is a valid input
-        j_args = validate_parameter_types(
-            j_args, extract_from_json(TYPES_JSON),
-            cli_args["parameter_json"], parser, stage_names
-        )
 
         # Check whether this sub ses has T1w and/or T2w input data
         data_path_BIDS_T = dict()  # Paths to expected input data to check
@@ -485,4 +498,38 @@ def select_model_with_data_for_T(t, models_df, has_T):
     """
     has_T_row = models_df[f"T{t}w"]
     return models_df.loc[has_T_row if has_T else ~has_T_row]
+
+
+def as_cli_attr(cli_arg_str):
+    """
+    :param cli_arg_str: String in command-line argument form
+    :return: cli_arg_str, but formatted as a stored command-line argument
+    """
+    return cli_arg_str.strip("-").replace("-", "_")
+
+
+def make_given_or_default_dir(dirs_dict, dirname_key, default_dirpath):
+    """
+    :param dirs_dict: Dictionary which must map dirname_key to a valid path
+    :param dirname_key: String which dirs_dict must map to a valid path
+    :param default_dirpath: String, valid directory path to map dirname_key to
+                            unless dirname_key's already mapped to another path
+    :return: dirs_dict, but with dirname_key mapped to a valid directory path
+    """
+    dirs_dict = ensure_dict_has(dirs_dict, dirname_key, default_dirpath)
+    os.makedirs(dirs_dict[dirname_key], exist_ok=True)
+    return dirs_dict
+
+
+def ensure_dict_has(a_dict, a_key, new_value):
+    """
+    :param a_dict: Dictionary (any)
+    :param a_key: Object which will be a key in a_dict
+    :param new_value: Object to become the value mapped to a_key in a_dict
+                      unless a_key is already mapped to a value
+    :return: a_dict, but with a_key mapped to some value
+    """
+    if not dict_has(a_dict, a_key):
+        a_dict[a_key] = new_value
+    return a_dict
 

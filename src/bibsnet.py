@@ -8,7 +8,6 @@ Created: 2022-02-08
 Updated: 2022-10-24
 """
 # Import standard libraries
-import argparse
 from fnmatch import fnmatch
 from glob import glob
 import os
@@ -18,16 +17,11 @@ import sys
 
 from src.logger import LOGGER
 
-from src.validate import (
-    valid_readable_dir,
-    valid_output_dir,
-    valid_readable_file,
-    valid_whole_number
-)
-
 from src.utilities import (
     get_subj_ID_and_session
 )
+
+SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 def run_BIBSnet(j_args):
@@ -56,6 +50,7 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
+            validate_bibsnet_inputs(inputs_BIBSnet, SCRIPT_DIR)
             if j_args["common"]["verbose"]:
                 LOGGER.info("Now running BIBSnet with these parameters:\n{}\n"
                             .format(inputs_BIBSnet))
@@ -83,13 +78,6 @@ def run_BIBSnet(j_args):
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
     
-        # TODO hardcoded below call to run_nnUNet_predict. Will likely want to 
-        # change and integrate into j_args
-        #run_nnUNet_predict({"model": "3d_fullres",
-        #                    "nnUNet": "/opt/conda/bin/nnUNet_predict",
-        #                    "input": dir_BIBS.format("in"),
-        #                    "output": dir_BIBS.format("out"),
-        #                    "task": "550"})
         LOGGER.info("BIBSnet has completed")
     return j_args
 
@@ -114,56 +102,12 @@ def run_nnUNet_predict(cli_args):
                  .format(cli_args["output"], cli_args["input"]))
 
 
-def get_cli_args():
-    """ 
-    :return: Dictionary containing all validated command-line input arguments
-    """
-    script_dir = os.path.dirname(__file__)
-    default_model = "3d_fullres"
-    default_nnUNet_path = os.path.join(script_dir, "nnUNet_predict")
-    default_task_ID = 512
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--input", "-i", type=valid_readable_dir, required=True,
-        help=("Valid path to existing input directory with 1 T1w file and/or "
-              "1 T2w file. T1w files should end with '_0000.nii.gz'. "
-              "T2w files only should for T1w-and-T2w model(s). For T2w-only "
-              "model(s), T2w files should end with '_0001.nii.gz'.")
-    )
-    parser.add_argument(
-        "--output", "-o", type=valid_output_dir, required=True,
-        help=("Valid path to a directory to save BIBSnet output files into. "
-              "If this directory or its parent directory/ies does not exist, "
-              "then they will automatically be created.")
-    )
-    parser.add_argument(
-        "--nnUNet", "-n", type=valid_readable_file, default=default_nnUNet_path,
-        help=("Valid path to existing executable file to run nnU-Net_predict. "
-              "By default, this script will assume that nnU-Net_predict will "
-              "be in the same directory as this script: {}".format(script_dir))
-    )
-    parser.add_argument(
-        "--task", "-t", type=valid_whole_number, default=default_task_ID,
-        help=("Task ID, which should be a 3-digit positive integer starting "
-              "with 5 (e.g. 512). The default task ID is {}."
-              .format(default_task_ID))
-    )
-    parser.add_argument(  # TODO Does this even need to be an argument, or will it always be the default?
-        "--model", "-m", default=default_model,
-        help=("Name of the nnUNet model to run. By default, it will run '{}'."
-              .format(default_model))
-    )
-    return validate_cli_args(vars(parser.parse_args()), script_dir, parser)
-
-
-def validate_cli_args(cli_args, script_dir, parser):
+def validate_bibsnet_inputs(cli_args, script_dir):
     """
     Verify that at least 1 T1w and/or 1 T2w file (depending on the task ID)
     exists in the --input directory
     :param cli_args: Dictionary containing all command-line input arguments
     :param script_dir: String, valid path to existing dir containing run.py
-    :param parser: argparse.ArgumentParser to raise error if anything's invalid
-    :return: cli_args, but with all input arguments validated
     """
     # Get info about which task ID(s) need T1s and which need T2s from .csv
     try:
@@ -173,11 +117,11 @@ def validate_cli_args(cli_args, script_dir, parser):
 
     # Verify that the specified --task number is a valid task ID
     except OSError:
-        parser.error("{} not found. This file is needed to determine nnUNet "
+        LOGGER.error("{} not found. This file is needed to determine nnUNet "
                      "requirements for BIBSnet task {}."
                      .format(models_csv_path, cli_args["task"]))
     except KeyError:
-        parser.error("BIBSnet task {0} is not in {1} so its requirements are "
+        LOGGER.error("BIBSnet task {0} is not in {1} so its requirements are "
                      "unknown. Add a task {0} row in that .csv or try one of "
                      "these tasks: {2}"
                      .format(cli_args["task"], models_csv_path, 
@@ -195,13 +139,12 @@ def validate_cli_args(cli_args, script_dir, parser):
             how_many_T_expected += 1
     img_files = glob(img_glob_path.format("?"))
     if how_many_T_expected == 2 and len(img_files) < 2:
-        parser.error(err_msg.format(cli_args["task"], "\n".join((
+        LOGGER.error(err_msg.format(cli_args["task"], "\n".join((
             img_glob_path.format(0), img_glob_path.format(1)
         ))))
     elif how_many_T_expected == 1 and (
             len(img_files) < 1 or not fnmatch(img_files[0],
                                               img_glob_path.format(0))
         ):
-        parser.error(err_msg.format(cli_args["task"], img_glob_path.format(0)))
+        LOGGER.error(err_msg.format(cli_args["task"], img_glob_path.format(0)))
         
-    return cli_args

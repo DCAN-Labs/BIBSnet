@@ -12,7 +12,7 @@ from datetime import datetime
 import os
 
 # Custom local imports
-from src.get_args import get_params_from_JSON
+from src.get_args import get_params
 
 from src.prebibsnet import run_preBIBSnet
 from src.bibsnet import run_BIBSnet
@@ -29,7 +29,7 @@ def main():
 
     # Get and validate command-line arguments and parameters from .JSON file
     STAGES = [run_preBIBSnet, run_BIBSnet, run_postBIBSnet]
-    json_args, sub_ses_IDs = get_params_from_JSON([get_stage_name(stg) for stg in STAGES])
+    json_args, sub_ses_IDs = get_params([get_stage_name(stg) for stg in STAGES])
 
     # Set output dir environment variable for BIBSnet to user-defined output dir
     os.environ["nnUNet_raw_data_base"] = json_args["optional_out_dirs"]["derivatives"]

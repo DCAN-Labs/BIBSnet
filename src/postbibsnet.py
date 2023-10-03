@@ -4,21 +4,26 @@ from glob import glob
 import sys
 import subprocess
 from nipype.interfaces import fsl
+import nibabel as nib
+import numpy as np
+import json
 
 from src.logger import LOGGER
 
-from src.utilities import (
-    correct_chirality, 
-    dilate_LR_mask,
-    generate_sidecar_json,
+from src.utilities import ( 
     get_subj_ID_and_session,
-    get_template_age_closest_to,
+    get_age_closest_to,
     only_Ts_needed_for_bibsnet_model, 
-    reverse_regn_revert_to_native
+    run_FSL_sh_script,
+    split_2_exts
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
+# Chirality-checking constants
+CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
+LEFT = "Left-"
+RIGHT = "Right-"
 
 
 def run_postBIBSnet(j_args):
@@ -253,3 +258,306 @@ def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, space, new_fname_
     shutil.copy2(file_to_copy, os.path.join(derivs_dir, (
         "{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), space, new_fname_pt)
     )))
+
+    
+def correct_chirality(nifti_input_file_path, segment_lookup_table,
+                      nii_fpath_LR_mask, chiral_out_dir):
+    """
+    Creates an output file with chirality corrections fixed.
+    :param nifti_input_file_path: String, path to a segmentation file with
+                                  possible chirality problems
+    :param segment_lookup_table: String, path to FreeSurfer-style look-up table
+    :param nii_fpath_LR_mask: String, path to a mask file that
+                              distinguishes between left and right
+    :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
+                        image to use as a reference when applying transform
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :return: Dict with paths to native and chirality-corrected images
+    """
+    nifti_file_paths = dict()
+    for which_nii in ("native-T1", "native-T2", "corrected"):
+        nifti_file_paths[which_nii] = os.path.join(chiral_out_dir, "_".join((
+            which_nii, os.path.basename(nifti_input_file_path)
+        )))
+
+    free_surfer_label_to_region = get_id_to_region_mapping(segment_lookup_table)
+    segment_name_to_number = {v: k for k, v in free_surfer_label_to_region.items()}
+    img = nib.load(nifti_input_file_path)
+    data = img.get_data()
+    left_right_img = nib.load(nii_fpath_LR_mask)
+    left_right_data = left_right_img.get_data()
+
+    new_data = data.copy()
+    data_shape = img.header.get_data_shape()
+    left_right_data_shape = left_right_img.header.get_data_shape()
+    width = data_shape[0]
+    height = data_shape[1]
+    depth = data_shape[2]
+    assert \
+        width == left_right_data_shape[0] and height == left_right_data_shape[1] and depth == left_right_data_shape[2]
+    for i in range(width):
+        for j in range(height):
+            for k in range(depth):
+                voxel = data[i][j][k]
+                region = free_surfer_label_to_region[voxel]
+                chirality_voxel = int(left_right_data[i][j][k])
+                if not (region.startswith(LEFT) or region.startswith(RIGHT)):
+                    continue
+                if chirality_voxel == CHIRALITY_CONST["LEFT"] or chirality_voxel == CHIRALITY_CONST["RIGHT"]:
+                    check_and_correct_region(
+                        chirality_voxel == CHIRALITY_CONST["LEFT"], region, segment_name_to_number, new_data, i, j, k)
+    fixed_img = nib.Nifti1Image(new_data, img.affine, img.header)
+    nib.save(fixed_img, nifti_file_paths["corrected"])
+    return nifti_file_paths
+
+
+def get_id_to_region_mapping(mapping_file_name, separator=None):
+    """
+    Author: Paul Reiners
+    Create a map from region ID to region name from a from a FreeSurfer-style
+    look-up table. This function parses a FreeSurfer-style look-up table. It
+    then returns a map that maps region IDs to their names.
+    :param mapping_file_name: String, the name or path to the look-up table
+    :param separator: String delimiter separating parts of look-up table lines
+    :return: Dictionary, a map from the ID of a region to its name
+    """
+    with open(mapping_file_name, 'r') as infile:
+        lines = infile.readlines()
+
+    id_to_region = {}
+    for line in lines:
+        line = line.strip()
+        if line.startswith('#') or line == '':
+            continue
+        if separator:
+            parts = line.split(separator)
+        else:
+            parts = line.split()
+        region_id = int(parts[0])
+        region = parts[1]
+        id_to_region[region_id] = region
+    return id_to_region
+
+
+def check_and_correct_region(should_be_left, region, segment_name_to_number,
+                             new_data, chirality, floor_ceiling, scanner_bore):
+    """
+    Ensures that a voxel in NIFTI data is in the correct region by flipping
+    the label if it's mislabeled
+    :param should_be_left (Boolean): This voxel *should be on the head's LHS 
+    :param region: String naming the anatomical region
+    :param segment_name_to_number (map<str, int>): Map from anatomical regions 
+                                                   to identifying numbers
+    :param new_data (3-d in array): segmentation data passed by reference to 
+                                    be fixed if necessary
+    :param chirality: x-coordinate into new_data
+    :param floor_ceiling: y-coordinate into new_data
+    :param scanner_bore: z-coordinate into new_data
+    """
+    # expected_prefix, wrong_prefix = (LEFT, RIGHT) if should_be_left else (RIGHT, LEFT)
+    if should_be_left:
+        expected_prefix = LEFT
+        wrong_prefix = RIGHT
+    else:
+        expected_prefix = RIGHT
+        wrong_prefix = LEFT
+    if region.startswith(wrong_prefix):
+        flipped_region = expected_prefix + region[len(wrong_prefix):]
+        flipped_id = segment_name_to_number[flipped_region]
+        new_data[chirality][floor_ceiling][scanner_bore] = flipped_id
+
+
+def dilate_LR_mask(sub_LRmask_dir, anatfile):
+    """
+    Taken from https://github.com/DCAN-Labs/SynthSeg/blob/master/SynthSeg/dcan/img_processing/chirality_correction/dilate_LRmask.py
+    :param sub_LRmask_dir: String, path to real directory to make subdirectory
+                           in; the subdirectory will contain mask files
+    :param anatfile: String, valid path to existing anatomical image file
+    """
+    # Make subdirectory to save masks in & generic mask file name format-string
+    parent_dir = os.path.join(sub_LRmask_dir, "lrmask_dil_wd")
+    os.makedirs(parent_dir, exist_ok=True)
+    mask = os.path.join(parent_dir, "{}mask{}.nii.gz")
+
+    # Make left, right, and middle masks using FSL
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
+                           out_file=mask.format("L", ""))
+    maths.run()
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
+                           out_file=mask.format("R", ""))
+    maths.run()
+    maths.run()
+    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
+                           out_file=mask.format("M", ""))
+    maths.run()
+
+    # dilate, fill, and erode each mask in order to get rid of holes
+    # (also binarize L and M images in order to perform binary operations)
+    maths = fsl.ImageMaths(in_file=mask.format("L", ""),
+                           op_string='-dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("L", "_holes_filled"))
+    maths.run()
+    maths = fsl.ImageMaths(in_file=mask.format("R", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("R", "_holes_filled"))
+    maths.run()
+    maths = fsl.ImageMaths(in_file=mask.format("M", ""),
+                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
+                           out_file=mask.format("M", "_holes_filled"))
+    maths.run()
+
+    # Reassign values of 2 and 3 to R and M masks (L mask already a value of 1)
+    label_anat_masks = {"L": mask.format("L", "_holes_filled"),
+                        "R": mask.format("R", "_holes_filled_label2"),
+                        "M": mask.format("M", "_holes_filled_label3")}
+    maths = fsl.ImageMaths(in_file=mask.format("R", "_holes_filled"),
+                           op_string='-mul 2', out_file=label_anat_masks["R"])
+    maths.run()
+
+    maths = fsl.ImageMaths(in_file=mask.format("M", "_holes_filled"),
+                           op_string='-mul 3', out_file=label_anat_masks["M"])
+    maths.run()
+
+    # recombine new L, R, and M mask files and then dilate the result 
+    masks_LR = {"dilated": mask.format("dilated_LR", ""),
+                "recombined": mask.format("recombined_", "_LR")}
+    maths = fsl.ImageMaths(in_file=label_anat_masks["L"],
+                           op_string='-add {}'.format(label_anat_masks["R"]),
+                           out_file=masks_LR["recombined"])
+    maths.run()
+    maths = fsl.ImageMaths(in_file=label_anat_masks["M"],
+                           op_string="-add {}".format(masks_LR["recombined"]),
+                           out_file=masks_LR["dilated"])
+    maths.run()
+
+    # Fix incorrect values resulting from recombining dilated components
+    orig_LRmask_img = nib.load(os.path.join(sub_LRmask_dir, "LRmask.nii.gz"))
+    orig_LRmask_data = orig_LRmask_img.get_fdata()
+
+    fill_LRmask_img = nib.load(masks_LR["dilated"])
+    fill_LRmask_data = fill_LRmask_img.get_fdata()
+
+    # Flatten numpy arrays
+    orig_LRmask_data_2D = orig_LRmask_data.reshape((182, 39676), order='C')
+    orig_LRmask_data_1D = orig_LRmask_data_2D.reshape(7221032, order='C')
+
+    fill_LRmask_data_2D = fill_LRmask_data.reshape((182, 39676), order='C')
+    fill_LRmask_data_1D = fill_LRmask_data_2D.reshape(7221032, order='C')
+
+    # grab index values of voxels with a value greater than 2.0 in filled L/R mask
+    voxel_check = np.where(fill_LRmask_data_1D > 2.0)
+
+    # Replace possible overlapping label values with corresponding label values from initial mask
+    for i in voxel_check[:]:
+        fill_LRmask_data_1D[i] = orig_LRmask_data_1D[i]
+
+    # reshape numpy array
+    fill_LRmask_data_2D = fill_LRmask_data_1D.reshape((182, 39676), order='C')
+    fill_LRmask_data_3D = fill_LRmask_data_2D.reshape((182, 218, 182), order='C')
+
+    # save new numpy array as image
+    empty_header = nib.Nifti1Header()
+    out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
+    out_fpath = mask.format("LR", "_dil")  # os.path.join(sub_LRmask_dir, 'LRmask_dil.nii.gz')
+    nib.save(out_img, out_fpath)
+
+    #remove working directory with intermediate outputs
+    #shutil.rmtree('lrmask_dil_wd')
+
+    return out_fpath
+
+
+def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
+    """
+    :param sub_ses: List with either only the subject ID str or the session too
+    :param reference_path: String, filepath to the referenced image
+    :param derivs_dir: String, directory to place the output JSON
+    :param t: 1 or 2, T1w or T2w
+    :param desc: the type of image the sidecar json is being paired with
+    """
+    template_path = os.path.join(SCRIPT_DIR, "data", "sidecar_template.json")
+    with open(template_path) as file:
+        sidecar = json.load(file)
+
+    version = os.environ['CABINET_VERSION']
+    bids_version = "1.4.0"
+
+    reference = os.path.basename(reference_path)
+    spatial_reference = '/'.join(sub_ses) + f"/anat/{reference}"
+
+    sidecar["SpatialReference"] = spatial_reference
+    sidecar["BIDSVersion"] = bids_version
+    sidecar["GeneratedBy"][0]["Version"] = version
+    sidecar["GeneratedBy"][0]["Container"]["Tag"] = f"dcanumn/cabinet:{version}"
+    
+    filename = '_'.join(sub_ses) + f"_space-T{t}w_desc-{desc}.json"
+    file_path = os.path.join(derivs_dir, filename)
+
+    with open(file_path, "w+") as file:
+        json.dump(sidecar, file)
+
+
+def get_template_age_closest_to(age, templates_dir):
+    """
+    :param age: Int, participant age in months
+    :param templates_dir: String, valid path to existing directory which
+                          contains template image files
+    :return: String, the age (or range of ages) in months closest to the
+             participant's with a template image file in templates_dir
+    """
+    template_ages = list()
+    template_ranges = dict()
+
+    # Get list of all int ages (in months) that have template files
+    for tmpl_path in glob(os.path.join(templates_dir,
+                                        "*mo_template_LRmask.nii.gz")):
+        tmpl_age = os.path.basename(tmpl_path).split("mo", 1)[0]
+        if "-" in tmpl_age: # len(tmpl_age) <3:
+            for each_age in tmpl_age.split("-"):
+                template_ages.append(int(each_age))
+                template_ranges[template_ages[-1]] = tmpl_age
+        else:
+            template_ages.append(int(tmpl_age))
+    
+    # Get template age closest to subject age, then return template age
+    closest_age = get_age_closest_to(age, template_ages)
+    return (template_ranges[closest_age] if closest_age
+            in template_ranges else str(closest_age))
+
+
+def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
+                                  xfm_ref_img, t, j_args):
+    """
+    :param nifti_file_paths: Dict with valid paths to native and
+                             chirality-corrected images
+    :param chiral_out_dir: String, valid path to existing directory to save 
+                           chirality-corrected images into
+    :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
+                        image to use as a reference when applying transform
+    :param t: 1 or 2, whether running on T1 or T2
+    :param j_args: Dictionary containing all args from parameter .JSON file
+    :return: String, valid path to existing image reverted to native
+    """
+    sub_ses = get_subj_ID_and_session(j_args)
+
+    # Undo resizing right here (do inverse transform) using RobustFOV so 
+    # padding isn't necessary; revert aseg to native space
+    dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
+    shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
+
+    seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
+    preBIBSnet_mat_glob = os.path.join(
+        j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
+        f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
+    )
+    preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
+    run_FSL_sh_script(j_args, "convert_xfm", "-omat",
+                      seg2native, "-inverse", preBIBSnet_mat)
+    # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
+
+    run_FSL_sh_script(j_args, "flirt", "-applyxfm",
+                      "-ref", xfm_ref_img, "-in", dummy_copy,
+                      "-init", seg2native, "-o", nifti_file_paths[f"native-T{t}"],
+                      "-interp", "nearestneighbour")
+    return nifti_file_paths[f"native-T{t}"]
+
