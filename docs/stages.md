@@ -38,13 +38,3 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 7. Removes prebibsnet through postbibsnet working directories if the user does not specify a working directory.
 
 <br />
-
-## 4. Nibabies (FUTURE)
-
-Infant fmriprep image processing
-
-<br />
-
-## 5. XCP-D (FUTURE)
-
-DCANBOLDProc and Executive Summary

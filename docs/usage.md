@@ -5,11 +5,13 @@
 ### Command-Line Arguments
 
 ```
-usage: CABINET [-h] [-participant PARTICIPANT_LABEL]
-               [-age AGE_MONTHS] [-end {prebibsnet,bibsnet,postbibsnet}]
-               [-model MODEL] [--overwrite] [-ses SESSION]
-               [-start {prebibsnet,bibsnet,postbibsnet}] [-v] [-z]
-               [--script-dir SCRIPT_DIR]
+usage: CABINET [-h] -participant PARTICIPANT_LABEL [-age AGE_MONTHS]
+               [-end {prebibsnet,bibsnet,postbibsnet}]
+               [--fsl-bin-path FSL_BIN_PATH] [-model MODEL] [--nnUNet NNUNET]
+               [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
+               [--overwrite] [-ses SESSION]
+               [-start {prebibsnet,bibsnet,postbibsnet}] [-v] [-w WORK_DIR]
+               [-z] [--script-dir SCRIPT_DIR]
                bids_dir output_dir {participant}
 
 positional arguments:
@@ -31,19 +33,30 @@ optional arguments:
                         Positive integer, the participant's age in months. For
                         example, -age 5 would mean the participant is 5 months
                         old. Include this argument unless the age in months is
-                        specified in the sub-{}_sessions.tsv file inside the each subjects'
-                        BIDS input directory or the participants.tsv file inside the BIDS
-                        directory at the subject-level.
+                        specified in each subject's sub-{}_sessions.tsv file
+                        inside its BIDS input directory or inside the
+                        participants.tsv file inside the BIDS directory at
+                        thesubject-level.
   -end {prebibsnet,bibsnet,postbibsnet}, --ending-stage {prebibsnet,bibsnet,postbibsnet}
                         Name of the stage to run last. By default, this will
                         be the postbibsnet stage. Valid choices: prebibsnet,
                         bibsnet, postbibsnet
+  --fsl-bin-path FSL_BIN_PATH
+                        Valid path to fsl bin.Defaults to the path used by the
+                        container: /opt/fsl-6.0.5.1/bin/
   -model MODEL, --model-number MODEL, --bibsnet-model MODEL
-                        Model/task number for BIBSnet. By default, this will 
-                        be inferred from CABINET/data/models.csv based on
-                        which data exists in the --bids-dir. BIBSnet will run 
-                        model 514 by default for T1w-only, model 515 for 
+                        Model/task number for BIBSnet. By default, this will
+                        be inferred from /home/cabinet/data/models.csv based
+                        on which data exists in the --bids-dir. BIBSnet will
+                        run model 514 by default for T1w-only, model 515 for
                         T2w-only, and model 552 for both T1w and T2w.
+  --nnUNet NNUNET, -n NNUNET
+                        Valid path to existing executable file to run nnU-
+                        Net_predict. By default, this script will assume that
+                        nnU-Net_predict will be the path used by the
+                        container: /opt/conda/bin/nnUNet_predict
+  --nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}
+                        The nnUNet configuration to use.Defaults to 3d_fullres
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous CABINET
                         outputs in the derivatives sub-directories. Otherwise,
@@ -61,41 +74,19 @@ optional arguments:
                         every command being run by CABINET to stdout.
                         Otherwise CABINET will only print warnings, errors,
                         and minimal output.
-  -w, --work-dir        Valid absolute path where intermediate results (prebibsnet 
-                        through postbibsnet stage outputs) should be stored. By 
-                        default, this outputs to /tmp/cabinet. This directory is 
-                        is deleted at the end of postbibsnet after results are  
-                        copied into the "bibsnet" derivatives directory. 
-                        Example: /path/to/working/directory
+  -w WORK_DIR, --work-dir WORK_DIR
+                        Valid absolute path where intermediate results should
+                        be stored.Example: /path/to/working/directory
   -z, --brain-z-size    Include this flag to infer participants' brain height
-                        (z) using the sub-{}_sessions.tsv or the participant.tsv 
-                        brain_z_size column. Otherwise, CABINET will estimate the
-                        brain height from the participant age and averages of a 
-                        large sample of infant brain heights.
+                        (z) using the sub-{}_sessions.tsv or participant.tsv
+                        brain_z_size column.Otherwise, CABINET will estimate
+                        the brain height from the participant age and averages
+                        of a large sample of infant brain heights.
   --script-dir SCRIPT_DIR
                         Valid path to the existing parent directory of this
                         run.py script. Include this argument if and only if
                         you are running the script as a SLURM/SBATCH job.
 ```
-
-<br />
-
-### Parameter `.JSON` File
-
-The repository contains two parameter files, one recommended to run CABINET inside its container and one recommended to run outside:
-
-- Inside Container: `parameter-file-container.json`
-- Outside Container: `parameter-file-application.json`
-
-#### "common": parameters used by multiple stages within CABINET
-
-- `"fsl_bin_path"`: string, a valid absolute path to existing `bin` directory in [FMRIB Software Library](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/). Example: `"/opt/fsl-6.0.5.1/bin/"`
-- `"task_id"`: string, the name of the task performed by the participant to processes data for. This parameter can also be `null` for non-task data. Example: `nback` (note: this is not utilized by cabinet yet, please designate it as null)
-
-#### "BIBSnet": parameters used only for the BIBSnet stage
-- `"model"`: string, the model to run. Example: `"3d_fullres"`
-- `"nnUNet_predict_path"`: string, a valid path to nnUNet_predict executable file. Example: `"/opt/conda/bin/nnUNet_predict"`
-- `"singularity_image_path"`: string, a valid path to BIBSnet singularity image `.sif` file: Example: `"/home/cabinet/user/bibsnet.sif"`
 
 <br />
 

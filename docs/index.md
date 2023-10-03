@@ -9,8 +9,6 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 1. PreBIBSnet
 2. BIBSnet
 3. PostBIBSnet
-4. [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html) (FUTURE)
-5. [XCP-D](https://xcp-d.readthedocs.io/en/latest/) (FUTURE)
 
 <br />
 

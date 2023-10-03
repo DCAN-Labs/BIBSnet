@@ -15,8 +15,6 @@
 |   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.nii.gz
 |   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-brain_mask.json
 |   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-brain_mask.nii.gz
-│   ├── nibabies
-│   ├── xcpd
 
 ```
 <br />
