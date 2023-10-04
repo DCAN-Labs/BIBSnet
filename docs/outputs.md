@@ -31,7 +31,7 @@ Below is an example JSON for a file `sub-01_ses-A_space-T1w_desc-aseg_dseg.json`
   "GeneratedBy": [
     {
       "Name": "BIBSnet",
-      "Version": "2.4.3",
+      "Version": "3.0.0",
       "Container": {
         "Type": "docker",
         "Tag": "dcanumn/bibsnet:3.0.0"
