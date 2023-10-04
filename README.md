@@ -12,4 +12,4 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 ## Getting Started
 
-For comprehensive information on BIBSnet, including installation and usage, visit <a href="https://cabinet.readthedocs.io/en/latest/" target="_blank">our documentation</a>.
+For comprehensive information on BIBSnet, including installation and usage, visit <a href="https://bibsnet.readthedocs.io/en/latest/" target="_blank">our documentation</a>.

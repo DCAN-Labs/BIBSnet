@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please check our [documentation](https://cabinet.readthedocs.io/en/latest/) prior to asking a question here! 
+        Please check our [documentation](https://bibsnet.readthedocs.io/en/latest/) prior to asking a question here! 
   - type: textarea
     id: summary
     attributes:

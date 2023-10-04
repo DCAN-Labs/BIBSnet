@@ -8,7 +8,7 @@
       "Version": "VERSION",
       "Container": {
         "Type": "docker",
-        "Tag": "dcanumn/cabinet:VERSION"
+        "Tag": "dcanumn/bibsnet:VERSION"
         }
     }
   ],

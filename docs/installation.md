@@ -12,12 +12,12 @@ We strongly recommend that users interested in producing segmentations run the c
 
 ### Container
 
-Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
+Container hosted here: https://hub.docker.com/r/dcanumn/bibsnet
 
 #### Singularity
 
-    singularity pull bibsnet.sif docker://dcanumn/cabinet:latest
+    singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest
 
 #### Docker
 
-    docker pull dcanumn/cabinet:latest
+    docker pull dcanumn/bibsnet:latest

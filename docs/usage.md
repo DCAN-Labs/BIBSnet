@@ -1,6 +1,6 @@
 ## Usage
 
-[BIBSnet](https://github.com/DCAN-Labs/CABINET) can only be run with a GPU, and cannot currently be run with a CPU. BIBSnet needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
+[BIBSnet](https://github.com/DCAN-Labs/BIBSnet) can only be run with a GPU, and cannot currently be run with a CPU. BIBSnet needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
 
 ### Command-Line Arguments
 
@@ -111,7 +111,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/input:/input \
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
-    /home/faird/shared/code/internal/pipelines/cabinet_container/cabinet_1_3_2.sif \
+    /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
     /input /output participant -jargs /param_file.json -end postbibsnet -v 
 
 <br />
