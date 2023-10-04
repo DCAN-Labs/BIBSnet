@@ -12,6 +12,6 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 <br />
 
-![BIBSnet - Stages for MRI Processing (7)](https://user-images.githubusercontent.com/102316699/229221731-80537a22-9fb6-4dd4-96ee-6f5ad8ff012a.png)
+![BIBSnet - Stages for MRI Processing](https://github.com/DCAN-Labs/CABINET/assets/95246814/6db1660e-6476-4ee1-abbd-30b5917882bb)
 
 [BIBSnet Github Repository](https://github.com/DCAN-Labs/CABINET)
