@@ -6,7 +6,7 @@ docker or singularity (depending on what containerization software you will use 
 
 ## Installation
 
-We strongly recommend that users interested in producing segmentations run the containerized version of `CABINET`. However, developers may sometimes benefit from running the application outside of the container for testing. 
+We strongly recommend that users interested in producing segmentations run the containerized version of `BIBSnet`. However, developers may sometimes benefit from running the application outside of the container for testing. 
 
 <br />
 
@@ -16,7 +16,7 @@ Container hosted here: https://hub.docker.com/r/dcanumn/cabinet
 
 #### Singularity
 
-    singularity pull cabinet.sif docker://dcanumn/cabinet:latest
+    singularity pull bibsnet.sif docker://dcanumn/cabinet:latest
 
 #### Docker
 

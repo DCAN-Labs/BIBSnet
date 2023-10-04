@@ -2,10 +2,12 @@
 # coding: utf-8
 
 """
-Common source for utility functions used by CABINET :)
+Common source for utility functions used by BIBSnet.
+Contains functions used by multiple stages, only used in run.py, or called by other utility functions.
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2023-01-26
+Barry Tikalsky: tikal004@umn.edu
+Updated: 2023-10-04
 """
 # Import standard libraries
 from datetime import datetime
@@ -21,15 +23,6 @@ SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 # NOTE All functions below are in alphabetical order.
-
-
-def as_cli_arg(arg_str):
-    """
-    :param arg_str: String naming a stored argument taken from the command line
-    :return: String which is the command-line argument form of arg_str
-    """
-    return "--" + arg_str.replace("_", "-")
-
 
 def dict_has(a_dict, a_key):
     """
@@ -94,9 +87,9 @@ def get_preBIBS_final_digit_T(t, sub_ses_ID):
 
 def get_stage_name(stage_fn):
     """ 
-    :param stage_fn: Function to run one stage of CABINET. Its name must start
-                     with "run_", e.g. "run_nibabies" or "run_preBIBSnet"
-    :return: String naming the CABINET stage to run
+    :param stage_fn: Function to run one stage of BIBSnet. Its name must start
+                     with "run_", e.g. "run_preBIBSnet"
+    :return: String naming the BIBSnet stage to run
     """
     return stage_fn.__name__[4:].lower()
 
@@ -218,7 +211,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
         )
 
         # ...check that all required input files exist for the stages to run
-        verify_CABINET_inputs_exist(sub_ses, sub_ses_j_args)
+        verify_BIBSnet_inputs_exist(sub_ses, sub_ses_j_args)
 
         # ...run all stages that the user said to run
         for stage in all_stages:
@@ -246,7 +239,7 @@ def split_2_exts(a_path):
     return base, ext1 + ext2
 
 
-def verify_CABINET_inputs_exist(sub_ses, j_args):
+def verify_BIBSnet_inputs_exist(sub_ses, j_args):
     """
     Given a stage, verify that all of the necessary inputs for that stage exist 
     :param a_stage: String naming a stage
@@ -270,9 +263,7 @@ def verify_CABINET_inputs_exist(sub_ses, j_args):
     # Map each stage's name to its required input files
     stage_prerequisites = {"prebibsnet": list(),
                            "bibsnet": list(j_args["optimal_resized"].values()),
-                           "postbibsnet": [out_BIBSnet_seg, *subject_heads],
-                           "nibabies": out_paths_BIBSnet,
-                           "xcpd": list()}
+                           "postbibsnet": [out_BIBSnet_seg, *subject_heads]}
 
     # For each stage that will be run, verify that its prereq input files exist
     all_stages = [s for s in stage_prerequisites.keys()]

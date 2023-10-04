@@ -40,7 +40,7 @@ def get_params(stage_names):
 
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
-    parser = argparse.ArgumentParser("CABINET")
+    parser = argparse.ArgumentParser("BIBSnet")
 
     # BIDS-App required positional args, validated later in j_args
     parser.add_argument(
@@ -66,7 +66,7 @@ def get_params(stage_names):
         "-participant", "--subject", "-sub", "--participant-label",
         dest="participant_label", type=valid_subj_ses_ID, required=True,
         help=("The participant's unique subject identifier, without 'sub-' "
-              "prefix. Example: 'ABC12345'")  # TODO Make CABINET able to accept with OR without 'sub-' prefix
+              "prefix. Example: 'ABC12345'")  # TODO Make BIBSnet able to accept with OR without 'sub-' prefix
     )
 
     # Optional flag arguments
@@ -88,7 +88,7 @@ def get_params(stage_names):
         "--fsl-bin-path",
         type=valid_readable_dir,
         default=default_fsl_bin_path,
-        help=("Valid path to fsl bin."
+        help=("Valid path to fsl bin. "
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
     )
     parser.add_argument(
@@ -116,9 +116,9 @@ def get_params(stage_names):
     parser.add_argument(
         "--overwrite", "--overwrite-old",  # TODO Change this to "-skip"
         dest="overwrite", action="store_true",
-        help=("Include this flag to overwrite any previous CABINET outputs "
+        help=("Include this flag to overwrite any previous BIBSnet outputs "
               "in the derivatives sub-directories. Otherwise, by default "
-              "CABINET will skip creating any CABINET output files that "
+              "BIBSnet will skip creating any BIBSnet output files that "
               "already exist in the sub-directories of derivatives.")
     )
     parser.add_argument(
@@ -134,20 +134,20 @@ def get_params(stage_names):
     parser.add_argument(
         "-v", "--verbose", action="store_true",
         help=("Include this flag to print detailed information and every "
-              "command being run by CABINET to stdout. Otherwise CABINET "
+              "command being run by BIBSnet to stdout. Otherwise BIBSnet "
               "will only print warnings, errors, and minimal output.")
     )
     parser.add_argument(
         "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
-        default=os.path.join("/", "tmp", "cabinet"),
-        help=("Valid absolute path where intermediate results should be stored."
+        default=os.path.join("/", "tmp", "bibsnet"),
+        help=("Valid absolute path where intermediate results should be stored. "
               "Example: /path/to/working/directory")
     )
     parser.add_argument(
         "-z", "--brain-z-size", action="store_true",
         help=("Include this flag to infer participants' brain height (z) "
               "using the sub-{}_sessions.tsv or participant.tsv brain_z_size column." 
-              "Otherwise, CABINET will estimate the brain height from the participant "
+              "Otherwise, BIBSnet will estimate the brain height from the participant "
               "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
     parser.add_argument(
@@ -462,7 +462,7 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
         # If user gave a model number but not the data the model needs,
         # then crash with an informative error message
         if model and (model not in models_df["model_num"]):
-            parser.error("CABINET needs T{}w data at the path below " 
+            parser.error("BIBSnet needs T{}w data at the path below " 
                             "to run model {}, but none was found.\n{}\n"
                             .format(t, model, data_path_BIDS_T[t]))
 

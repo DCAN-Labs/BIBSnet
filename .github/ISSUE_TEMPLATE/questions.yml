@@ -9,6 +9,6 @@ body:
   - type: textarea
     id: summary
     attributes:
-      label: A short summary of a question you have for the CABINET development team.
+      label: A short summary of a question you have for the BIBSnet development team.
     validations:
       required: true

@@ -2,10 +2,11 @@
 # coding: utf-8
 
 """
-Connectome ABCD-XCP niBabies Imaging nnu-NET (CABINET)
+BIBSnet
 Greg Conan: gconan@umn.edu
 Created: 2021-11-12
-Updated: 2023-01-25
+Barry Tikalsky: tikal004@umn.edu
+Updated: 2023-10-04
 """
 # Import standard libraries
 from datetime import datetime

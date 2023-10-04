@@ -101,7 +101,7 @@ def run_postBIBSnet(j_args):
     if not os.path.exists(new_data_desc_json):
         shutil.copy2(os.path.join(SCRIPT_DIR, "data",
                                   "dataset_description.json"), new_data_desc_json)
-    if j_args["common"]["work_dir"] == os.path.join("/", "tmp", "cabinet"):
+    if j_args["common"]["work_dir"] == os.path.join("/", "tmp", "bibsnet"):
         shutil.rmtree(j_args["common"]["work_dir"])
         LOGGER.info("Working Directory removed at {}."
                     "To keep the working directory in the future,"
@@ -479,7 +479,7 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     with open(template_path) as file:
         sidecar = json.load(file)
 
-    version = os.environ['CABINET_VERSION']
+    version = os.environ['BIBSNET_VERSION']
     bids_version = "1.4.0"
 
     reference = os.path.basename(reference_path)
@@ -488,7 +488,7 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     sidecar["SpatialReference"] = spatial_reference
     sidecar["BIDSVersion"] = bids_version
     sidecar["GeneratedBy"][0]["Version"] = version
-    sidecar["GeneratedBy"][0]["Container"]["Tag"] = f"dcanumn/cabinet:{version}"
+    sidecar["GeneratedBy"][0]["Container"]["Tag"] = f"dcanumn/bibsnet:{version}"
     
     filename = '_'.join(sub_ses) + f"_space-T{t}w_desc-{desc}.json"
     file_path = os.path.join(derivs_dir, filename)

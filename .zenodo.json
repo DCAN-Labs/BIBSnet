@@ -1,5 +1,5 @@
 {
-    "title": "CABINET",
+    "title": "BIBSnet",
     "description": "<p>This software provides the utility of creating a nnU-Net anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within Nibabies.</p>", 
     "license": "BSD-3-Clause",
     "upload_type": "software",  

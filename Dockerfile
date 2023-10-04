@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
-# Manually update the CABINET version when building
-ENV CABINET_VERSION="2.4.5"
+# Manually update the BIBSnet version when building
+ENV BIBSNET_VERSION="3.0.0"
 
 # Prepare environment
 RUN apt-get update && \
@@ -191,13 +191,13 @@ RUN curl -sSL --retry 5 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-cen
     | tar -xzC $ANTSPATH --strip-components 1
 
 # Create a shared $HOME directory
-RUN useradd -m -s /bin/bash -G users -u 1000 cabinet
-WORKDIR /home/cabinet
-ENV HOME="/home/cabinet" \
+RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet
+WORKDIR /home/bibsnet
+ENV HOME="/home/bibsnet" \
     LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
 # install nnUNet git repo
-RUN cd /home/cabinet && \
+RUN cd /home/bibsnet && \
     mkdir SW && \
     git clone https://github.com/MIC-DKFZ/nnUNet.git && \
     cd nnUNet && \
@@ -208,7 +208,7 @@ RUN cd /home/cabinet && \
 ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
 ENV RESULTS_FOLDER="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 
-RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/cabinet/data
+RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 #COPY trained_models/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet
 RUN curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/Task552_uniform_distribution_synthseg.tar.gz" | tar -xzC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
     curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.tar.gz" | tar -xzC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
@@ -217,22 +217,21 @@ RUN curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/Task552_uniform_distrib
 RUN curl -sSL "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
     | tar -xzC $ANTSPATH --strip-components 1
 
-COPY run.py /home/cabinet/run.py
-COPY src /home/cabinet/src
+COPY run.py /home/bibsnet/run.py
+COPY src /home/bibsnet/src
 RUN chmod 777 -R /opt/fsl-6.0.5.1
-RUN bash /home/cabinet/src/fixpy.sh /opt/fsl-6.0.5.1
-COPY bin /home/cabinet/bin
-#COPY data /home/cabinet/data
-RUN curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/data.tar.gz" | tar -xzC /home/cabinet/data --no-same-owner --strip-components 1
+RUN bash /home/bibsnet/src/fixpy.sh /opt/fsl-6.0.5.1
+COPY bin /home/bibsnet/bin
+RUN curl -sSL "https://s3.msi.umn.edu/cabinet-data-targz/data.tar.gz" | tar -xzC /home/bibsnet/data --no-same-owner --strip-components 1
 
-COPY requirements.txt  /home/cabinet/requirements.txt
+COPY requirements.txt  /home/bibsnet/requirements.txt
 
-#Add cabinet dir to path
-ENV PATH="${PATH}:/home/cabinet/"
-RUN cp /home/cabinet/run.py /home/cabinet/cabinet
+#Add bibsnet dir to path
+ENV PATH="${PATH}:/home/bibsnet/"
+RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 
-RUN cd /home/cabinet/ && pip install -r requirements.txt 
+RUN cd /home/bibsnet/ && pip install -r requirements.txt 
 RUN chmod -R a+r /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres
 RUN find /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres -type f -name 'postprocessing.json' -exec chmod 666 {} \;
 
-ENTRYPOINT ["cabinet"]
+ENTRYPOINT ["bibsnet"]

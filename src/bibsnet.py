@@ -54,7 +54,7 @@ def run_BIBSnet(j_args):
 
         except subprocess.CalledProcessError as e:
             # BIBSnet will crash even after correctly creating a segmentation,
-            # so only crash CABINET if that segmentation is not made.
+            # so only crash if that segmentation is not made.
             outfpath = os.path.join(dir_BIBS.format("out"),
                                     "{}_optimal_resized.nii.gz"
                                     .format("_".join(sub_ses)))
