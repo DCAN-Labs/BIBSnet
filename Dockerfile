@@ -230,7 +230,8 @@ COPY requirements.txt  /home/bibsnet/requirements.txt
 ENV PATH="${PATH}:/home/bibsnet/"
 RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 
-RUN cd /home/bibsnet/ && pip install -r requirements.txt 
+RUN cd /home/bibsnet/ && pip install -r requirements.txt
+RUN cd /home/bibsnet/ && chmod 555 -R run.py bin src bibsnet data
 RUN chmod -R a+r /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres
 RUN find /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet/3d_fullres -type f -name 'postprocessing.json' -exec chmod 666 {} \;
 
