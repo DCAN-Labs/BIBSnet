@@ -1,4 +1,4 @@
-# CABINET
+# BIBSnet
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8015338.svg)](https://doi.org/10.5281/zenodo.8015338)
 
@@ -6,10 +6,10 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 
 <br />
 
-![CABINET - Stages for MRI Processing (7)](https://user-images.githubusercontent.com/102316699/229221477-001245e4-5687-413e-a996-4ee722e0ffc8.png)
+![BIBSnet - Stages for MRI Processing](https://github.com/DCAN-Labs/CABINET/assets/95246814/6db1660e-6476-4ee1-abbd-30b5917882bb)
 
 <hr>
 
 ## Getting Started
 
-For comprehensive information on CABINET, including installation and usage, visit <a href="https://cabinet.readthedocs.io/en/latest/" target="_blank">our documentation</a>.
+For comprehensive information on BIBSnet, including installation and usage, visit <a href="https://bibsnet.readthedocs.io/en/latest/" target="_blank">our documentation</a>.

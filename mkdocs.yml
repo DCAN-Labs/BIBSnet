@@ -1,4 +1,4 @@
-site_name: CABINET - DCAN Labs
+site_name: BIBSnet - DCAN Labs
 theme: readthedocs
 plugins:
   - search

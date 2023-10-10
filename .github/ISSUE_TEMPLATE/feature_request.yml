@@ -9,7 +9,7 @@ body:
   - type: textarea
     id: summary
     attributes:
-      label: A short summary of what you would like to see in CABINET.
+      label: A short summary of what you would like to see in BIBSnet.
     validations:
       required: true
   - type: dropdown

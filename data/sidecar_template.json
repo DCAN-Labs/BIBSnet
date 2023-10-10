@@ -1,14 +1,14 @@
 {
-  "Name": "CABINET Outputs",
+  "Name": "BIBSnet Outputs",
   "BIDSVersion": "1.4.0",
   "DatasetType": "derivative",
   "GeneratedBy": [
     {
-      "Name": "CABINET",
+      "Name": "BIBSnet",
       "Version": "VERSION",
       "Container": {
         "Type": "docker",
-        "Tag": "dcanumn/cabinet:VERSION"
+        "Tag": "dcanumn/bibsnet:VERSION"
         }
     }
   ],

@@ -1,10 +1,10 @@
 {
-    "Name": "CABINET",
+    "Name": "BIBSnet",
     "BIDSVersion": "",
     "DatasetType": "derivative",
     "GeneratedBy": [
         {
-            "Name": "CABINET",
+            "Name": "BIBSnet",
             "Version": "",
             "CodeURL": ""
         }

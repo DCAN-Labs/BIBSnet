@@ -15,7 +15,7 @@ Here is an example:
     export nnUNet_preprocessed="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed"
     export RESULTS_FOLDER="/home/feczk001/shared/data/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models"
 
-During development of CABINET, I recommend setting all three of these environment variables to existing folders, **even if you think a particular variable might not be needed by inference**.
-Once the nnU-Net part of CABINET is working without error, then you can try removing variables that you do not think are necessary.
+During development of BIBSnet, I recommend setting all three of these environment variables to existing folders, **even if you think a particular variable might not be needed by inference**.
+Once the nnU-Net part of BIBSnet is working without error, then you can try removing variables that you do not think are necessary.
 
 For more details, see [this section]()

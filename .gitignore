@@ -1,4 +1,5 @@
 /temp/
+/src/__pycache__/
 /src/L_mask_holes_filled.nii.gz
 /src/Lmask.nii.gz
 /src/R_mask_holes_filled.nii.gz
