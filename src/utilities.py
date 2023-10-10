@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# coding: utf-8
-
 """
 Common source for utility functions used by BIBSnet.
 Contains functions used by multiple stages, only used in run.py, or called by other utility functions.

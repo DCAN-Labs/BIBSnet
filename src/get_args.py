@@ -92,6 +92,13 @@ def get_params(stage_names):
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
     )
     parser.add_argument(
+        "-jargs", "-params", "--parameter-json", dest="parameter_json",
+        help=("Parameter JSON is deprecated. "
+              "All arguments formerly in this file are now flags. "
+              "This argument does nothing. "
+              "See https://bibsnet.readthedocs.io/ for updated usage.")
+    )
+    parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
@@ -172,6 +179,9 @@ def validate_cli_args(cli_args, stage_names, parser):
            "age_months" to the age in months (int) during the session, & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
+    # Deprecation warning
+    if cli_args["parameter_json"] is not None:
+        LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
     # Get command-line input arguments
     j_args = {
         "common": {
