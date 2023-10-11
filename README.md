@@ -13,3 +13,5 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 ## Getting Started
 
 For comprehensive information on BIBSnet, including installation and usage, visit <a href="https://bibsnet.readthedocs.io/en/latest/" target="_blank">our documentation</a>.
+
+Find the BIBSnet container on the [BIBSnet dockerhub Repository](https://hub.docker.com/repository/docker/dcanumn/bibsnet/)
