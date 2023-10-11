@@ -5,9 +5,10 @@
 ### Command-Line Arguments
 
 ```
-usage: BIBSNET [-h] -participant PARTICIPANT_LABEL [-age AGE_MONTHS]
+usage: BIBSnet [-h] -participant PARTICIPANT_LABEL [-age AGE_MONTHS]
                [-end {prebibsnet,bibsnet,postbibsnet}]
-               [--fsl-bin-path FSL_BIN_PATH] [-model MODEL] [--nnUNet NNUNET]
+               [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
+               [-model MODEL] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
                [--overwrite] [-ses SESSION]
                [-start {prebibsnet,bibsnet,postbibsnet}] [-v] [-w WORK_DIR]
@@ -42,8 +43,13 @@ optional arguments:
                         be the postbibsnet stage. Valid choices: prebibsnet,
                         bibsnet, postbibsnet
   --fsl-bin-path FSL_BIN_PATH
-                        Valid path to fsl bin.Defaults to the path used by the
-                        container: /opt/fsl-6.0.5.1/bin/
+                        Valid path to fsl bin. Defaults to the path used by
+                        the container: /opt/fsl-6.0.5.1/bin/
+  -jargs PARAMETER_JSON, -params PARAMETER_JSON, --parameter-json PARAMETER_JSON
+                        Parameter JSON is deprecated. All arguments formerly
+                        in this file are now flags. This argument does
+                        nothing. See https://bibsnet.readthedocs.io/ for
+                        updated usage.
   -model MODEL, --model-number MODEL, --bibsnet-model MODEL
                         Model/task number for BIBSnet. By default, this will
                         be inferred from /home/bibsnet/data/models.csv based
@@ -76,7 +82,7 @@ optional arguments:
                         and minimal output.
   -w WORK_DIR, --work-dir WORK_DIR
                         Valid absolute path where intermediate results should
-                        be stored.Example: /path/to/working/directory
+                        be stored. Example: /path/to/working/directory
   -z, --brain-z-size    Include this flag to infer participants' brain height
                         (z) using the sub-{}_sessions.tsv or participant.tsv
                         brain_z_size column.Otherwise, BIBSnet will estimate
@@ -102,7 +108,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -v /path/to/input:/input \
     -v /path/to/output:/out \
     -v /path/to/param_file.json:param_file.json \
-    docker_image:version /input /output participant -jargs /param_file.json \
+    docker_image:version /input /output participant \
     -end postbibsnet -v
 
 #### Singularity
@@ -112,7 +118,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/output:/output \
     -B /path/to/param_file.json:/param_file.json \
     /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
-    /input /output participant -jargs /param_file.json -end postbibsnet -v 
+    /input /output participant -end postbibsnet -v 
 
 <br />
 
