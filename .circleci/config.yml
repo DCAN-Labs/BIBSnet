@@ -4,7 +4,7 @@ version: 2.1
 
 .dockersetup: &dockersetup
   docker:
-    - image: dcanumn/cabinet:shrink_docker_build
+    - image: dcanumn/bibsnet:latest
   working_directory: /bibsnet
 
 # Orbs are reusable packages of CircleCI configuration that you may share across projects, enabling you to create encapsulated, parameterized commands, jobs, and executors that can be used across multiple projects.
