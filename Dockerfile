@@ -50,8 +50,7 @@ RUN apt-get update -qq \
     && echo "Downloading FSL ..." \
     && mkdir -p /opt/fsl-6.0.5.1 \
     && curl -fsSL --retry 5 "https://s3.msi.umn.edu/cabinet-fsl-install/fsl-6.0.5.1-centos7_64_reduced.tar.gz" \
-    | tar -xz -C /opt/fsl-6.0.5.1 --no-same-owner  --strip-components 1 \
-    && find /opt/fsl-6.0.5.1/data/standard -type f -not -name "MNI152_T1_2mm_brain.nii.gz" -delete
+    | tar -xz -C /opt/fsl-6.0.5.1 --no-same-owner  --strip-components 1
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/fsl-6.0.5.1/bin:$PATH" \
     FSLOUTPUTTYPE="NIFTI_GZ" \
