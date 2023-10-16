@@ -49,7 +49,7 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Downloading FSL ..." \
     && mkdir -p /opt/fsl-6.0.5.1 \
-    && curl -fsSL --retry 5 "https://s3.msi.umn.edu/cabinet-fsl-install/fsl-6.0.5.1-centos7_64_reduced.tar.gz" \
+    && curl -fsSL --retry 10 "https://s3.msi.umn.edu/cabinet-fsl-install/fsl-6.0.5.1-centos7_64_reduced.tar.gz" \
     | tar -xz -C /opt/fsl-6.0.5.1 --no-same-owner  --strip-components 1
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/fsl-6.0.5.1/bin:$PATH" \
@@ -70,7 +70,7 @@ ENV PATH="/opt/afni-latest:$PATH" \
 ENV ANTSPATH="/opt/ants" \
     PATH="/opt/ants:$PATH"
 WORKDIR $ANTSPATH
-RUN curl -sSL --retry 5 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
+RUN curl -sSL --retry 10 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
     | tar -xzC $ANTSPATH --strip-components 1
 
 # Create a shared $HOME directory
