@@ -61,15 +61,13 @@ def get_params(stage_names):
               "See BIDS-Apps specification.")
     )
 
-    # Required flag arguments
+    # Optional flag arguments
     parser.add_argument(
         "-participant", "--subject", "-sub", "--participant-label",
-        dest="participant_label", type=valid_subj_ses_ID, required=True,
+        dest="participant_label", type=valid_subj_ses_ID,
         help=("The participant's unique subject identifier, without 'sub-' "
               "prefix. Example: 'ABC12345'")  # TODO Make BIBSnet able to accept with OR without 'sub-' prefix
     )
-
-    # Optional flag arguments
     parser.add_argument(
         "-age", "-months", "--age-months", type=valid_whole_number,
         help=("Positive integer, the participant's age in months. For "
