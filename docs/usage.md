@@ -116,7 +116,6 @@ This has been primarily tested in Singularity. We are less able to provide techn
     singularity run --nv --cleanenv --no-home \
     -B /path/to/input:/input \
     -B /path/to/output:/output \
-    -B /path/to/param_file.json:/param_file.json \
     /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
     /input /output participant -end postbibsnet -v 
 
