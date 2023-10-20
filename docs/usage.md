@@ -107,7 +107,6 @@ This has been primarily tested in Singularity. We are less able to provide techn
     docker run --rm -it \
     -v /path/to/input:/input \
     -v /path/to/output:/out \
-    -v /path/to/param_file.json:param_file.json \
     docker_image:version /input /output participant \
     -end postbibsnet -v
 
