@@ -446,7 +446,7 @@ def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     if j_args["common"]["verbose"]:
-        LOGGER.info(f"ID_col used to get details from tsv: {ID_col}")
+        LOGGER.info(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
         LOGGER.info(f"Subject details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
