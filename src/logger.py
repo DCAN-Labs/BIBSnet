@@ -1,27 +1,27 @@
 import logging
 import sys
 
-IMPORTANT_LEVEL_NUM = 25
+VERBOSE_LEVEL_NUM = 15
 
-def make_logger():
+def make_logger(name):
 
-    # Add new logging level between INFO and WARNING
-    logging.addLevelName(IMPORTANT_LEVEL_NUM, "IMPORTANT")
-    def important(self, message, *args, **kws):
-        if self.isEnabledFor(IMPORTANT_LEVEL_NUM):
-            self._log(IMPORTANT_LEVEL_NUM, message, args, **kws)
-    logging.Logger.important = important
+    # Add new logging level between DEBUG and INFO
+    logging.addLevelName(VERBOSE_LEVEL_NUM, "VERBOSE")
+    def verbose(self, message, *args, **kws):
+        if self.isEnabledFor(VERBOSE_LEVEL_NUM):
+            self._log(VERBOSE_LEVEL_NUM, message, args, **kws)
+    logging.Logger.verbose = verbose
     
-    log = logging.getLogger("bibsnet")
+    log = logging.getLogger(name)
 
     # Create standard format for log statements
-    format = "\n%(levelname)s %(asctime)s: %(message)s"
+    format = "\n%(name)s %(levelname)s %(asctime)s: %(message)s"
     formatter = logging.Formatter(format)
 
     # Redirect INFO and DEBUG to stdout
     handle_out = logging.StreamHandler(sys.stdout)
     handle_out.setLevel(logging.DEBUG)
-    handle_out.addFilter(lambda record: record.levelno <= IMPORTANT_LEVEL_NUM)
+    handle_out.addFilter(lambda record: record.levelno <= logging.INFO)
     handle_out.setFormatter(formatter)
     log.addHandler(handle_out)
 
@@ -33,4 +33,4 @@ def make_logger():
 
     return log
 
-LOGGER = make_logger()
+LOGGER = make_logger("BIBSnet")

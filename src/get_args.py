@@ -6,7 +6,7 @@ import pandas as pd
 import math
 import logging
 
-from src.logger import LOGGER, IMPORTANT_LEVEL_NUM
+from src.logger import LOGGER, VERBOSE_LEVEL_NUM
 
 from src.validate import ( 
     valid_output_dir,
@@ -161,13 +161,15 @@ def get_params(stage_names):
     log_level = parser.add_mutually_exclusive_group()
     log_level.add_argument(
         "-v", "--verbose", action="store_true",
-        help=("Include this flag to set log level to INFO. "
-                "Default log level is ERROR.")
+        help=("Include this flag to print detailed information and every "
+              "command being run by BIBSnet to stdout. Otherwise BIBSnet "
+              "will only print warnings, errors, and minimal output.")
     )
     log_level.add_argument(
         "-d", "--debug", action="store_true",
-        help=("Include this flag to set log level to DEBUG. "
-                "Default log level is ERROR.")
+        help=("Include this flag to print detailed information "
+              "to stdout. Intended for debugging in development. "
+              "--verbose is recommended for standard use.")
     )
     return validate_cli_args(vars(parser.parse_args()), stage_names,
                              parser)
@@ -186,11 +188,11 @@ def validate_cli_args(cli_args, stage_names, parser):
     """
     # Set LOGGER level
     if cli_args["verbose"]:
-        LOGGER.setLevel(logging.INFO)
+        LOGGER.setLevel(VERBOSE_LEVEL_NUM)
     elif cli_args["debug"]:
         LOGGER.setLevel(logging.DEBUG)
     else:
-        LOGGER.setLevel(IMPORTANT_LEVEL_NUM)
+        LOGGER.setLevel(logging.INFO)
     # Deprecation warning
     if cli_args["parameter_json"] is not None:
         LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
@@ -286,7 +288,7 @@ def validate_cli_args(cli_args, stage_names, parser):
                                            *sub_ses, f"{io}put")
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
-    LOGGER.info(" ".join(sys.argv[:]))  # Print all
+    LOGGER.verbose(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
@@ -393,7 +395,7 @@ def get_brain_z_size(age_months, j_args, buffer=5):
 
     # Get BCP age (in months) closest to the subject's age
     closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    LOGGER.info(f"Subject age in months: {age_months}\nClosest BCP age in "
+    LOGGER.verbose(f"Subject age in months: {age_months}\nClosest BCP age in "
                 f"months in age-to-head-radius table: {closest_age}")
 
     # Get average head radii in millimeters by age from table
@@ -434,7 +436,7 @@ def read_from_tsv(j_args, col_name, *sub_ses):
         else:
             col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
     except ValueError as exception:
-        LOGGER.info(exception)
+        LOGGER.verbose(exception)
         if ID_col == "participant_id":
             pass 
         else:
@@ -458,7 +460,7 @@ def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
-    LOGGER.info(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
+    LOGGER.verbose(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
 

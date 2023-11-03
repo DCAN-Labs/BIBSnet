@@ -35,7 +35,7 @@ def run_BIBSnet(j_args):
     if (not j_args["common"]["overwrite"]) and glob(os.path.join(
         dir_BIBS.format("out"), "*"
     )):
-        LOGGER.important("Skipping BIBSnet because outputs already exist at the "
+        LOGGER.info("Skipping BIBSnet because outputs already exist at the "
                     "BIBSnet output path below, and --overwrite is off.\n{}"
                     .format(dir_BIBS.format("out")))
 
@@ -47,7 +47,7 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
-            LOGGER.important("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
+            LOGGER.info("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
             run_nnUNet_predict(inputs_BIBSnet)
 
         except subprocess.CalledProcessError as e:
@@ -67,12 +67,12 @@ def run_BIBSnet(j_args):
             unneeded_dir_path = os.path.join(
                 j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name
             )
-            LOGGER.info("Deleting unnecessary empty directory at {}"
+            LOGGER.verbose("Deleting unnecessary empty directory at {}"
                         .format(unneeded_dir_path))
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
     
-        LOGGER.important("BIBSnet has completed")
+        LOGGER.info("BIBSnet has completed")
     return j_args
 
 
