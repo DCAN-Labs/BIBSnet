@@ -6,7 +6,7 @@ import pandas as pd
 import math
 import logging
 
-from src.logger import LOGGER
+from src.logger import LOGGER, IMPORTANT_LEVEL_NUM
 
 from src.validate import ( 
     valid_output_dir,
@@ -189,8 +189,8 @@ def validate_cli_args(cli_args, stage_names, parser):
         LOGGER.setLevel(logging.INFO)
     elif cli_args["debug"]:
         LOGGER.setLevel(logging.DEBUG)
-    LOGGER.info("get_args logger.info")
-    LOGGER.debug("get_args logger.debug")
+    else:
+        LOGGER.setLevel(IMPORTANT_LEVEL_NUM)
     # Deprecation warning
     if cli_args["parameter_json"] is not None:
         LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
@@ -218,7 +218,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir"):
+    for arg_to_add in ("bids_dir", "overwrite", "work_dir"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
@@ -286,8 +286,7 @@ def validate_cli_args(cli_args, stage_names, parser):
                                            *sub_ses, f"{io}put")
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
-    if j_args["common"]["verbose"]:
-        LOGGER.info(" ".join(sys.argv[:]))  # Print all
+    LOGGER.info(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
@@ -394,9 +393,8 @@ def get_brain_z_size(age_months, j_args, buffer=5):
 
     # Get BCP age (in months) closest to the subject's age
     closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    if j_args["common"]["verbose"]:
-        LOGGER.info(f"Subject age in months: {age_months}\nClosest BCP age in "
-                    f"months in age-to-head-radius table: {closest_age}")
+    LOGGER.info(f"Subject age in months: {age_months}\nClosest BCP age in "
+                f"months in age-to-head-radius table: {closest_age}")
 
     # Get average head radii in millimeters by age from table
     age2headradius[head_diam_mm] = age2headradius[head_r_col
@@ -459,9 +457,8 @@ def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
     subj_row = tsv_df.loc[
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
-    if j_args["common"]["verbose"]:
-        LOGGER.info(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
-        LOGGER.info(f"Subject details from tsv row:\n{subj_row}")
+    LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
+    LOGGER.info(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
 

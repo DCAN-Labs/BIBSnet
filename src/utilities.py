@@ -122,7 +122,7 @@ def log_stage_finished(stage_name, event_time, sub_ses):
     :return: String with an easily human-readable message showing how much time
              has passed since {stage_start} when {stage_name} started.
     """
-    LOGGER.info("{0} finished on subject {1}. "
+    LOGGER.important("{0} finished on subject {1}. "
                 "Time elapsed since {0} started: {2}"
                 .format(stage_name, " session ".join(sub_ses),
                         datetime.now() - event_time))
@@ -165,16 +165,14 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
         if outputs and all([os.path.exists(output) for output in outputs]):
             skip_cmd = True
     if skip_cmd:
-        if j_args["common"]["verbose"]:
-            LOGGER.info("Skipping FSL {} command because its output image(s) "
-                        "listed below exist(s) and overwrite=False.\n{}"
-                        .format(fsl_fn_name, "\n".join(outputs)))
+        LOGGER.info("Skipping FSL {} command because its output image(s) "
+                    "listed below exist(s) and overwrite=False.\n{}"
+                    .format(fsl_fn_name, "\n".join(outputs)))
 
     # Otherwise, just run the FSL command
     else:
-        if j_args["common"]["verbose"]:
-            LOGGER.info("Now running FSL command:\n{}"
-                        .format(" ".join(to_run)))
+        LOGGER.info("Now running FSL command:\n{}"
+                    .format(" ".join(to_run)))
         subprocess.check_call(to_run)
 
     # pdb.set_trace()  # TODO Add "debug" flag?
@@ -191,9 +189,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     :param end: String naming the last stage the user wants to run
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     """
-    if ubiquitous_j_args["common"]["verbose"]:
-        LOGGER.info("All parameters from input args:\n{}"
-                    .format(ubiquitous_j_args))
+    LOGGER.info("All parameters from input args:\n{}"
+                .format(ubiquitous_j_args))
 
     # For every session of every subject...
     running = False
@@ -217,9 +214,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
                 running = True
             if running:
                 stage_start = datetime.now()
-                if sub_ses_j_args["common"]["verbose"]:
-                    LOGGER.info("Now running {} stage on:\n{}"
-                                .format(name, sub_ses_j_args["ID"]))
+                LOGGER.info("Now running {} stage on:\n{}"
+                            .format(name, sub_ses_j_args["ID"]))
                 sub_ses_j_args = stage(sub_ses_j_args)
                 log_stage_finished(name, stage_start, sub_ses)
             if name == end:

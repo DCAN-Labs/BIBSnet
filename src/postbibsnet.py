@@ -41,8 +41,7 @@ def run_postBIBSnet(j_args):
     tmpl_age = get_template_age_closest_to(
         age_months, os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     )
-    if j_args["common"]["verbose"]:
-        LOGGER.info("Closest template-age is {} months".format(tmpl_age))
+    LOGGER.info("Closest template-age is {} months".format(tmpl_age))
 
     # For left/right registration, use T1 for T1-only and T2 for T2-only, but
     # for T1-and-T2 combined use T2 for <22 months otherwise T1 (img quality)
@@ -57,28 +56,27 @@ def run_postBIBSnet(j_args):
     left_right_mask_nifti_fpath = run_left_right_registration(
         sub_ses, tmpl_age, t1or2, j_args
     )
-    LOGGER.info("Left/right image registration completed")
+    LOGGER.important("Left/right image registration completed")
 
     # Dilate the L/R mask and feed the dilated mask into chirality correction
-    if j_args["common"]["verbose"]:
-        LOGGER.info("Now dilating left/right mask")
+    LOGGER.important("Now dilating left/right mask")
     dilated_LRmask_fpath = dilate_LR_mask(
         os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses),
         left_right_mask_nifti_fpath
     )
-    LOGGER.info("Finished dilating left/right segmentation mask")
+    LOGGER.important("Finished dilating left/right segmentation mask")
     nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(dilated_LRmask_fpath, j_args)
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         nii_outfpath = reverse_regn_revert_to_native(
             nifti_file_paths, chiral_out_dir, xfm_ref_img_dict[t], t, j_args
         )
         
-        LOGGER.info("The BIBSnet segmentation has had its chirality checked and "
+        LOGGER.important("The BIBSnet segmentation has had its chirality checked and "
                     "registered if needed. Now making aseg-derived mask.")
 
         # TODO Skip mask creation if outputs already exist and not j_args[common][overwrite]
         aseg_mask = make_asegderived_mask(j_args, chiral_out_dir, t, nii_outfpath)  # NOTE Mask must be in native T1 space too
-        LOGGER.info(f"A mask of the BIBSnet T{t} segmentation has been produced")
+        LOGGER.important(f"A mask of the BIBSnet T{t} segmentation has been produced")
 
         # Make nibabies input dirs
         bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
@@ -107,7 +105,7 @@ def run_postBIBSnet(j_args):
                     "To keep the working directory in the future,"
                     "set a directory with the --work-dir flag.\n"
                     .format(j_args['common']['work_dir']))
-    LOGGER.info("PostBIBSnet has completed.")
+    LOGGER.important("PostBIBSnet has completed.")
     return j_args
 
 
@@ -151,12 +149,12 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args):
     
     # Run chirality correction script and return the image to native space
     msg = "{} running chirality correction on " + seg_BIBSnet_outfiles[0]
-    LOGGER.info(msg.format("Now"))
+    LOGGER.important(msg.format("Now"))
     nii_fpaths = correct_chirality(
         seg_BIBSnet_outfiles[0], segment_lookup_table_path,
         l_r_mask_nifti_fpath, chiral_out_dir
     )
-    LOGGER.info(msg.format("Finished"))
+    LOGGER.important(msg.format("Finished"))
 
     return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths_dict
 
@@ -201,10 +199,9 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
                           tmpl_head.format(age_months, t1or2),
                           tmpl_mask.format(age_months),
                           left_right_mask_nifti_fpath)
-            if j_args["common"]["verbose"]:
-                LOGGER.info(msg.format("Now running", "\n".join(
-                    (first_subject_head, " ".join(cmd_LR_reg))
-                )))
+            LOGGER.info(msg.format("Now running", "\n".join(
+                (first_subject_head, " ".join(cmd_LR_reg))
+            )))
             subprocess.check_call(cmd_LR_reg)
 
         # Tell the user if ANTS crashes due to a memory error
@@ -215,10 +212,10 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
                              " Try running it again, but with more memory.\n")
             sys.exit(e)
     else:
-        LOGGER.info(msg.format("Skipping",  "{} because output already exists at {}".format(
+        LOGGER.important(msg.format("Skipping",  "{} because output already exists at {}".format(
             first_subject_head, left_right_mask_nifti_fpath
         )))
-    LOGGER.info(msg.format("Finished", first_subject_head))  # TODO Only print this message if not skipped (and do the same for all other stages)
+    LOGGER.important(msg.format("Finished", first_subject_head))  # TODO Only print this message if not skipped (and do the same for all other stages)
     return left_right_mask_nifti_fpath
 
 
