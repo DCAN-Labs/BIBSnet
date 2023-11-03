@@ -173,7 +173,6 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
     else:
         LOGGER.verbose("Now running FSL command:\n{}"
                     .format(" ".join(to_run)))
-        # subprocess.check_call(to_run)
         process = subprocess.Popen(to_run, stdout=subprocess.PIPE)
         with process.stdout:
             for line in iter(process.stdout.readline, b''):

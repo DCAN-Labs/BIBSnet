@@ -33,4 +33,4 @@ def make_logger():
 
     return log
 
-LOGGER = make_logger("BIBSnet")
+LOGGER = make_logger()
