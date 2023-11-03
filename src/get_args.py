@@ -4,6 +4,7 @@ from glob import glob
 import sys
 import pandas as pd
 import math
+import logging
 
 from src.logger import LOGGER
 
@@ -137,12 +138,6 @@ def get_params(stage_names):
         help=msg_stage.format("first", stage_names[0], ", ".join(stage_names))
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help=("Include this flag to print detailed information and every "
-              "command being run by BIBSnet to stdout. Otherwise BIBSnet "
-              "will only print warnings, errors, and minimal output.")
-    )
-    parser.add_argument(
         "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
         default=os.path.join("/", "tmp", "bibsnet"),
         help=("Valid absolute path where intermediate results should be stored. "
@@ -162,6 +157,18 @@ def get_params(stage_names):
               "script. Include this argument if and only if you are running "
               "the script as a SLURM/SBATCH job.")
     )
+    # Add mutually exclusive group for setting log level
+    log_level = parser.add_mutually_exclusive_group()
+    log_level.add_argument(
+        "-v", "--verbose", action="store_true",
+        help=("Include this flag to set log level to INFO. "
+                "Default log level is ERROR.")
+    )
+    log_level.add_argument(
+        "-d", "--debug", action="store_true",
+        help=("Include this flag to set log level to DEBUG. "
+                "Default log level is ERROR.")
+    )
     return validate_cli_args(vars(parser.parse_args()), stage_names,
                              parser)
 
@@ -177,6 +184,13 @@ def validate_cli_args(cli_args, stage_names, parser):
            "age_months" to the age in months (int) during the session, & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
+    # Set LOGGER level
+    if cli_args["verbose"]:
+        LOGGER.setLevel(logging.INFO)
+    elif cli_args["debug"]:
+        LOGGER.setLevel(logging.DEBUG)
+    LOGGER.info("get_args logger.info")
+    LOGGER.debug("get_args logger.debug")
     # Deprecation warning
     if cli_args["parameter_json"] is not None:
         LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")

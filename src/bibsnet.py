@@ -47,9 +47,7 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
-            if j_args["common"]["verbose"]:
-                LOGGER.info("Now running BIBSnet with these parameters:\n{}\n"
-                            .format(inputs_BIBSnet))
+            LOGGER.info("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
             run_nnUNet_predict(inputs_BIBSnet)
 
         except subprocess.CalledProcessError as e:

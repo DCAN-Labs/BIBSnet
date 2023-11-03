@@ -24,6 +24,8 @@ def run_preBIBSnet(j_args):
     :param j_args: Dictionary containing all args
     :return: j_args, but with preBIBSnet working directory names added
     """
+    LOGGER.info("prebibsnet logger.info")
+    LOGGER.debug("prebibstner logger.debug")
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
