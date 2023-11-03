@@ -14,7 +14,7 @@ import os
 import subprocess
 import sys
 
-from src.logger import LOGGER, FSL_LOGGER
+from src.logger import LOGGER
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -176,8 +176,8 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
         # subprocess.check_call(to_run)
         process = subprocess.Popen(to_run, stdout=subprocess.PIPE)
         with process.stdout:
-            for line in iter(subprocess.PIPE, b''):
-                FSL_LOGGER.verbose(line)
+            for line in iter(process.stdout.readline, b''):
+                LOGGER.verbose(f"FSL output:\n{line}")
         exitcode = process.wait()
         if exitcode == 0:
             LOGGER.verbose("FSL command completed")

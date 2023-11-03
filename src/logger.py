@@ -3,7 +3,7 @@ import sys
 
 VERBOSE_LEVEL_NUM = 15
 
-def make_logger(name):
+def make_logger():
 
     # Add new logging level between DEBUG and INFO
     logging.addLevelName(VERBOSE_LEVEL_NUM, "VERBOSE")
@@ -12,10 +12,10 @@ def make_logger(name):
             self._log(VERBOSE_LEVEL_NUM, message, args, **kws)
     logging.Logger.verbose = verbose
     
-    log = logging.getLogger(name)
+    log = logging.getLogger("BIBSnet")
 
     # Create standard format for log statements
-    format = "\n%(name)s %(levelname)s %(asctime)s: %(message)s"
+    format = "\n%(levelname)s %(asctime)s: %(message)s"
     formatter = logging.Formatter(format)
 
     # Redirect INFO and DEBUG to stdout
@@ -34,4 +34,3 @@ def make_logger(name):
     return log
 
 LOGGER = make_logger("BIBSnet")
-FSL_LOGGER = make_logger("FSL")
