@@ -14,7 +14,7 @@ import os
 import subprocess
 import sys
 
-from src.logger import LOGGER
+from src.logger import LOGGER, FSL_LOGGER
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -127,6 +127,14 @@ def log_stage_finished(stage_name, event_time, sub_ses):
                 .format(stage_name, " session ".join(sub_ses),
                         datetime.now() - event_time))
 
+def log_subprocess_output(pipe, logger):
+    """
+    Used to intercept stdout in a subprocess and run it through a logger.
+    :param pipe: subprocess.pipe
+    :param logger: an instance of logging.Logger
+    """
+    for line in iter(pipe.readline, b''):
+        logger.verbose(line)
 
 def only_Ts_needed_for_bibsnet_model(sub_ses_ID):
     """
@@ -173,7 +181,16 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
     else:
         LOGGER.verbose("Now running FSL command:\n{}"
                     .format(" ".join(to_run)))
-        subprocess.check_call(to_run)
+        # subprocess.check_call(to_run)
+        process = subprocess.Popen(to_run, stdout=subprocess.PIPE)
+        with process.stdout:
+            log_subprocess_output(subprocess.PIPE, FSL_LOGGER)
+        exitcode = process.wait()
+        if exitcode == 0:
+            LOGGER.verbose("FSL command completed")
+        else:
+            LOGGER.error(f"FSL command failed to complete, exitcode {exitcode}")
+
 
     # pdb.set_trace()  # TODO Add "debug" flag?
 

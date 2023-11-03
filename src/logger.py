@@ -34,3 +34,4 @@ def make_logger(name):
     return log
 
 LOGGER = make_logger("BIBSnet")
+FSL_LOGGER = make_logger("FSL")
