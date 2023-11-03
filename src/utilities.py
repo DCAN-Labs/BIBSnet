@@ -127,14 +127,6 @@ def log_stage_finished(stage_name, event_time, sub_ses):
                 .format(stage_name, " session ".join(sub_ses),
                         datetime.now() - event_time))
 
-def log_subprocess_output(pipe, logger):
-    """
-    Used to intercept stdout in a subprocess and run it through a logger.
-    :param pipe: subprocess.pipe
-    :param logger: an instance of logging.Logger
-    """
-    for line in iter(pipe.readline, b''):
-        logger.verbose(line)
 
 def only_Ts_needed_for_bibsnet_model(sub_ses_ID):
     """
@@ -184,7 +176,8 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
         # subprocess.check_call(to_run)
         process = subprocess.Popen(to_run, stdout=subprocess.PIPE)
         with process.stdout:
-            log_subprocess_output(subprocess.PIPE, FSL_LOGGER)
+            for line in iter(subprocess.PIPE, b''):
+                FSL_LOGGER.verbose(line)
         exitcode = process.wait()
         if exitcode == 0:
             LOGGER.verbose("FSL command completed")
