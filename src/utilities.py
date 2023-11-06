@@ -152,7 +152,7 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
 
     # FSL command to (maybe) run in a subprocess
     to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_fn_name)
-              ] + [str(f) for f in fsl_args]
+              ] + [str(f) for f in fsl_args] + ["-v"]
 
     # If the output image(s) exist(s) and j_args[common][overwrite] is False,
     # then skip the entire FSL command and tell the user
@@ -165,17 +165,24 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
         if outputs and all([os.path.exists(output) for output in outputs]):
             skip_cmd = True
     if skip_cmd:
-        if j_args["common"]["verbose"]:
-            LOGGER.info("Skipping FSL {} command because its output image(s) "
-                        "listed below exist(s) and overwrite=False.\n{}"
-                        .format(fsl_fn_name, "\n".join(outputs)))
+        LOGGER.verbose("Skipping FSL {} command because its output image(s) "
+                    "listed below exist(s) and overwrite=False.\n{}"
+                    .format(fsl_fn_name, "\n".join(outputs)))
 
     # Otherwise, just run the FSL command
     else:
-        if j_args["common"]["verbose"]:
-            LOGGER.info("Now running FSL command:\n{}"
-                        .format(" ".join(to_run)))
-        subprocess.check_call(to_run)
+        LOGGER.verbose("Now running FSL command:\n{}"
+                    .format(" ".join(to_run)))
+        process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
+        with process.stdout:
+            for line in process.stdout:
+                LOGGER.subprocess(line, extra={'id': 'FSL'})
+        exitcode = process.wait()
+        if exitcode == 0:
+            LOGGER.verbose("FSL command completed")
+        else:
+            LOGGER.error(f"FSL command failed to complete, exitcode {exitcode}")
+
 
     # pdb.set_trace()  # TODO Add "debug" flag?
 
@@ -191,9 +198,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     :param end: String naming the last stage the user wants to run
     :param ubiquitous_j_args: Dictionary of all args needed by each stage
     """
-    if ubiquitous_j_args["common"]["verbose"]:
-        LOGGER.info("All parameters from input args:\n{}"
-                    .format(ubiquitous_j_args))
+    LOGGER.verbose("All parameters from input args:\n{}"
+                .format(ubiquitous_j_args))
 
     # For every session of every subject...
     running = False
@@ -217,9 +223,8 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
                 running = True
             if running:
                 stage_start = datetime.now()
-                if sub_ses_j_args["common"]["verbose"]:
-                    LOGGER.info("Now running {} stage on:\n{}"
-                                .format(name, sub_ses_j_args["ID"]))
+                LOGGER.info("Now running {} stage on:\n{}"
+                            .format(name, sub_ses_j_args["ID"]))
                 sub_ses_j_args = stage(sub_ses_j_args)
                 log_stage_finished(name, stage_start, sub_ses)
             if name == end:
@@ -276,5 +281,5 @@ def verify_BIBSnet_inputs_exist(sub_ses, j_args):
                         .format(stage, "\n".join(missing_files)))
             sys.exit(1)
 
-    LOGGER.info("All required input files exist.")
+    LOGGER.verbose("All required input files exist.")
 

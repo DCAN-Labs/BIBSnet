@@ -47,9 +47,7 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
-            if j_args["common"]["verbose"]:
-                LOGGER.info("Now running BIBSnet with these parameters:\n{}\n"
-                            .format(inputs_BIBSnet))
+            LOGGER.verbose("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
             run_nnUNet_predict(inputs_BIBSnet)
 
         except subprocess.CalledProcessError as e:
@@ -69,12 +67,11 @@ def run_BIBSnet(j_args):
             unneeded_dir_path = os.path.join(
                 j_args["optional_out_dirs"]["derivatives"], unneeded_dir_name
             )
-            LOGGER.info("Deleting unnecessary empty directory at {}"
+            LOGGER.verbose("Deleting unnecessary empty directory at {}"
                         .format(unneeded_dir_path))
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
     
-        LOGGER.info("BIBSnet has completed")
     return j_args
 
 
@@ -84,9 +81,19 @@ def run_nnUNet_predict(cli_args):
     :param cli_args: Dictionary containing all command-line input arguments
     :return: N/A
     """
-    subprocess.call((cli_args["nnUNet"], "-i",
+    to_run = [cli_args["nnUNet"], "-i",
                      cli_args["input"], "-o", cli_args["output"], "-t",
-                     str(cli_args["task"]), "-m", cli_args["model"]))
+                     str(cli_args["task"]), "-m", cli_args["model"]]
+    LOGGER.verbose(f"Now running nnUNet with these parameters: {to_run}")
+    process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
+    with process.stdout:
+        for line in process.stdout:
+            LOGGER.subprocess(line, extra={'id': 'nnUNet'})
+    exitcode = process.wait()
+    if exitcode == 0:
+        LOGGER.verbose("nnUNet completed")
+    else:
+        LOGGER.error(f"nnUNet failed to complete, exitcode {exitcode}")
     
     # Only raise an error if there are no output segmentation file(s)
     if not glob(os.path.join(cli_args["output"], "*.nii.gz")):

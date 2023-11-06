@@ -4,8 +4,9 @@ from glob import glob
 import sys
 import pandas as pd
 import math
+import logging
 
-from src.logger import LOGGER
+from src.logger import LOGGER, VERBOSE_LEVEL_NUM
 
 from src.validate import ( 
     valid_output_dir,
@@ -137,12 +138,6 @@ def get_params(stage_names):
         help=msg_stage.format("first", stage_names[0], ", ".join(stage_names))
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help=("Include this flag to print detailed information and every "
-              "command being run by BIBSnet to stdout. Otherwise BIBSnet "
-              "will only print warnings, errors, and minimal output.")
-    )
-    parser.add_argument(
         "-w", "--work-dir", type=valid_output_dir, dest="work_dir",
         default=os.path.join("/", "tmp", "bibsnet"),
         help=("Valid absolute path where intermediate results should be stored. "
@@ -162,6 +157,20 @@ def get_params(stage_names):
               "script. Include this argument if and only if you are running "
               "the script as a SLURM/SBATCH job.")
     )
+    # Add mutually exclusive group for setting log level
+    log_level = parser.add_mutually_exclusive_group()
+    log_level.add_argument(
+        "-v", "--verbose", action="store_true",
+        help=("Include this flag to print detailed information and every "
+              "command being run by BIBSnet to stdout. Otherwise BIBSnet "
+              "will only print warnings, errors, and minimal output.")
+    )
+    log_level.add_argument(
+        "-d", "--debug", action="store_true",
+        help=("Include this flag to print highly detailed information to stdout. "
+              "Use this to see subprocess log statements such as those for FSL, nnUNet and ANTS. "
+              "--verbose is recommended for standard use.")
+    )
     return validate_cli_args(vars(parser.parse_args()), stage_names,
                              parser)
 
@@ -177,6 +186,13 @@ def validate_cli_args(cli_args, stage_names, parser):
            "age_months" to the age in months (int) during the session, & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
+    # Set LOGGER level
+    if cli_args["verbose"]:
+        LOGGER.setLevel(VERBOSE_LEVEL_NUM)
+    elif cli_args["debug"]:
+        LOGGER.setLevel(logging.DEBUG)
+    else:
+        LOGGER.setLevel(logging.INFO)
     # Deprecation warning
     if cli_args["parameter_json"] is not None:
         LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
@@ -204,7 +220,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "verbose", "work_dir"):
+    for arg_to_add in ("bids_dir", "overwrite", "work_dir"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
@@ -242,14 +258,14 @@ def validate_cli_args(cli_args, stage_names, parser):
             sub_ses_IDs[ix]["age_months"] = read_from_tsv(
                 j_args, "age", *sub_ses
             )
-        
+        LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
         # Infer brain_z_size for this sub_ses using sessions.tsv if the 
         # user said to (by using --brain-z-size flag), otherwise infer it 
         # using age_months and the age-to-head-radius table .csv file
         sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
                 j_args, "brain_z_size", *sub_ses
             ) if cli_args["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs[ix]["age_months"], j_args)
+                sub_ses_IDs, ix)
 
 
         # Check whether this sub ses has T1w and/or T2w input data
@@ -272,8 +288,7 @@ def validate_cli_args(cli_args, stage_names, parser):
                                            *sub_ses, f"{io}put")
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
-    if j_args["common"]["verbose"]:
-        LOGGER.info(" ".join(sys.argv[:]))  # Print all
+    LOGGER.verbose(" ".join(sys.argv[:]))  # Print all
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
@@ -359,16 +374,17 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     return sub_ses_IDs
 
 
-def get_brain_z_size(age_months, j_args, buffer=5):
+def get_brain_z_size(sub_ses_IDS, ix, buffer=5):
     """ 
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
-    :param age_months: Int, participant's age in months
-    :param j_args: Dictionary containing all args
+    :param sub_ses_IDS: list, subject and session ids found by BIBSnet
+    :param ix: int, index of the sub/ses to find in sub_ses_IDS
     :param buffer: Int, extra space (in mm), defaults to 5
     :return: Int, the brain z-size (height) in millimeters
     """
     MM_PER_IN = 25.4  # Conversion factor: inches to millimeters
+    age_months = sub_ses_IDS[ix]["age_months"]
 
     # Other columns' names in the age-to-head-radius table
     age_months_col = "Candidate_Age(mo.)"
@@ -380,9 +396,8 @@ def get_brain_z_size(age_months, j_args, buffer=5):
 
     # Get BCP age (in months) closest to the subject's age
     closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    if j_args["common"]["verbose"]:
-        LOGGER.info(f"Subject age in months: {age_months}\nClosest BCP age in "
-                    f"months in age-to-head-radius table: {closest_age}")
+    LOGGER.verbose(f"Age in months for Subject {sub_ses_IDS[ix]['subject']} Session {sub_ses_IDS[ix]['session']}: {age_months}\nClosest BCP age in "
+                f"months in age-to-head-radius table: {closest_age}")
 
     # Get average head radii in millimeters by age from table
     age2headradius[head_diam_mm] = age2headradius[head_r_col
@@ -422,7 +437,7 @@ def read_from_tsv(j_args, col_name, *sub_ses):
         else:
             col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
     except ValueError as exception:
-        LOGGER.info(exception)
+        LOGGER.verbose(exception)
         if ID_col == "participant_id":
             pass 
         else:
@@ -445,9 +460,8 @@ def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
     subj_row = tsv_df.loc[
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
-    if j_args["common"]["verbose"]:
-        LOGGER.info(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
-        LOGGER.info(f"Subject details from tsv row:\n{subj_row}")
+    LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
+    LOGGER.debug(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
 
 

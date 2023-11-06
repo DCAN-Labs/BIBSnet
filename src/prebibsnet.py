@@ -56,16 +56,14 @@ def run_preBIBSnet(j_args):
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
         )
-        if j_args["common"]["verbose"]:
-            LOGGER.info(msg_xfm.format("non-", regn_non_ACPC["vars"]))
+        LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
 
         # ACPC
         regn_ACPC = register_preBIBSnet_imgs_ACPC(
             cropped, preBIBSnet_paths["resized"], regn_non_ACPC["vars"],
             crop2full, preBIBSnet_paths["avg"], j_args
         )
-        if j_args["common"]["verbose"]:
-            LOGGER.info(msg_xfm.format("", regn_ACPC["vars"]))
+        LOGGER.verbose(msg_xfm.format("", regn_ACPC["vars"]))
 
         transformed_images = apply_final_prebibsnet_xfms(
             regn_non_ACPC, regn_ACPC, preBIBSnet_paths["avg"], j_args
@@ -138,9 +136,8 @@ def run_preBIBSnet(j_args):
         )
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
-            if j_args["common"]["verbose"]:
-                LOGGER.info(f"Copying {concat_mat} to {out_mat_fpath}")
-    LOGGER.info("PreBIBSnet has completed")
+            LOGGER.verbose(f"Copying {concat_mat} to {out_mat_fpath}")
+
     return j_args
 
 
@@ -227,9 +224,8 @@ def apply_final_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs, outputs,
                                  f"crop_T{t}w_to_BIBS_template.mat")
     if not os.path.exists(crop2BIBS_mat):
         shutil.copy2(to_rigidbody_final_mat, crop2BIBS_mat)
-        if j_args["common"]["verbose"]:
-            LOGGER.info("Copying {} to {}".format(to_rigidbody_final_mat,
-                                                    crop2BIBS_mat))
+        LOGGER.verbose("Copying {} to {}".format(to_rigidbody_final_mat,
+                                                crop2BIBS_mat))
     outputs[f"T{t}w_crop2BIBS_mat"] = crop2BIBS_mat
 
     # Do the applywarp FSL command from align_ACPC_1_img (for T1w and T2w, for ACPC)
@@ -314,21 +310,22 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     with and without first doing the ACPC registration)
     :param j_args: Dictionary containing all args
     """
-    msg = "Using {} T2w-to-T1w registration for resizing.\nT1w: {}\nT2w: {}"
+    msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
-    LOGGER.info("\nACPC:")
+    LOGGER.verbose("ACPC:")
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
-    LOGGER.info("\nNon-ACPC:")
+    LOGGER.verbose("Non-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
-    LOGGER.info(f"Eta-Squared Values: {eta}")
+    LOGGER.verbose(f"Eta-Squared Values: {eta}")
     if eta["non-ACPC"] > eta["ACPC"]:
         optimal_resize = xfm_imgs_non_ACPC
-        LOGGER.info(msg.format("only", optimal_resize["T1w"],
-                               optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
+        LOGGER.info(msg.format("only"))
+        LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
     else:
         optimal_resize = xfm_imgs_ACPC_and_reg
-        LOGGER.info(msg.format("ACPC and", optimal_resize["T1w"],
-                               optimal_resize["T2w"]))  # TODO Verify that these print the absolute path
+        LOGGER.info(msg.format("ACPC and"))
+        LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
+
     return optimal_resize
 
 
@@ -344,9 +341,8 @@ def calculate_eta(img_paths):
         anat = f"T{t}w"
         vectors[anat] = reshape_volume_to_array(nib.load(img_paths[anat]))  # np.abs()
         negatives = vectors[anat][vectors[anat] < 0]
-        print("{} has {} negatives.".format(anat, len(negatives)))  # TODO REMOVE LINE
+        LOGGER.verbose("{} has {} negatives.".format(anat, len(negatives)))  # TODO REMOVE LINE
 
-    print(f"Vectors: {vectors}")  # TODO REMOVE LINE
     """
     medians = {
         "grand": (np.median(vectors["T1w"]) + np.median(vectors["T2w"])) / 2,
@@ -358,17 +354,15 @@ def calculate_eta(img_paths):
 
     # mean value matrix for each location in the 2 images
     m_within = (vectors["T1w"] + vectors["T2w"]) / 2  # TODO Try combining both arrays and taking the median of the result?
-    print("Mean Within: {}\nMean Total: {}".format(m_within, m_grand))  # TODO REMOVE LINE
-
-    # sswithin = (sum(np.square(vectors["T1w"] - m_within)) + sum(np.square(vectors["T2w"] - m_within)))
-    # sstot = (sum(np.square(vectors["T1w"] - m_grand)) + sum(np.square(vectors["T2w"] - m_grand)))
 
     sswithin = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_within)  # medians["within"])
     sstot = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_grand)  # medians["grand"])
 
     # NOTE SStot = SSwithin + SSbetween so eta can also be
     #      written as SSbetween/SStot
-    print("SumSq Within: {}\nSumSq Total: {}".format(sswithin, sstot))  # TODO REMOVE LINE
+
+    LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
+
     return 1 - sswithin / sstot  # Should there be parentheses around (1 - sswithin)?
 
 
@@ -744,7 +738,7 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     # to the image to use as an input for registration
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
-    LOGGER.info("Input images for T1w registration:\n" + inputs_msg)
+    LOGGER.verbose("Input images for T1w registration:\n" + inputs_msg)
 
     # Define paths to registration output matrices and images
     registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],

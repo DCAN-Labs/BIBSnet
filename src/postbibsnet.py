@@ -35,14 +35,13 @@ def run_postBIBSnet(j_args):
 
     # Template selection values
     age_months = j_args["ID"]["age_months"]
-    LOGGER.info("Age of participant: {} months".format(age_months))
+    LOGGER.verbose("Age of participant: {} months".format(age_months))
 
     # Get template closest to age
     tmpl_age = get_template_age_closest_to(
         age_months, os.path.join(SCRIPT_DIR, "data", "chirality_masks")
     )
-    if j_args["common"]["verbose"]:
-        LOGGER.info("Closest template-age is {} months".format(tmpl_age))
+    LOGGER.verbose("Closest template-age is {} months".format(tmpl_age))
 
     # For left/right registration, use T1 for T1-only and T2 for T2-only, but
     # for T1-and-T2 combined use T2 for <22 months otherwise T1 (img quality)
@@ -60,8 +59,7 @@ def run_postBIBSnet(j_args):
     LOGGER.info("Left/right image registration completed")
 
     # Dilate the L/R mask and feed the dilated mask into chirality correction
-    if j_args["common"]["verbose"]:
-        LOGGER.info("Now dilating left/right mask")
+    LOGGER.info("Now dilating left/right mask")
     dilated_LRmask_fpath = dilate_LR_mask(
         os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses),
         left_right_mask_nifti_fpath
@@ -103,11 +101,11 @@ def run_postBIBSnet(j_args):
                                   "dataset_description.json"), new_data_desc_json)
     if j_args["common"]["work_dir"] == os.path.join("/", "tmp", "bibsnet"):
         shutil.rmtree(j_args["common"]["work_dir"])
-        LOGGER.info("Working Directory removed at {}."
+        LOGGER.verbose("Working Directory removed at {}."
                     "To keep the working directory in the future,"
                     "set a directory with the --work-dir flag.\n"
                     .format(j_args['common']['work_dir']))
-    LOGGER.info("PostBIBSnet has completed.")
+
     return j_args
 
 
@@ -201,11 +199,19 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
                           tmpl_head.format(age_months, t1or2),
                           tmpl_mask.format(age_months),
                           left_right_mask_nifti_fpath)
-            if j_args["common"]["verbose"]:
-                LOGGER.info(msg.format("Now running", "\n".join(
-                    (first_subject_head, " ".join(cmd_LR_reg))
-                )))
-            subprocess.check_call(cmd_LR_reg)
+            LOGGER.verbose(msg.format("Now running", "\n".join(
+                (first_subject_head, " ".join(cmd_LR_reg))
+            )))
+            process = subprocess.Popen(cmd_LR_reg, stdout=subprocess.PIPE, universal_newlines=True)
+            with process.stdout:
+                for line in process.stdout:
+                    LOGGER.subprocess(line, extra={'id': 'ANTS'})
+            exitcode = process.wait()
+            if exitcode == 0:
+                LOGGER.verbose("LR Registration completed")
+            else:
+                LOGGER.error(f"LR Registration failed to complete, exitcode {exitcode}")
+
 
         # Tell the user if ANTS crashes due to a memory error
         except subprocess.CalledProcessError as e:
