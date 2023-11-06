@@ -5,14 +5,14 @@
 ### Command-Line Arguments
 
 ```
-usage: BIBSnet [-h] -participant PARTICIPANT_LABEL [-age AGE_MONTHS]
+usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
                [-end {prebibsnet,bibsnet,postbibsnet}]
                [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
                [-model MODEL] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
                [--overwrite] [-ses SESSION]
-               [-start {prebibsnet,bibsnet,postbibsnet}] [-v] [-w WORK_DIR]
-               [-z] [--script-dir SCRIPT_DIR]
+               [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR] [-z]
+               [--script-dir SCRIPT_DIR] [-v | -d]
                bids_dir output_dir {participant}
 
 positional arguments:
@@ -76,10 +76,6 @@ optional arguments:
                         Name of the stage to run first. By default, this will
                         be the prebibsnet stage. Valid choices: prebibsnet,
                         bibsnet, postbibsnet
-  -v, --verbose         Include this flag to print detailed information and
-                        every command being run by BIBSnet to stdout.
-                        Otherwise BIBSnet will only print warnings, errors,
-                        and minimal output.
   -w WORK_DIR, --work-dir WORK_DIR
                         Valid absolute path where intermediate results should
                         be stored. Example: /path/to/working/directory
@@ -92,6 +88,15 @@ optional arguments:
                         Valid path to the existing parent directory of this
                         run.py script. Include this argument if and only if
                         you are running the script as a SLURM/SBATCH job.
+  -v, --verbose         Include this flag to print detailed information and
+                        every command being run by BIBSnet to stdout.
+                        Otherwise BIBSnet will only print warnings, errors,
+                        and minimal output.
+  -d, --debug           Include this flag to print highly detailed information
+                        to stdout. Use this to see subprocess log statements
+                        such as those for FSL, nnUNet and ANTS. --verbose is
+                        recommended for standard use.
+
 ```
 
 <br />
