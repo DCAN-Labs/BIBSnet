@@ -233,6 +233,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     # each stage of each session of each subject
     sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
                                       cli_args["session"])  # TODO Add brain_z_size into j_args[ID]
+    LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
     
     # TODO Iff the user specifies a session, then let them specify an age
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
@@ -265,7 +266,7 @@ def validate_cli_args(cli_args, stage_names, parser):
         sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
                 j_args, "brain_z_size", *sub_ses
             ) if cli_args["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs[ix]["age_months"], j_args)
+                sub_ses_IDs[ix]["age_months"])
 
 
         # Check whether this sub ses has T1w and/or T2w input data
@@ -374,7 +375,7 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     return sub_ses_IDs
 
 
-def get_brain_z_size(age_months, j_args, buffer=5):
+def get_brain_z_size(age_months, buffer=5):
     """ 
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
