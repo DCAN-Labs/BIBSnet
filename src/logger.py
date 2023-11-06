@@ -22,7 +22,7 @@ def make_logger():
     log = logging.getLogger("BIBSnet")
 
     # Create standard format for log statements
-    format = "\n%(name)s %(levelname)s %(asctime)s: %(message)s"
+    format = "\n%(levelname)s %(asctime)s: %(message)s"
     formatter = logging.Formatter(format)
     subprocess_format = "%(id)s %(asctime)s: %(message)s"
     subprocess_formatter = logging.Formatter(subprocess_format)
