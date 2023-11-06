@@ -223,7 +223,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
                 running = True
             if running:
                 stage_start = datetime.now()
-                LOGGER.verbose("Now running {} stage on:\n{}"
+                LOGGER.info("Now running {} stage on:\n{}"
                             .format(name, sub_ses_j_args["ID"]))
                 sub_ses_j_args = stage(sub_ses_j_args)
                 log_stage_finished(name, stage_start, sub_ses)

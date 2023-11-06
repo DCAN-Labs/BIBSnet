@@ -202,7 +202,16 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
             LOGGER.verbose(msg.format("Now running", "\n".join(
                 (first_subject_head, " ".join(cmd_LR_reg))
             )))
-            subprocess.check_call(cmd_LR_reg)
+            process = subprocess.Popen(cmd_LR_reg, stdout=subprocess.PIPE, universal_newlines=True)
+            with process.stdout:
+                for line in process.stdout:
+                    LOGGER.verbose(f"subprocess output: {line}")
+            exitcode = process.wait()
+            if exitcode == 0:
+                LOGGER.verbose("LR Registration completed")
+            else:
+                LOGGER.error(f"LR Registration failed to complete, exitcode {exitcode}")
+
 
         # Tell the user if ANTS crashes due to a memory error
         except subprocess.CalledProcessError as e:
