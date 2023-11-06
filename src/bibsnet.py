@@ -82,13 +82,13 @@ def run_nnUNet_predict(cli_args):
     :param cli_args: Dictionary containing all command-line input arguments
     :return: N/A
     """
-    to_run = [(cli_args["nnUNet"], "-i",
+    to_run = [cli_args["nnUNet"], "-i",
                      cli_args["input"], "-o", cli_args["output"], "-t",
-                     str(cli_args["task"]), "-m", cli_args["model"])]
+                     str(cli_args["task"]), "-m", cli_args["model"]]
     process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
     with process.stdout:
         for line in process.stdout:
-            LOGGER.verbose(f"nnUNet output: {line}")
+            LOGGER.subprocess(line, extra={'id': 'nnUNet'})
     exitcode = process.wait()
     if exitcode == 0:
         LOGGER.verbose("nnUNet completed")

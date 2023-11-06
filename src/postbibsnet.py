@@ -205,7 +205,7 @@ def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
             process = subprocess.Popen(cmd_LR_reg, stdout=subprocess.PIPE, universal_newlines=True)
             with process.stdout:
                 for line in process.stdout:
-                    LOGGER.verbose(f"subprocess output: {line}")
+                    LOGGER.subprocess(line, extra={'id': 'ANTS'})
             exitcode = process.wait()
             if exitcode == 0:
                 LOGGER.verbose("LR Registration completed")

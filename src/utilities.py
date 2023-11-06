@@ -176,7 +176,7 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
         process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
         with process.stdout:
             for line in process.stdout:
-                LOGGER.verbose(f"FSL output: {line}")
+                LOGGER.subprocess(line, extra={'id': 'FSL'})
         exitcode = process.wait()
         if exitcode == 0:
             LOGGER.verbose("FSL command completed")
