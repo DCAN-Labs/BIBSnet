@@ -312,9 +312,9 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     """
     msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
-    LOGGER.verbose("\nACPC:")
+    LOGGER.verbose("ACPC:")
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
-    LOGGER.verbose("\nNon-ACPC:")
+    LOGGER.verbose("Non-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
     if eta["non-ACPC"] > eta["ACPC"]:
@@ -361,7 +361,7 @@ def calculate_eta(img_paths):
     # NOTE SStot = SSwithin + SSbetween so eta can also be
     #      written as SSbetween/SStot
 
-    LOGGER.verbose(f"Vectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
+    LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
 
     return 1 - sswithin / sstot  # Should there be parentheses around (1 - sswithin)?
 
