@@ -167,8 +167,8 @@ def get_params(stage_names):
     )
     log_level.add_argument(
         "-d", "--debug", action="store_true",
-        help=("Include this flag to print detailed information "
-              "to stdout. Intended for debugging in development. "
+        help=("Include this flag to print highly detailed information to stdout. "
+              "Use this to see subprocess log statements such as those for FSL, nnUNet and ANTS. "
               "--verbose is recommended for standard use.")
     )
     return validate_cli_args(vars(parser.parse_args()), stage_names,
@@ -233,7 +233,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     # each stage of each session of each subject
     sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
                                       cli_args["session"])  # TODO Add brain_z_size into j_args[ID]
-    LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
     
     # TODO Iff the user specifies a session, then let them specify an age
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
@@ -259,14 +258,14 @@ def validate_cli_args(cli_args, stage_names, parser):
             sub_ses_IDs[ix]["age_months"] = read_from_tsv(
                 j_args, "age", *sub_ses
             )
-        
+        LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
         # Infer brain_z_size for this sub_ses using sessions.tsv if the 
         # user said to (by using --brain-z-size flag), otherwise infer it 
         # using age_months and the age-to-head-radius table .csv file
         sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
                 j_args, "brain_z_size", *sub_ses
             ) if cli_args["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs[ix]["age_months"])
+                sub_ses_IDs, ix)
 
 
         # Check whether this sub ses has T1w and/or T2w input data
@@ -375,16 +374,17 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     return sub_ses_IDs
 
 
-def get_brain_z_size(age_months, buffer=5):
+def get_brain_z_size(sub_ses_IDS, ix, buffer=5):
     """ 
     Infer a participant's brain z-size from their age and from the average
     brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
-    :param age_months: Int, participant's age in months
-    :param j_args: Dictionary containing all args
+    :param sub_ses_IDS: list, subject and session ids found by BIBSnet
+    :param ix: int, index of the sub/ses to find in sub_ses_IDS
     :param buffer: Int, extra space (in mm), defaults to 5
     :return: Int, the brain z-size (height) in millimeters
     """
     MM_PER_IN = 25.4  # Conversion factor: inches to millimeters
+    age_months = sub_ses_IDS[ix]["age_months"]
 
     # Other columns' names in the age-to-head-radius table
     age_months_col = "Candidate_Age(mo.)"
@@ -396,7 +396,7 @@ def get_brain_z_size(age_months, buffer=5):
 
     # Get BCP age (in months) closest to the subject's age
     closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    LOGGER.verbose(f"Subject age in months: {age_months}\nClosest BCP age in "
+    LOGGER.verbose(f"Age in months for Subject {sub_ses_IDS[ix]['subject']} Session {sub_ses_IDS[ix]['session']}: {age_months}\nClosest BCP age in "
                 f"months in age-to-head-radius table: {closest_age}")
 
     # Get average head radii in millimeters by age from table

@@ -105,7 +105,7 @@ def run_postBIBSnet(j_args):
                     "To keep the working directory in the future,"
                     "set a directory with the --work-dir flag.\n"
                     .format(j_args['common']['work_dir']))
-    LOGGER.info("PostBIBSnet has completed.")
+
     return j_args
 
 

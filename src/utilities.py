@@ -152,7 +152,7 @@ def run_FSL_sh_script(j_args, fsl_fn_name, *fsl_args):
 
     # FSL command to (maybe) run in a subprocess
     to_run = [os.path.join(j_args["common"]["fsl_bin_path"], fsl_fn_name)
-              ] + [str(f) for f in fsl_args]
+              ] + [str(f) for f in fsl_args] + ["-v"]
 
     # If the output image(s) exist(s) and j_args[common][overwrite] is False,
     # then skip the entire FSL command and tell the user

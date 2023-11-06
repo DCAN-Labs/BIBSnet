@@ -47,7 +47,7 @@ def run_BIBSnet(j_args):
                               "output": dir_BIBS.format("out"),
                               "task": "{:03d}".format(j_args["ID"]["model"])} #   j_args["bibsnet"]["task"])}
             os.makedirs(inputs_BIBSnet["output"], exist_ok=True)
-            LOGGER.info("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
+            LOGGER.verbose("Now running BIBSnet with these parameters:\n{}\n".format(inputs_BIBSnet))
             run_nnUNet_predict(inputs_BIBSnet)
 
         except subprocess.CalledProcessError as e:
@@ -72,7 +72,6 @@ def run_BIBSnet(j_args):
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
     
-        LOGGER.info("BIBSnet has completed")
     return j_args
 
 
@@ -85,6 +84,7 @@ def run_nnUNet_predict(cli_args):
     to_run = [cli_args["nnUNet"], "-i",
                      cli_args["input"], "-o", cli_args["output"], "-t",
                      str(cli_args["task"]), "-m", cli_args["model"]]
+    LOGGER.verbose(f"Now running nnUNet with these parameters: {to_run}")
     process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
     with process.stdout:
         for line in process.stdout:

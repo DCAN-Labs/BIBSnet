@@ -137,7 +137,7 @@ def run_preBIBSnet(j_args):
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
             LOGGER.verbose(f"Copying {concat_mat} to {out_mat_fpath}")
-    LOGGER.info("PreBIBSnet has completed")
+
     return j_args
 
 
