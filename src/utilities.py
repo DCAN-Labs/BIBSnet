@@ -112,6 +112,21 @@ def get_age_closest_to(subject_age, all_ages):
     return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
 
 
+def list_files(startpath):
+    """
+    https://stackoverflow.com/a/9728478
+    :param startpath: str, the directory to list subdirs and files in.
+    """
+    LOGGER.debug(f"File tree for {startpath}")
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        LOGGER.debug('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            LOGGER.debug('{}{}'.format(subindent, f))
+
+
 def log_stage_finished(stage_name, event_time, sub_ses):
     """
     Print and return a string showing how much time has passed since the

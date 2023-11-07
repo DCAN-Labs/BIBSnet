@@ -7,7 +7,8 @@ from glob import glob
 
 from src.logger import LOGGER
 
-from src.utilities import ( 
+from src.utilities import (
+    list_files,
     get_subj_ID_and_session,
     only_Ts_needed_for_bibsnet_model,
     run_FSL_sh_script,
@@ -138,6 +139,7 @@ def run_preBIBSnet(j_args):
             j_args["optional_out_dirs"]["postbibsnet"],
             *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
         )
+        list_files(j_args["optional_out_dirs"]["postbibsnet"])
         LOGGER.debug(f"out_mat_fath: {out_mat_fpath}")
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
