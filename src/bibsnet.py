@@ -17,6 +17,7 @@ import sys
 from src.logger import LOGGER
 
 from src.utilities import (
+    list_files,
     get_subj_ID_and_session
 )
 
@@ -25,10 +26,11 @@ def run_BIBSnet(j_args):
     """
     :param j_args: Dictionary containing all args
     :return: j_args, unchanged
-    """    # TODO Test BIBSnet functionality once it's containerized
+    """
     sub_ses = get_subj_ID_and_session(j_args)
     dir_BIBS = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                             *sub_ses, "{}put")
+    list_files(j_args["common"]["work_dir"])
     
     # TODO Change overwrite=False to skip=True in param files because it's more intuitive 
     # Skip BIBSnet if overwrite=False and outputs already exist
@@ -71,6 +73,8 @@ def run_BIBSnet(j_args):
                         .format(unneeded_dir_path))
             if os.path.isdir(unneeded_dir_path):
                 os.removedirs(unneeded_dir_path)
+
+    list_files(j_args["common"]["work_dir"])
     
     return j_args
 

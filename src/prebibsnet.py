@@ -25,6 +25,7 @@ def run_preBIBSnet(j_args):
     :param j_args: Dictionary containing all args
     :return: j_args, but with preBIBSnet working directory names added
     """
+    list_files(j_args["common"]["work_dir"])
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
@@ -140,6 +141,7 @@ def run_preBIBSnet(j_args):
             *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
         )
         list_files(j_args["optional_out_dirs"]["postbibsnet"])
+        list_files(j_args["common"]["work_dir"])
         LOGGER.debug(f"out_mat_fath: {out_mat_fpath}")
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
@@ -558,6 +560,7 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
         preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
         os.makedirs(crop_dir, exist_ok=True)
         LOGGER.debug(f"preBIBSnet_paths: {preBIBSnet_paths}")
+        list_files(j_args["common"]["work_dir"])
     return preBIBSnet_paths
 
 

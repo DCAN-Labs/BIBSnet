@@ -11,7 +11,8 @@ from scipy import ndimage
 
 from src.logger import LOGGER
 
-from src.utilities import ( 
+from src.utilities import (
+    list_files,
     get_subj_ID_and_session,
     get_age_closest_to,
     only_Ts_needed_for_bibsnet_model, 
@@ -33,6 +34,7 @@ def run_postBIBSnet(j_args):
     :return: j_args, unchanged
     """
     sub_ses = get_subj_ID_and_session(j_args)
+    list_files(j_args["common"]["work_dir"])
 
     # Template selection values
     age_months = j_args["ID"]["age_months"]
@@ -94,6 +96,7 @@ def run_postBIBSnet(j_args):
         generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, "brain_mask")
 
     # Copy dataset_description.json into bibsnet_derivs_dir directory for use in nibabies
+    list_files(j_args["common"]["work_dir"])
     new_data_desc_json = os.path.join(bibsnet_derivs_dir, "dataset_description.json")
     if j_args["common"]["overwrite"]:
         os.remove(new_data_desc_json)
@@ -106,6 +109,7 @@ def run_postBIBSnet(j_args):
                     "To keep the working directory in the future,"
                     "set a directory with the --work-dir flag.\n"
                     .format(j_args['common']['work_dir']))
+    list_files(j_args["common"]["work_dir"])
 
     return j_args
 
