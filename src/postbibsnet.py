@@ -104,11 +104,8 @@ def run_postBIBSnet(j_args):
         shutil.copy2(os.path.join(SCRIPT_DIR, "data",
                                   "dataset_description.json"), new_data_desc_json)
     if j_args["common"]["work_dir"] == os.path.join("/", "tmp", "bibsnet"):
-        shutil.rmtree(j_args["common"]["work_dir"])
-        LOGGER.verbose("Working Directory removed at {}."
-                    "To keep the working directory in the future,"
-                    "set a directory with the --work-dir flag.\n"
-                    .format(j_args['common']['work_dir']))
+        cleanup_work_dir(j_args)
+        
     list_files(j_args["common"]["work_dir"])
 
     return j_args
@@ -628,3 +625,18 @@ def remove_extra_clusters_from_mask(path_to_mask, path_to_aseg = None):
         nib.save(new_aseg, path_to_aseg)
 
     return
+
+
+def cleanup_work_dir(j_args):
+    subses = [j_args["ID"]["subject"]]
+    if "session" in j_args["ID"]:
+        subses.append(j_args["ID"]["session"])
+
+    stages = ["prebibsnet", "bibsnet", "postbibsnet"]
+
+    for stage in stages:
+        to_remove = os.path.join(j_args["common"]["work_dir"], stage, *subses)
+        shutil.rmtree(to_remove)
+        LOGGER.verbose(f"Working Directory removed at {to_remove}.")
+        
+    LOGGER.verbose("To keep the working directory in the future, set a directory with the --work-dir flag.")
