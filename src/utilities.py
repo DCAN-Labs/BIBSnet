@@ -45,7 +45,7 @@ def exit_with_time_info(start_time, exit_code=0):
     :param start_time: datetime.datetime object of when the script started
     :param exit_code: exit code
     """
-    print("The pipeline for this subject took this long to run {}: {}"
+    LOGGER.info("The pipeline for this subject took this long to run {}: {}"
           .format("successfully" if exit_code == 0 else "and then crashed",
                   datetime.now() - start_time))
     sys.exit(exit_code)
@@ -110,6 +110,21 @@ def get_age_closest_to(subject_age, all_ages):
     :return: Int, the age in all_ages which is closest to subject_age
     """
     return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
+
+
+def list_files(startpath):
+    """
+    https://stackoverflow.com/a/9728478
+    :param startpath: str, the directory to list subdirs and files in.
+    """
+    LOGGER.debug(f"File tree for {startpath}")
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        LOGGER.debug('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            LOGGER.debug('{}{}'.format(subindent, f))
 
 
 def log_stage_finished(stage_name, event_time, sub_ses):

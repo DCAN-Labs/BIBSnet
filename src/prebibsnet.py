@@ -7,7 +7,8 @@ from glob import glob
 
 from src.logger import LOGGER
 
-from src.utilities import ( 
+from src.utilities import (
+    list_files,
     get_subj_ID_and_session,
     only_Ts_needed_for_bibsnet_model,
     run_FSL_sh_script,
@@ -24,6 +25,7 @@ def run_preBIBSnet(j_args):
     :param j_args: Dictionary containing all args
     :return: j_args, but with preBIBSnet working directory names added
     """
+    list_files(j_args["common"]["work_dir"])
     completion_msg = "The anatomical images have been {} for use in BIBSnet"
     preBIBSnet_paths = get_and_make_preBIBSnet_work_dirs(j_args)
     sub_ses = get_subj_ID_and_session(j_args)
@@ -44,10 +46,11 @@ def run_preBIBSnet(j_args):
     # TODO Make ref_img an input parameter if someone wants a different reference image?
     # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
-                                 "INFANT_MNI_T{}_1mm.nii.gz") 
+                                 "INFANT_MNI_T{}_1mm.nii.gz")
+    LOGGER.debug(f"reference_img: {reference_img}")
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     # TODO Resolution is hardcoded; infer it or get it from the command-line
-    resolution = "1"  
+    resolution = "1"
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
@@ -115,12 +118,14 @@ def run_preBIBSnet(j_args):
         )
         transformed_images = {f"T{t1or2}w": out_img,
                               f"T{t1or2}w_crop2BIBS_mat": out_mat}
+        LOGGER.debug(f"transformed_images: {transformed_images}")
 
     # TODO Copy this whole block to postBIBSnet, so it copies everything it needs first
     # Copy preBIBSnet outputs into BIBSnet input dir
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]): 
         # Copy image files
         out_nii_fpath = j_args["optimal_resized"][f"T{t}w"]
+        LOGGER.debug(f"out_nii_fpath: {out_nii_fpath}")
         os.makedirs(os.path.dirname(out_nii_fpath), exist_ok=True)
         if j_args["common"]["overwrite"]:  # TODO Should --overwrite delete old image file(s)?
             os.remove(out_nii_fpath)
@@ -130,10 +135,14 @@ def run_preBIBSnet(j_args):
         # Copy .mat into postbibsnet dir with the same name regardless of which
         # is chosen, so postBIBSnet can use the correct/chosen .mat file
         concat_mat = transformed_images[f"T{t}w_crop2BIBS_mat"]
+        LOGGER.debug(f"concat_mat: {concat_mat}")
         out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
             j_args["optional_out_dirs"]["postbibsnet"],
             *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
         )
+        list_files(j_args["optional_out_dirs"]["postbibsnet"])
+        list_files(j_args["common"]["work_dir"])
+        LOGGER.debug(f"out_mat_fath: {out_mat_fpath}")
         if not os.path.exists(out_mat_fpath):
             shutil.copy2(concat_mat, out_mat_fpath)
             LOGGER.verbose(f"Copying {concat_mat} to {out_mat_fpath}")
@@ -550,6 +559,8 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
         crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w")  
         preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
         os.makedirs(crop_dir, exist_ok=True)
+        LOGGER.debug(f"preBIBSnet_paths: {preBIBSnet_paths}")
+        list_files(j_args["common"]["work_dir"])
     return preBIBSnet_paths
 
 
