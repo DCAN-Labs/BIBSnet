@@ -112,8 +112,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     docker run --rm -it \
     -v /path/to/input:/input \
     -v /path/to/output:/out \
-    docker_image:version /input /output participant \
-    -end postbibsnet -v
+    docker_image:version /input /output participant -v
 
 #### Singularity
 
@@ -121,7 +120,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/input:/input \
     -B /path/to/output:/output \
     /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
-    /input /output participant -end postbibsnet -v 
+    /input /output participant -v 
 
 <br />
 
