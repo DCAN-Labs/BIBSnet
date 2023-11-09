@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
 # Manually update the BIBSnet version when building
-ENV BIBSNET_VERSION="3.0.1"
+ENV BIBSNET_VERSION="3.1.1"
 
 # Prepare environment
 RUN apt-get update && \
