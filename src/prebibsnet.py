@@ -3,6 +3,7 @@ import shutil
 import nibabel as nib
 from nipype.interfaces import fsl
 from nipype.interfaces.ants import DenoiseImage
+from nipype.interfaces.ants import N4BiasFieldCorrection
 import numpy as np
 from glob import glob
 
@@ -42,6 +43,22 @@ def run_preBIBSnet(j_args):
             output_image=preBIBSnet_paths["avg"][f"T{t}w_avg"])
         denoise.run()
     LOGGER.info(completion_msg.format("average image(s) denoised"))
+
+    #Perform bias field correction
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        n4= N4BiasFieldCorrection(
+            input_image=preBIBSnet_paths["avg"][f"T{t}w_avg"],
+            dimension=3,
+            bspline_fitting_distance=200,
+            save_bias=False,
+            copy_header=True,
+            n_iterations=[50] * 5,
+            convergence_threshold=1e-7,
+            rescale_intensities=True,
+            shrink_factor=4,
+            output_image=preBIBSnet_paths["avg"][f"T{t}w_avg"])
+        n4.run()
+    LOGGER.info(completion_msg.format("performed n4 bias field correction on anatomical image(s)"))
 
     # Crop T1w and T2w images
     cropped = dict()
