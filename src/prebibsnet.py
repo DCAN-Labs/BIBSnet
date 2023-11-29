@@ -2,6 +2,7 @@ import os
 import shutil
 import nibabel as nib
 from nipype.interfaces import fsl
+from nipype.interfaces.ants import DenoiseImage
 import numpy as np
 from glob import glob
 
@@ -32,6 +33,15 @@ def run_preBIBSnet(j_args):
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
+
+    #Denoise anatomicals
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        denoise = DenoiseImage(
+            dimension=3,
+            input_image=preBIBSnet_paths["avg"][f"T{t}w_avg"],
+            output_image=preBIBSnet_paths["avg"][f"T{t}w_avg"])
+        denoise.run()
+    LOGGER.info(completion_msg.format("average image(s) denoised"))
 
     # Crop T1w and T2w images
     cropped = dict()
