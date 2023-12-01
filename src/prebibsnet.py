@@ -167,7 +167,7 @@ def denoise_and_n4(tmod, input_avg_img):
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
     """
     wd=os.path.dirname(input_avg_img)
-    wf = pe.Workflow(name=f'{t}_denoise_and_bfcorrect', base_dir=wd)
+    wf = pe.Workflow(name=f'{tmod}_denoise_and_bfcorrect', base_dir=wd)
 
     inputnode = pe.Node(
         niu.IdentityInterface(fields=["in_anat"]),
