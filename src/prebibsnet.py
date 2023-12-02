@@ -181,11 +181,11 @@ def denoise_and_n4(tmod, input_avg_img):
     inputnode.inputs.in_anat = input_avg_img
 
     clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
-    denoise = pe.Node(DenoiseImage(dimension=3), name="denoise")
+    denoise = pe.Node(DenoiseImage(dimension=3, noise_model="Rician"), name="denoise")
     n4_correct=pe.Node(N4BiasFieldCorrection(
             dimension=3,
             bspline_fitting_distance=200,
-            save_bias=False,
+            save_bias=True,
             copy_header=True,
             n_iterations=[50] * 5,
             convergence_threshold=1e-7,
