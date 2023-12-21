@@ -39,9 +39,10 @@ def run_preBIBSnet(j_args):
     create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
     # On average image(s), run: intensity clip -> denoise -> N4 -> reclip
-    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        mod=f"T{t}w"
-        denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
+    if not j_args["common"]["no_denoise"]:
+        for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+            mod=f"T{t}w"
+            denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
 
     # Crop T1w and T2w images
     cropped = dict()

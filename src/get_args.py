@@ -108,6 +108,11 @@ def get_params(stage_names):
               "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
     )
     parser.add_argument(
+        "--no-denoise", action="store_true",
+        help=("Include this flag to skip denoising in preBIBSnet. "
+              "By default BIBSnet will denoise in preBIBSnet.")
+    )
+    parser.add_argument(
         "--nnUNet", "-n", type=valid_readable_file, default=default_nnUNet_predict_path,
         help=("Valid path to existing executable file to run nnU-Net_predict. "
               "By default, this script will assume that nnU-Net_predict will "
@@ -221,7 +226,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     # Add command-line arguments to j_args
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "work_dir"):
+    for arg_to_add in ("bids_dir", "overwrite", "work_dir", "no_denoise"):
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
