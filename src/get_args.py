@@ -485,9 +485,9 @@ def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser
     model = cli_args["model"]  # Model number (if given from command line)
 
     # Exclude any models which require (T1w or T2w) data the user lacks
-    LOGGER.debug(f"model {model} to int64 in model_nums to_list: {np.int64(model) in models_df['model_num'].to_list()}")
     LOGGER.debug(f"data_path_BIDS_T: {data_path_BIDS_T}")
     if model:
+        LOGGER.debug(f"model {model} to int64 in model_nums to_list: {np.int64(model) in models_df['model_num'].to_list()}")
         if (np.int64(model) not in models_df["model_num"].to_list()):
             parser.error(f"BIBSnet model {model} was selected but model must be in {models_df['model_num'].to_list()}")
         for t in (1, 2):
