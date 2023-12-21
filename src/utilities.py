@@ -45,7 +45,7 @@ def exit_with_time_info(start_time, exit_code=0):
     :param start_time: datetime.datetime object of when the script started
     :param exit_code: exit code
     """
-    LOGGER.info("The pipeline for this subject took this long to run {}: {}"
+    LOGGER.info("The pipeline took this long to run {}: {}"
           .format("successfully" if exit_code == 0 else "and then crashed",
                   datetime.now() - start_time))
     sys.exit(exit_code)
