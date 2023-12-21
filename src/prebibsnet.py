@@ -2,6 +2,11 @@ import os
 import shutil
 import nibabel as nib
 from nipype.interfaces import fsl
+import nipype.pipeline.engine as pe
+import nipype.interfaces.utility as niu
+from nipype.interfaces.ants import DenoiseImage
+from nipype.interfaces.ants import N4BiasFieldCorrection
+from niworkflows.interfaces.nibabel import IntensityClip
 import numpy as np
 from glob import glob
 
@@ -32,6 +37,12 @@ def run_preBIBSnet(j_args):
 
     # If there are multiple T1ws/T2ws, then average them
     create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
+
+    # On average image(s), run: intensity clip -> denoise -> N4 -> reclip
+    if not j_args["common"]["no_denoise"]:
+        for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+            mod=f"T{t}w"
+            denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
 
     # Crop T1w and T2w images
     cropped = dict()
@@ -149,6 +160,53 @@ def run_preBIBSnet(j_args):
 
     return j_args
 
+def denoise_and_n4(tmod, input_avg_img):
+    #t, preBIBSnet_paths["avg"], preBIBSnet_paths["avg"][f"T{t}w_avg"])
+    """
+    Run robustFOV to crop image
+    :param t: String, T1w or T2w
+    :param input_avg_img: String, valid path to averaged (T1w or T2w) image
+    """
+    wd=os.path.dirname(input_avg_img)
+    wf = pe.Workflow(name=f'{tmod}_denoise_and_bfcorrect', base_dir=wd)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=["in_anat"]),
+        name="inputnode",
+        )
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=["out_anat"]),
+        name="outputnode",
+    )
+
+    inputnode.inputs.in_anat = input_avg_img
+
+    clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
+    denoise = pe.Node(DenoiseImage(dimension=3), name="denoise")
+    n4_correct=pe.Node(N4BiasFieldCorrection(
+            dimension=3,
+            bspline_fitting_distance=200,
+            save_bias=False,
+            copy_header=True,
+            n_iterations=[50] * 5,
+            convergence_threshold=1e-7,
+            rescale_intensities=True,
+            shrink_factor=4), 
+            name="n4_correct")
+    final_clip = pe.Node(IntensityClip(p_min=5.0, p_max=99.5), name="final_clip")
+
+    wf.connect([
+        (inputnode, clip, [("in_anat", "in_file")]),
+        (clip, denoise, [("out_file", "input_image")]),
+        (denoise, n4_correct, [("output_image", "input_image")]),
+        (n4_correct, final_clip, [("output_image", "in_file")]),
+        (final_clip, outputnode, [("out_file", "out_anat")]),
+    ])
+    wf.run()
+
+    src=os.path.join(wd, f'{tmod}_denoise_and_bfcorrect/final_clip/clipped.nii.gz')
+    dest=input_avg_img
+    shutil.copy(src, dest)
 
 def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
                                 j_args):
@@ -502,7 +560,6 @@ def create_avg_image(output_file_path, registered_files):
     new_header = n1_img.header.copy()
     new_img = nib.nifti1.Nifti1Image(avg_matrix, n1_img.affine.copy(), header=new_header)
     nib.save(new_img, output_file_path)
-
 
 def crop_image(input_avg_img, output_crop_img, j_args):
     """
