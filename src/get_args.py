@@ -227,6 +227,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     j_args["stage_names"] = {"start": cli_args["start"],
                              "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
     for arg_to_add in ("bids_dir", "overwrite", "work_dir", "no_denoise"):
+        LOGGER.debug(f"arg_to_add: {arg_to_add}")
         j_args["common"][arg_to_add] = cli_args[arg_to_add]
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
@@ -295,6 +296,7 @@ def validate_cli_args(cli_args, stage_names, parser):
             os.makedirs(dir_BIBSnet[io], exist_ok=True)
 
     LOGGER.verbose(" ".join(sys.argv[:]))  # Print all
+    LOGGER.debug(f"j_args: {j_args}")
 
     # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO

@@ -39,6 +39,7 @@ def run_preBIBSnet(j_args):
     create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
 
     # On average image(s), run: intensity clip -> denoise -> N4 -> reclip
+    LOGGER.debug(f"no_denoise: {j_args['common']['no_denoise']}")
     if not j_args["common"]["no_denoise"]:
         for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
             mod=f"T{t}w"
@@ -167,6 +168,7 @@ def denoise_and_n4(tmod, input_avg_img):
     :param t: String, T1w or T2w
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
     """
+    LOGGER.info("Denoising input avg image")
     wd=os.path.dirname(input_avg_img)
     wf = pe.Workflow(name=f'{tmod}_denoise_and_bfcorrect', base_dir=wd)
 
