@@ -8,6 +8,7 @@ import nibabel as nib
 import numpy as np
 import json
 from scipy import ndimage
+import csv
 
 from src.logger import LOGGER
 
@@ -57,13 +58,13 @@ def run_postBIBSnet(j_args):
 
     LOGGER.info("Generating crude L/R mask for first iteration of chirality correction")
     # Generate crude chirality correction mask file first
-    left_right_mask_nifti_fpath = create_crude_LR_mask(
+    crude_left_right_mask_nifti_fpath = create_crude_LR_mask(
         sub_ses, j_args
     )
 
     LOGGER.info("Applying crude L/R mask for first iteration of chirality correction")
     #Apply crude LR mask to BIBSNet segmentation
-    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(left_right_mask_nifti_fpath, j_args)
+    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(crude_left_right_mask_nifti_fpath, j_args)
 
     LOGGER.info("Generating L/R mask from registration using templates for second iteration of chirality correction")
     # Run left/right registration script and chirality correction
@@ -120,6 +121,14 @@ def run_postBIBSnet(j_args):
     list_files(j_args["common"]["work_dir"])
 
     return j_args
+
+    # Write j_args out to csv
+    j_args_csv = 'j_args.csv'
+    with open(j_args_csv, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(['Key', 'Value'])
+        for key, value in j_args.items():
+            csv_writer.writerow([key, value])
 
 
 def run_correct_chirality(l_r_mask_nifti_fpath, j_args):
@@ -226,7 +235,7 @@ def create_crude_LR_mask(sub_ses, j_args):
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                    *sub_ses, "output", "*.nii.gz")
     
-    left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "LRmask.nii.gz")
+    crude_left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "crude_LRmask.nii.gz")
 
     img = nib.load(out_BIBSnet_seg)
     data = img.get_fdata()
@@ -243,7 +252,7 @@ def create_crude_LR_mask(sub_ses, j_args):
     nib.save(img, out_BIBSnet_seg)
     save_nifti(modified_data, affine, left_right_mask_nifti_fpath)
 
-    return left_right_mask_nifti_fpath
+    return crude_left_right_mask_nifti_fpath
 
 def save_nifti(data, affine, file_path):
     img = nib.Nifti1Image(data, affine)
