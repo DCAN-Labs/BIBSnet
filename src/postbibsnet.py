@@ -55,6 +55,17 @@ def run_postBIBSnet(j_args):
     else:  # if j_args["ID"]["has_T2w"]:
         t1or2 = 2
 
+    LOGGER.info("Generating crude L/R mask for first iteration of chirality correction")
+    # Generate crude chirality correction mask file first
+    left_right_mask_nifti_fpath = create_crude_LR_mask(
+        sub_ses, j_args
+    )
+
+    LOGGER.info("Applying crude L/R mask for first iteration of chirality correction")
+    #Apply crude LR mask to BIBSNet segmentation
+    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(left_right_mask_nifti_fpath, j_args)
+
+    LOGGER.info("Generating L/R mask from registration using templates for second iteration of chirality correction")
     # Run left/right registration script and chirality correction
     left_right_mask_nifti_fpath = run_left_right_registration(
         sub_ses, tmpl_age, t1or2, j_args
@@ -68,7 +79,7 @@ def run_postBIBSnet(j_args):
         left_right_mask_nifti_fpath
     )
     LOGGER.info("Finished dilating left/right segmentation mask")
-    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(dilated_LRmask_fpath, j_args)
+    nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality_iteration2(dilated_LRmask_fpath, j_args)
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         nii_outfpath = reverse_regn_revert_to_native(
             nifti_file_paths, chiral_out_dir, xfm_ref_img_dict[t], t, j_args
@@ -159,6 +170,84 @@ def run_correct_chirality(l_r_mask_nifti_fpath, j_args):
     LOGGER.info(msg.format("Finished"))
 
     return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths_dict
+
+def run_correct_chirality_iteration2(l_r_mask_nifti_fpath, j_args):
+    """
+    :param l_r_mask_nifti_fpath: String, valid path to existing left/right
+                                 registration output mask file
+    :param j_args: Dictionary containing all args
+    :return nii_fpaths: Dictionary output of correct_chirality
+    :return chiral_out_dir: String file path to output directory
+    :return chiral_ref_img_fpaths_dict: Dictionary containing T1w and T2w file paths
+    """
+    sub_ses = get_subj_ID_and_session(j_args)
+
+    # Define paths to dirs/files used in chirality correction script
+    chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
+                                  *sub_ses, "chirality_correction")  # subj_ID, session, 
+    os.makedirs(chiral_out_dir, exist_ok=True)
+    segment_lookup_table_path = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
+                                             "FreeSurferColorLUT.txt")
+
+    out_cciteration1_seg=nii_fpaths["corrected"]
+
+    # Select an arbitrary T1w image path to use to get T1w space
+    # (unless in T2w-only mode, in which case use an arbitrary T2w image)
+    chiral_ref_img_fpaths_dict = {}
+    for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        chiral_ref_img_fpaths = glob(os.path.join(
+            j_args["common"]["bids_dir"], *sub_ses, "anat", f"*_T{t}w.nii.gz"
+        ))
+        chiral_ref_img_fpaths.sort()
+        chiral_ref_img_fpaths_dict[t] = chiral_ref_img_fpaths[0]
+    
+    # Run chirality correction script and return the image to native space
+    msg = "{} running chirality correction on " + out_cciteration1_seg
+    LOGGER.info(msg.format("Now"))
+    nii_fpaths = correct_chirality(
+       out_cciteration1_seg, segment_lookup_table_path,
+        l_r_mask_nifti_fpath, chiral_out_dir
+    )
+    LOGGER.info(msg.format("Finished"))
+
+    return nii_fpaths, chiral_out_dir, chiral_ref_img_fpaths_dict
+
+def create_crude_LR_mask(sub_ses, j_args):
+    # Define paths to dirs/files used in chirality correction script
+    outdir_LR_reg = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
+                                 *sub_ses)
+    os.makedirs(outdir_LR_reg, exist_ok=True)
+
+    chiral_out_dir = os.path.join(j_args["optional_out_dirs"]["postbibsnet"],
+                                  *sub_ses, "chirality_correction")  # subj_ID, session, 
+    os.makedirs(chiral_out_dir, exist_ok=True)
+    
+    # Get BIBSnet output file, and if there are multiple, then raise an error
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
+                                   *sub_ses, "output", "*.nii.gz")
+    
+    left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "LRmask.nii.gz")
+
+    img = nib.load(out_BIBSnet_seg)
+    data = img.get_fdata()
+    affine = img.affine
+    
+    # Determine the midpoint of X-axis and make new image 
+    midpoint_x = data.shape[0] // 2
+    modified_data = np.zeros_like(data)
+    
+    # Assign value 1 to left-side voxels with values greater than 0 value 2 to right-side voxels with values greater than 0
+    modified_data[:midpoint_x, :, :][data[:midpoint_x, :, :] > 0] = 1
+    modified_data[midpoint_x:, :, :][data[midpoint_x:, :, :] > 0] = 2
+
+    nib.save(img, out_BIBSnet_seg)
+    save_nifti(modified_data, affine, left_right_mask_nifti_fpath)
+
+    return left_right_mask_nifti_fpath
+
+def save_nifti(data, affine, file_path):
+    img = nib.Nifti1Image(data, affine)
+    nib.save(img, file_path)
 
 
 def run_left_right_registration(sub_ses, age_months, t1or2, j_args):
