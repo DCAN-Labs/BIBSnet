@@ -122,14 +122,8 @@ def run_postBIBSnet(j_args):
 
     return j_args
 
-    # Write j_args out to csv
-    j_args_csv = 'j_args.csv'
-    with open(j_args_csv, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(['Key', 'Value'])
-        for key, value in j_args.items():
-            csv_writer.writerow([key, value])
-
+    # Write j_args out to logs
+    LOGGER.debug(j_args)
 
 def run_correct_chirality(l_r_mask_nifti_fpath, j_args):
     """
