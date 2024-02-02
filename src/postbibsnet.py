@@ -234,10 +234,16 @@ def create_crude_LR_mask(sub_ses, j_args):
     # Get BIBSnet output file, and if there are multiple, then raise an error
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"],
                                    *sub_ses, "output", "*.nii.gz")
+    seg_BIBSnet_outfiles = glob(out_BIBSnet_seg)
+    if len(seg_BIBSnet_outfiles) != 1:
+        LOGGER.error(f"There must be exactly one BIBSnet segmentation file: "
+                     "{}\nResume at postBIBSnet stage once this is fixed."
+                     .format(out_BIBSnet_seg))
+        sys.exit()
     
     crude_left_right_mask_nifti_fpath = os.path.join(outdir_LR_reg, "crude_LRmask.nii.gz")
 
-    img = nib.load(out_BIBSnet_seg)
+    img = nib.load(seg_BIBSnet_outfiles[0])
     data = img.get_fdata()
     affine = img.affine
     
@@ -249,8 +255,8 @@ def create_crude_LR_mask(sub_ses, j_args):
     modified_data[:midpoint_x, :, :][data[:midpoint_x, :, :] > 0] = 1
     modified_data[midpoint_x:, :, :][data[midpoint_x:, :, :] > 0] = 2
 
-    nib.save(img, out_BIBSnet_seg)
-    save_nifti(modified_data, affine, left_right_mask_nifti_fpath)
+    nib.save(img, seg_BIBSnet_outfiles[0])
+    save_nifti(modified_data, affine, crude_left_right_mask_nifti_fpath)
 
     return crude_left_right_mask_nifti_fpath
 
