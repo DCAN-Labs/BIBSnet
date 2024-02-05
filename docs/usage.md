@@ -8,7 +8,7 @@
 usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
                [-end {prebibsnet,bibsnet,postbibsnet}]
                [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
-               [-model MODEL] [--nnUNet NNUNET]
+               [-model MODEL] [--no-denoise] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
                [--overwrite] [-ses SESSION]
                [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR] [-z]
@@ -56,6 +56,8 @@ optional arguments:
                         on which data exists in the --bids-dir. BIBSnet will
                         run model 514 by default for T1w-only, model 515 for
                         T2w-only, and model 552 for both T1w and T2w.
+  --no-denoise          Include this flag to skip denoising in preBIBSnet. By
+                        default BIBSnet will denoise in preBIBSnet.
   --nnUNet NNUNET, -n NNUNET
                         Valid path to existing executable file to run nnU-
                         Net_predict. By default, this script will assume that
