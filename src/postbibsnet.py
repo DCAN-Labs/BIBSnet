@@ -249,7 +249,7 @@ def create_crude_LR_mask(sub_ses, j_args):
     modified_data[:midpoint_x, :, :][data[:midpoint_x, :, :] > 0] = 1
     modified_data[midpoint_x:, :, :][data[midpoint_x:, :, :] > 0] = 2
 
-    nib.save(img, seg_BIBSnet_outfiles[0])
+    #nib.save(img, seg_BIBSnet_outfiles[0])
     save_nifti(modified_data, affine, crude_left_right_mask_nifti_fpath)
 
     return crude_left_right_mask_nifti_fpath
