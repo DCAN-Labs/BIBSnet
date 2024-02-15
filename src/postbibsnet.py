@@ -215,9 +215,9 @@ def create_crude_LR_mask(sub_ses, j_args):
     midpoint_x = data.shape[0] // 2
     modified_data = np.zeros_like(data)
     
-    # Assign value 1 to left-side voxels with values greater than 0 value 2 to right-side voxels with values greater than 0
-    modified_data[:midpoint_x, :, :][data[:midpoint_x, :, :] > 0] = 1
-    modified_data[midpoint_x:, :, :][data[midpoint_x:, :, :] > 0] = 2
+    # Assign value 1 to right-side voxels with values greater than 0 value 2 to left-side voxels with values greater than 0 (note that these actually correspond to left and right brain hemispheres respectively)
+    modified_data[midpoint_x:, :, :][data[midpoint_x:, :, :] > 0] = 1
+    modified_data[:midpoint_x, :, :][data[:midpoint_x, :, :] > 0] = 2
 
     #nib.save(img, seg_BIBSnet_outfiles[0])
     save_nifti(modified_data, affine, crude_left_right_mask_nifti_fpath)
