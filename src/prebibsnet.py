@@ -571,9 +571,10 @@ def crop_image(input_avg_img, output_crop_img, j_args):
     """
     output_crop_dir = os.path.dirname(output_crop_img)
     crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
+    b = j_args["ID"]["brain_z_size"] + j_args["reduce_cropping"] # TODO Use head radius for -b
     run_FSL_sh_script(j_args, "robustfov", "-i", input_avg_img, 
                       "-m", crop2full, "-r", output_crop_img,
-                      "-b", j_args["ID"]["brain_z_size"])  # TODO Use head radius for -b
+                      "-b", b)
     return crop2full
 
 

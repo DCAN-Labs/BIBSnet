@@ -129,6 +129,13 @@ def get_params(stage_names):
               "already exist in the sub-directories of derivatives.")
     )
     parser.add_argument(
+        "--reduce-cropping", dest="reduce_cropping", nargs="?", const=20, default=0, type=int,
+        help=("Include this flag by itself to reduce cropping by 20 millimeters. " 
+                "If an integer is given to this argument cropping will be reduced by that number instead. "
+                "This number is added to the brainsize argument for FSL's robustfov. "
+                "If this flag is not included, the unmodified default brainsize is used. ")
+    )
+    parser.add_argument(
         "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
         help=("The name of the session to processes participant data for. "
               "Example: baseline_year1")
