@@ -204,33 +204,35 @@ def validate_cli_args(cli_args, stage_names, parser):
     # Deprecation warning
     if cli_args["parameter_json"] is not None:
         LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
-    # Get command-line input arguments
-    j_args = {
-        "common": {
-            "fsl_bin_path": cli_args["fsl_bin_path"]
-        },
-
-        "bibsnet": {
-            "model": cli_args["nnUNet_configuration"],
-            "nnUNet_predict_path": cli_args["nnUNet"]
-        }
-    }
-    script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
-    j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
-                      "slurm": bool(cli_args[script_dir_attr])}
 
     # Crash immediately if the end is given as a stage that happens before start
     if (stage_names.index(cli_args["start"])
             > stage_names.index(cli_args["end"])):
         parser.error("Error: {} stage must happen before {} stage."
                      .format(cli_args["start"], cli_args["end"]))
+        
+    # Get command-line input arguments
+    j_args = {
+        "common": {
+            "fsl_bin_path": cli_args["fsl_bin_path"],
+            "bids_dir": cli_args["bids_dir"],
+            "overwrite": cli_args["overwrite"],
+            "work_dir": cli_args["work_dir"],
+            "reduce_cropping": cli_args["reduce_cropping"]
+        },
 
-    # Add command-line arguments to j_args
-    j_args["stage_names"] = {"start": cli_args["start"],
-                             "end": cli_args["end"]}  # TODO Maybe save the stage_names list in here too to replace optional_out_dirs use cases?
-    for arg_to_add in ("bids_dir", "overwrite", "work_dir"):
-        LOGGER.debug(f"arg_to_add: {arg_to_add}")
-        j_args["common"][arg_to_add] = cli_args[arg_to_add]
+        "bibsnet": {
+            "model": cli_args["nnUNet_configuration"],
+            "nnUNet_predict_path": cli_args["nnUNet"]
+        },
+        "stage_names": {
+            "start": cli_args["start"],
+            "end": cli_args["end"]
+        }
+    }
+    script_dir_attr = as_cli_attr(SCRIPT_DIR_ARG)
+    j_args["meta"] = {script_dir_attr: SCRIPT_DIR,
+                      "slurm": bool(cli_args[script_dir_attr])}
 
     # TODO Remove all references to the optional_out_dirs arguments, and change
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
