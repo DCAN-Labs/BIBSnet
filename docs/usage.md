@@ -10,9 +10,9 @@ usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
                [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
                [-model MODEL] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
-               [--overwrite] [-ses SESSION]
-               [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR]
-               [-z] [-v | -d]
+               [--overwrite] [--reduce-cropping [REDUCE_CROPPING]]
+               [-ses SESSION] [-start {prebibsnet,bibsnet,postbibsnet}]
+               [-w WORK_DIR] [-z] [-v | -d]
                bids_dir output_dir {participant}
 
 positional arguments:
@@ -69,6 +69,13 @@ optional arguments:
                         by default BIBSnet will skip creating any BIBSnet
                         output files that already exist in the sub-directories
                         of derivatives.
+  --reduce-cropping [REDUCE_CROPPING]
+                        Include this flag by itself to reduce cropping by 20
+                        millimeters. If an integer is given to this argument
+                        cropping will be reduced by that number instead. This
+                        number is added to the brainsize argument for FSL's
+                        robustfov. If this flag is not included, the
+                        unmodified default brainsize is used.
   -ses SESSION, --session SESSION, --session-id SESSION
                         The name of the session to processes participant data
                         for. Example: baseline_year1
