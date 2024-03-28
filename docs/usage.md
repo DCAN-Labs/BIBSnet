@@ -11,8 +11,8 @@ usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
                [-model MODEL] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
                [--overwrite] [-ses SESSION]
-               [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR] [-z]
-               [--script-dir SCRIPT_DIR] [-v | -d]
+               [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR]
+               [-z] [-v | -d]
                bids_dir output_dir {participant}
 
 positional arguments:
@@ -84,10 +84,6 @@ optional arguments:
                         brain_z_size column.Otherwise, BIBSnet will estimate
                         the brain height from the participant age and averages
                         of a large sample of infant brain heights.
-  --script-dir SCRIPT_DIR
-                        Valid path to the existing parent directory of this
-                        run.py script. Include this argument if and only if
-                        you are running the script as a SLURM/SBATCH job.
   -v, --verbose         Include this flag to print detailed information and
                         every command being run by BIBSnet to stdout.
                         Otherwise BIBSnet will only print warnings, errors,
