@@ -111,7 +111,7 @@ This has been primarily tested in Singularity. We are less able to provide techn
 
     docker run --rm -it \
     -v /path/to/input:/input \
-    -v /path/to/output:/out \
+    -v /path/to/output:/output \
     docker_image:version /input /output participant -v
 
 #### Singularity
