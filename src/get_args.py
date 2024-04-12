@@ -130,10 +130,13 @@ def get_params(stage_names):
     )
     parser.add_argument(
         "--reduce-cropping", dest="reduce_cropping", nargs="?", const=20, default=0, type=int,
-        help=("Include this flag by itself to reduce cropping by 20 millimeters. " 
-                "If an integer is given to this argument cropping will be reduced by that number instead. "
-                "This number is added to the brainsize argument for FSL's robustfov. "
-                "If this flag is not included, the unmodified default brainsize is used. ")
+        help=("This flag is used to specify a value by which to increase or decrease the brain z size used by FSL robustfov for cropping. "
+              "This is useful for cases where the default age-specific brain z size specified by BIBSNet "
+              "(calculated based on a table within the container of BCP participants' average head radius per age: "
+              "data/age_to_avg_head_radius_BCP.csv) results in overcropping. "
+              "The brain z size can be adjusted by a specified amount by including an integer with this flag "
+              "[REDUCE_CROPPING]: positive integers will increase brain z size to crop less and negative integers will decrease brain z size to crop more. "
+              "Default: Include this flag by itself to increase the brain z size and therefore reduce cropping by 20 millimeters.")
     )
     parser.add_argument(
         "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
