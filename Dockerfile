@@ -219,9 +219,9 @@ RUN curl -sSL "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_6
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
-RUN chmod 777 -R /opt/fsl-6.0.5.1
-RUN bash /home/bibsnet/src/fixpy.sh /opt/fsl-6.0.5.1
 COPY bin /home/bibsnet/bin
+RUN chmod 777 -R /opt/fsl-6.0.5.1
+RUN bash /home/bibsnet/bin/fixpy.sh /opt/fsl-6.0.5.1
 RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.1.2.tar.gz" | tar -xzf - data.tar.gz -O | tar -xzC /home/bibsnet/data --no-same-owner --strip-components 1
 
 COPY requirements.txt  /home/bibsnet/requirements.txt
