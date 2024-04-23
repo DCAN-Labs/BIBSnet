@@ -55,7 +55,7 @@ optional arguments:
                         be inferred from /home/bibsnet/data/models.csv based
                         on which data exists in the --bids-dir. BIBSnet will
                         run model 514 by default for T1w-only, model 515 for
-                        T2w-only, and model 552 for both T1w and T2w.
+                        T2w-only, and model 526 for both T1w and T2w.
   --nnUNet NNUNET, -n NNUNET
                         Valid path to existing executable file to run nnU-
                         Net_predict. By default, this script will assume that
