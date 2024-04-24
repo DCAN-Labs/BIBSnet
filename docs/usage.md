@@ -70,12 +70,21 @@ optional arguments:
                         output files that already exist in the sub-directories
                         of derivatives.
   --reduce-cropping [REDUCE_CROPPING]
-                        Include this flag by itself to reduce cropping by 20
-                        millimeters. If an integer is given to this argument
-                        cropping will be reduced by that number instead. This
-                        number is added to the brainsize argument for FSL's
-                        robustfov. If this flag is not included, the
-                        unmodified default brainsize is used.
+                        This flag is used to specify a value by which to
+                        increase or decrease the brain z size used by FSL
+                        robustfov for cropping. This is useful for cases where
+                        the default age-specific brain z size specified by
+                        BIBSNet (calculated based on a table within the
+                        container of BCP participants' average head radius per
+                        age: data/age_to_avg_head_radius_BCP.csv) results in
+                        overcropping. The brain z size can be adjusted by a
+                        specified amount by including an integer with this
+                        flag [REDUCE_CROPPING]: positive integers will
+                        increase brain z size to crop less and negative
+                        integers will decrease brain z size to crop more.
+                        Default: Include this flag by itself to increase the
+                        brain z size and therefore reduce cropping by 20
+                        millimeters.
   -ses SESSION, --session SESSION, --session-id SESSION
                         The name of the session to processes participant data
                         for. Example: baseline_year1
@@ -132,12 +141,17 @@ This has been primarily tested in Singularity. We are less able to provide techn
 We do not recommend running `BIBSnet` outside of the container for the following reasons:
 
 1. Installing nnU-Net can be complicated.
+
 1. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
+
 1. It is hard to diagnose your errors if you are working in a different environment.
 
 However, if you run `BIBSnet` outside of the container as an application, then you will need to do the following:
 
-1. Download the `data` directory from the `https://s3.msi.umn.edu/CABINET_data/data.zip` URL, unzip it, and move it into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
+1. Download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`
+
+1. Extract `data.tar.gz` then extract all files in it and move them into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
+
 1. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
 
 <br />
