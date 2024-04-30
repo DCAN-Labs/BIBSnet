@@ -66,7 +66,8 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
 
 # Installing ANTs 2.3.3 (NeuroDocker build)
 # Note: the URL says 2.3.4 but it is actually 2.3.3
-RUN curl -sSL --retry 5 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
+RUN mkdir -p /opt/ants \
+    && curl -sSL --retry 5 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
     | tar -xzC /opt/ants --strip-components 1
 
 # Create a shared $HOME directory
