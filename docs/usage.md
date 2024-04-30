@@ -10,9 +10,9 @@ usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
                [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
                [-model MODEL] [--nnUNet NNUNET]
                [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
-               [--overwrite] [-ses SESSION]
-               [-start {prebibsnet,bibsnet,postbibsnet}] [-w WORK_DIR] [-z]
-               [--script-dir SCRIPT_DIR] [-v | -d]
+               [--overwrite] [--reduce-cropping [REDUCE_CROPPING]]
+               [-ses SESSION] [-start {prebibsnet,bibsnet,postbibsnet}]
+               [-w WORK_DIR] [-z] [-v | -d]
                bids_dir output_dir {participant}
 
 positional arguments:
@@ -55,7 +55,7 @@ optional arguments:
                         be inferred from /home/bibsnet/data/models.csv based
                         on which data exists in the --bids-dir. BIBSnet will
                         run model 514 by default for T1w-only, model 515 for
-                        T2w-only, and model 552 for both T1w and T2w.
+                        T2w-only, and model 526 for both T1w and T2w.
   --nnUNet NNUNET, -n NNUNET
                         Valid path to existing executable file to run nnU-
                         Net_predict. By default, this script will assume that
@@ -69,6 +69,22 @@ optional arguments:
                         by default BIBSnet will skip creating any BIBSnet
                         output files that already exist in the sub-directories
                         of derivatives.
+  --reduce-cropping [REDUCE_CROPPING]
+                        This flag is used to specify a value by which to
+                        increase or decrease the brain z size used by FSL
+                        robustfov for cropping. This is useful for cases where
+                        the default age-specific brain z size specified by
+                        BIBSNet (calculated based on a table within the
+                        container of BCP participants' average head radius per
+                        age: data/age_to_avg_head_radius_BCP.csv) results in
+                        overcropping. The brain z size can be adjusted by a
+                        specified amount by including an integer with this
+                        flag [REDUCE_CROPPING]: positive integers will
+                        increase brain z size to crop less and negative
+                        integers will decrease brain z size to crop more.
+                        Default: Include this flag by itself to increase the
+                        brain z size and therefore reduce cropping by 20
+                        millimeters.
   -ses SESSION, --session SESSION, --session-id SESSION
                         The name of the session to processes participant data
                         for. Example: baseline_year1
@@ -84,10 +100,6 @@ optional arguments:
                         brain_z_size column.Otherwise, BIBSnet will estimate
                         the brain height from the participant age and averages
                         of a large sample of infant brain heights.
-  --script-dir SCRIPT_DIR
-                        Valid path to the existing parent directory of this
-                        run.py script. Include this argument if and only if
-                        you are running the script as a SLURM/SBATCH job.
   -v, --verbose         Include this flag to print detailed information and
                         every command being run by BIBSnet to stdout.
                         Otherwise BIBSnet will only print warnings, errors,
@@ -129,12 +141,17 @@ This has been primarily tested in Singularity. We are less able to provide techn
 We do not recommend running `BIBSnet` outside of the container for the following reasons:
 
 1. Installing nnU-Net can be complicated.
+
 1. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
+
 1. It is hard to diagnose your errors if you are working in a different environment.
 
 However, if you run `BIBSnet` outside of the container as an application, then you will need to do the following:
 
-1. Download the `data` directory from the `https://s3.msi.umn.edu/CABINET_data/data.zip` URL, unzip it, and move it into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
+1. Download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`
+
+1. Extract `data.tar.gz` then extract all files in it and move them into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
+
 1. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
 
 <br />

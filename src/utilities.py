@@ -16,9 +16,6 @@ import sys
 
 from src.logger import LOGGER
 
-SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-
-
 # NOTE All functions below are in alphabetical order.
 
 def dict_has(a_dict, a_key):
