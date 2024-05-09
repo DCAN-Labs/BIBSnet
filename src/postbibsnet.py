@@ -613,7 +613,7 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     file_path = os.path.join(derivs_dir, filename)
 
     with open(file_path, "w+") as file:
-        json.dump(sidecar, file)
+        json.dump(sidecar, file, indent = 4)
 
 
 def get_template_age_closest_to(age, templates_dir):
