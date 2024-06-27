@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
 # Manually update the BIBSnet version when building
-ENV BIBSNET_VERSION="3.2.0"
+ENV BIBSNET_VERSION="3.3.0"
 
 # Prepare environment
 RUN apt-get update && \
@@ -49,7 +49,7 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Downloading FSL ..." \
     && mkdir -p /opt/fsl-6.0.5.1 \
-    && curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" \
+    && curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
     | tar -xzpf - fsl-6.0.5.1-centos7_64.tar.gz -O | tar -xzpC /opt/fsl-6.0.5.1 --no-same-owner --strip-components 1
     
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
@@ -90,15 +90,15 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 #COPY trained_models/Task512_BCP_ABCD_Neonates_SynthSegDownsample.zip /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet
-RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" | tar -xzpf - Task552_uniform_distribution_synthseg.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
-    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" | tar -xzpf - Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 &&\
-    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" | tar -xzpf - Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
-    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" | tar -xzpf - Task526_BIBSNet_Production_Model.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1
+RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - Task526_previous_BIBSNet_Production_Model.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
+    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - Task514_BCP_ABCD_Neonates_SynthSeg_T1Only.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 &&\
+    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - Task515_BCP_ABCD_Neonates_SynthSeg_T2Only.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1 && \
+    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - Task540_BIBSNet_Production_Model.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
 COPY bin /home/bibsnet/bin
-RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.2.0.tar.gz" | tar -xzpf - data.tar.gz -O | tar -xzpC /home/bibsnet/data --no-same-owner --strip-components 1
+RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - data.tar.gz -O | tar -xzpC /home/bibsnet/data --no-same-owner --strip-components 1
 
 COPY requirements.txt  /home/bibsnet/requirements.txt
 
