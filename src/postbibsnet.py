@@ -15,19 +15,11 @@ from src.logger import LOGGER
 from src.utilities import (
     list_files,
     get_subj_ID_and_session,
-    get_age_closest_to,
     only_Ts_needed_for_bibsnet_model, 
-    run_FSL_sh_script,
-    split_2_exts
+    run_FSL_sh_script
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-# LR_REGISTR_PATH = os.path.join(SCRIPT_DIR, "bin", "LR_mask_registration.sh")
-# # Chirality-checking constants
-# CHIRALITY_CONST = dict(UNKNOWN=0, LEFT=1, RIGHT=2, BILATERAL=3)
-# LEFT = "Left-"
-# RIGHT = "Right-"
-
 
 def run_postBIBSnet(j_args):
     """
@@ -36,49 +28,6 @@ def run_postBIBSnet(j_args):
     """
     sub_ses = get_subj_ID_and_session(j_args)
     list_files(j_args["common"]["work_dir"])
-
-    # # Template selection values
-    # age_months = j_args["ID"]["age_months"]
-    # LOGGER.verbose("Age of participant: {} months".format(age_months))
-
-    # # Get template closest to age
-    # tmpl_age = get_template_age_closest_to(
-    #     age_months, os.path.join(SCRIPT_DIR, "data", "chirality_masks")
-    # )
-    # LOGGER.verbose("Closest template-age is {} months".format(tmpl_age))
-
-    # For left/right registration, use T1 for T1-only and T2 for T2-only, but
-    # for T1-and-T2 combined use T2 for <22 months otherwise T1 (img quality)
-    # if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
-    #     t1or2 = 2 if int(age_months) < 22 else 1  # NOTE 22 cutoff might change
-    # elif j_args["ID"]["has_T1w"]:
-    #     t1or2 = 1
-    # else:  # if j_args["ID"]["has_T2w"]:
-    #     t1or2 = 2
-
-    # LOGGER.info("Generating crude L/R mask for first iteration of chirality correction")
-    # # Generate crude chirality correction mask file first
-    # crude_left_right_mask_nifti_fpath = create_crude_LR_mask(
-    #     sub_ses, j_args
-    # )
-
-    # LOGGER.info("Generating L/R mask from registration using templates for second iteration of chirality correction")
-    # # Run left/right registration script and chirality correction
-    # left_right_mask_nifti_fpath = run_left_right_registration(
-    #     sub_ses, tmpl_age, t1or2, j_args
-    # )
-    # LOGGER.info("Left/right image registration completed")
-
-    # Dilate the L/R mask and feed the dilated mask into chirality correction
-    # LOGGER.info("Now dilating left/right mask")
-    # dilated_LRmask_fpath = dilate_LR_mask(
-    #     os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses),
-    #     left_right_mask_nifti_fpath
-    # )
-    # LOGGER.info("Finished dilating left/right segmentation mask")
-
-    # LOGGER.info("Running chirality correction")
-    # nifti_file_paths, chiral_out_dir, xfm_ref_img_dict = run_correct_chirality(crude_left_right_mask_nifti_fpath, dilated_LRmask_fpath, j_args)
 
     LOGGER.info("Reverting corrected segmentation to native space")
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "output", "*.nii.gz")
@@ -92,7 +41,7 @@ def run_postBIBSnet(j_args):
                 preBIBSnet_paths["parent"], "averaged")
         preBIBSnet_paths["avg"] = dict()
 
-        # Luci: generate derivatives folders to output final files to
+        # Generate derivatives folders to output final files to
         bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
                                     "bibsnet")
         derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
@@ -100,7 +49,7 @@ def run_postBIBSnet(j_args):
 
         LOGGER.info("Now registering BIBSnet segmentation to native space to generate derivatives.")
         
-        # Luci note: take inverse of .mat file from prebibsnet
+        # Take inverse of .mat file from prebibsnet
         seg2native = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], f"seg_reg_to_T{t}w_native.mat")
         preBIBSnet_mat_glob = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
         f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat") 
@@ -109,7 +58,7 @@ def run_postBIBSnet(j_args):
         run_FSL_sh_script(j_args, "convert_xfm", "-omat",
                       seg2native, "-inverse", preBIBSnet_mat)
         
-        # Luci note: apply inverse mat to aseg from bibsnet stage and write out to derivatives folder
+        # Apply inverse mat to aseg from bibsnet stage and write out to derivatives folder
         # Luci - this block of code could certainly be simplified
         #for t in (1, 2): 
         preBIBSnet_paths["avg"][f"T{t}w_input"] = list()
