@@ -1,14 +1,11 @@
 import os
 import shutil
 from glob import glob
-import sys
-import subprocess
 from nipype.interfaces import fsl
 import nibabel as nib
 import numpy as np
 import json
 from scipy import ndimage
-import csv
 
 from src.logger import LOGGER
 
@@ -30,8 +27,8 @@ def run_postBIBSnet(j_args):
     list_files(j_args["common"]["work_dir"])
 
     LOGGER.info("Reverting corrected segmentation to native space")
-    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "output", "*.nii.gz")
-    
+    out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "output", "{}_optimal_resized.nii.gz".format("_".join(sub_ses)))
+
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         # Get preBIBSNet working directories in order to reference average image files
         preBIBSnet_paths = {"parent": os.path.join(
@@ -59,8 +56,6 @@ def run_postBIBSnet(j_args):
                       seg2native, "-inverse", preBIBSnet_mat)
         
         # Apply inverse mat to aseg from bibsnet stage and write out to derivatives folder
-        # Luci - this block of code could certainly be simplified
-        #for t in (1, 2): 
         preBIBSnet_paths["avg"][f"T{t}w_input"] = list()
         for eachfile in glob(os.path.join(j_args["common"]["bids_dir"],
                                         *sub_ses, "anat", 
@@ -108,7 +103,7 @@ def run_postBIBSnet(j_args):
     return j_args
 
     # Write j_args out to logs
-    LOGGER.debug(j_args)
+    #LOGGER.debug(j_args)
 
 def save_nifti(data, affine, file_path):
     img = nib.Nifti1Image(data, affine)
