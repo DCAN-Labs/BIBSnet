@@ -39,15 +39,14 @@ def run_postBIBSnet(j_args):
         preBIBSnet_paths["avg"] = dict()
 
         # Generate derivatives folders to output final files to
-        bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], 
-                                    "bibsnet")
+        bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], "bibsnet")
         derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
         os.makedirs(derivs_dir, exist_ok=True)
 
         LOGGER.info("Now registering BIBSnet segmentation to native space to generate derivatives.")
-        
+
         # Take inverse of .mat file from prebibsnet
-        seg2native = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], f"seg_reg_to_T{t}w_native.mat")
+        seg2native = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, f"seg_reg_to_T{t}w_native.mat")
         preBIBSnet_mat_glob = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
         f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat") 
 
@@ -149,106 +148,6 @@ def copy_to_derivatives_dir(file_to_copy, derivs_dir, sub_ses, space, new_fname_
         "{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), space, new_fname_pt)
     )))
 
-def dilate_LR_mask(sub_LRmask_dir, anatfile):
-    """
-    Taken from https://github.com/DCAN-Labs/SynthSeg/blob/master/SynthSeg/dcan/img_processing/chirality_correction/dilate_LRmask.py
-    :param sub_LRmask_dir: String, path to real directory to make subdirectory
-                           in; the subdirectory will contain mask files
-    :param anatfile: String, valid path to existing anatomical image file
-    """
-    # Make subdirectory to save masks in & generic mask file name format-string
-    parent_dir = os.path.join(sub_LRmask_dir, "lrmask_dil_wd")
-    os.makedirs(parent_dir, exist_ok=True)
-    mask = os.path.join(parent_dir, "{}mask{}.nii.gz")
-
-    # Make left, right, and middle masks using FSL
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 1 -uthr 1',
-                           out_file=mask.format("L", ""))
-    maths.run()
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 2 -uthr 2',
-                           out_file=mask.format("R", ""))
-    maths.run()
-    maths.run()
-    maths = fsl.ImageMaths(in_file=anatfile, op_string='-thr 3 -uthr 3',
-                           out_file=mask.format("M", ""))
-    maths.run()
-
-    # dilate, fill, and erode each mask in order to get rid of holes
-    # (also binarize L and M images in order to perform binary operations)
-    maths = fsl.ImageMaths(in_file=mask.format("L", ""),
-                           op_string='-dilM -dilM -dilM -fillh -ero',
-                           out_file=mask.format("L", "_holes_filled"))
-    maths.run()
-    maths = fsl.ImageMaths(in_file=mask.format("R", ""),
-                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
-                           out_file=mask.format("R", "_holes_filled"))
-    maths.run()
-    maths = fsl.ImageMaths(in_file=mask.format("M", ""),
-                           op_string='-bin -dilM -dilM -dilM -fillh -ero',
-                           out_file=mask.format("M", "_holes_filled"))
-    maths.run()
-
-    # Reassign values of 2 and 3 to R and M masks (L mask already a value of 1)
-    label_anat_masks = {"L": mask.format("L", "_holes_filled"),
-                        "R": mask.format("R", "_holes_filled_label2"),
-                        "M": mask.format("M", "_holes_filled_label3")}
-    maths = fsl.ImageMaths(in_file=mask.format("R", "_holes_filled"),
-                           op_string='-mul 2', out_file=label_anat_masks["R"])
-    maths.run()
-
-    maths = fsl.ImageMaths(in_file=mask.format("M", "_holes_filled"),
-                           op_string='-mul 3', out_file=label_anat_masks["M"])
-    maths.run()
-
-    # recombine new L, R, and M mask files and then dilate the result 
-    masks_LR = {"dilated": mask.format("dilated_LR", ""),
-                "recombined": mask.format("recombined_", "_LR")}
-    maths = fsl.ImageMaths(in_file=label_anat_masks["L"],
-                           op_string='-add {}'.format(label_anat_masks["R"]),
-                           out_file=masks_LR["recombined"])
-    maths.run()
-    maths = fsl.ImageMaths(in_file=label_anat_masks["M"],
-                           op_string="-add {}".format(masks_LR["recombined"]),
-                           out_file=masks_LR["dilated"])
-    maths.run()
-
-    # Fix incorrect values resulting from recombining dilated components
-    orig_LRmask_img = nib.load(os.path.join(sub_LRmask_dir, "LRmask.nii.gz"))
-    orig_LRmask_data = orig_LRmask_img.get_fdata()
-
-    fill_LRmask_img = nib.load(masks_LR["dilated"])
-    fill_LRmask_data = fill_LRmask_img.get_fdata()
-
-    # Flatten numpy arrays
-    orig_LRmask_data_2D = orig_LRmask_data.reshape((182, 39676), order='C')
-    orig_LRmask_data_1D = orig_LRmask_data_2D.reshape(7221032, order='C')
-
-    fill_LRmask_data_2D = fill_LRmask_data.reshape((182, 39676), order='C')
-    fill_LRmask_data_1D = fill_LRmask_data_2D.reshape(7221032, order='C')
-
-    # grab index values of voxels with a value greater than 2.0 in filled L/R mask
-    voxel_check = np.where(fill_LRmask_data_1D > 2.0)
-
-    # Replace possible overlapping label values with corresponding label values from initial mask
-    for i in voxel_check[:]:
-        fill_LRmask_data_1D[i] = orig_LRmask_data_1D[i]
-
-    # reshape numpy array
-    fill_LRmask_data_2D = fill_LRmask_data_1D.reshape((182, 39676), order='C')
-    fill_LRmask_data_3D = fill_LRmask_data_2D.reshape((182, 218, 182), order='C')
-
-    # save new numpy array as image
-    empty_header = nib.Nifti1Header()
-    out_img = nib.Nifti1Image(fill_LRmask_data_3D, orig_LRmask_img.affine, empty_header)
-    out_fpath = mask.format("LR", "_dil")  # os.path.join(sub_LRmask_dir, 'LRmask_dil.nii.gz')
-    nib.save(out_img, out_fpath)
-
-    #remove working directory with intermediate outputs
-    #shutil.rmtree('lrmask_dil_wd')
-
-    return out_fpath
-
-
 def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     """
     :param sub_ses: List with either only the subject ID str or the session too
@@ -278,42 +177,6 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     with open(file_path, "w+") as file:
         json.dump(sidecar, file, indent = 4)
 
-
-# def reverse_regn_revert_to_native(nifti_file_paths, chiral_out_dir,
-#                                   xfm_ref_img, t, j_args):
-#     """
-#     :param nifti_file_paths: Dict with valid paths to native and
-#                              chirality-corrected images
-#     :param chiral_out_dir: String, valid path to existing directory to save 
-#                            chirality-corrected images into
-#     :param xfm_ref_img: String, path to (T1w, unless running in T2w-only mode) 
-#                         image to use as a reference when applying transform
-#     :param t: 1 or 2, whether running on T1 or T2
-#     :param j_args: Dictionary containing all args
-#     :return: String, valid path to existing image reverted to native
-#     """
-#     sub_ses = get_subj_ID_and_session(j_args)
-
-#     # Undo resizing right here (do inverse transform) using RobustFOV so 
-#     # padding isn't necessary; revert aseg to native space
-#     dummy_copy = "_dummy".join(split_2_exts(nifti_file_paths["corrected"]))
-#     shutil.copy2(nifti_file_paths["corrected"], dummy_copy)
-
-#     seg2native = os.path.join(chiral_out_dir, f"seg_reg_to_T{t}w_native.mat")
-#     preBIBSnet_mat_glob = os.path.join(
-#         j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
-#         f"preBIBSnet_*crop_T{t}w_to_BIBS_template.mat"  # TODO Name this outside of pre- and postBIBSnet then pass it to both
-#     )
-#     preBIBSnet_mat = glob(preBIBSnet_mat_glob).pop()
-#     run_FSL_sh_script(j_args, "convert_xfm", "-omat",
-#                       seg2native, "-inverse", preBIBSnet_mat)
-#     # TODO Define preBIBSnet_mat path outside of stages because it's used by preBIBSnet and postBIBSnet
-
-#     run_FSL_sh_script(j_args, "flirt", "-applyxfm",
-#                       "-ref", xfm_ref_img, "-in", dummy_copy,
-#                       "-init", seg2native, "-o", nifti_file_paths[f"native-T{t}"],
-#                       "-interp", "nearestneighbour")
-#     return nifti_file_paths[f"native-T{t}"]
 
 
 def remove_extra_clusters_from_mask(path_to_mask, path_to_aseg = None):
