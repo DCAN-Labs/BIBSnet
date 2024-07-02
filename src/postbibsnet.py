@@ -23,28 +23,19 @@ def run_postBIBSnet(j_args):
     :param j_args: Dictionary containing all args
     :return: j_args, unchanged
     """
+    # Define variables and paths
     sub_ses = get_subj_ID_and_session(j_args)
     list_files(j_args["common"]["work_dir"])
-
-    LOGGER.info("Reverting corrected segmentation to native space")
     out_BIBSnet_seg = os.path.join(j_args["optional_out_dirs"]["bibsnet"], *sub_ses, "output", "{}_optimal_resized.nii.gz".format("_".join(sub_ses)))
 
+    # Generate derivatives folders to output final files to
+    LOGGER.info("Generating output derivatives folders")
+    bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], "bibsnet")
+    derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
+    os.makedirs(derivs_dir, exist_ok=True)
+
+    LOGGER.info("Now registering BIBSnet segmentation to native space to generate derivatives.")
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        # Get preBIBSNet working directories in order to reference average image files
-        preBIBSnet_paths = {"parent": os.path.join(
-                                j_args["optional_out_dirs"]["prebibsnet"], *sub_ses
-                            )}
-        preBIBSnet_paths["averaged"] = os.path.join(
-                preBIBSnet_paths["parent"], "averaged")
-        preBIBSnet_paths["avg"] = dict()
-
-        # Generate derivatives folders to output final files to
-        bibsnet_derivs_dir = os.path.join(j_args["optional_out_dirs"]["derivatives"], "bibsnet")
-        derivs_dir = os.path.join(bibsnet_derivs_dir, *sub_ses, "anat")
-        os.makedirs(derivs_dir, exist_ok=True)
-
-        LOGGER.info("Now registering BIBSnet segmentation to native space to generate derivatives.")
-
         # Take inverse of .mat file from prebibsnet
         seg2native = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, f"seg_reg_to_T{t}w_native.mat")
         preBIBSnet_mat_glob = os.path.join(j_args["optional_out_dirs"]["postbibsnet"], *sub_ses, 
@@ -54,27 +45,21 @@ def run_postBIBSnet(j_args):
         run_FSL_sh_script(j_args, "convert_xfm", "-omat",
                       seg2native, "-inverse", preBIBSnet_mat)
         
-        # Apply inverse mat to aseg from bibsnet stage and write out to derivatives folder
-        preBIBSnet_paths["avg"][f"T{t}w_input"] = list()
-        for eachfile in glob(os.path.join(j_args["common"]["bids_dir"],
-                                        *sub_ses, "anat", 
-                                        f"*T{t}w*.nii.gz")):
-            preBIBSnet_paths["avg"][f"T{t}w_input"].append(eachfile)
-        avg_img_name = "{}_000{}{}".format("_".join(sub_ses), t-1, ".nii.gz")
-        preBIBSnet_paths["avg"][f"T{t}w_avg"] = os.path.join(  
-            preBIBSnet_paths["averaged"], avg_img_name  
-        )  
-
-        # Define path to aseg derivative output and revert to native space
+        # Revert segmentation to native space using average anatomical as reference image and write out to derivatives folder
+        av_filename="{}_000{}.nii.gz".format("_".join(sub_ses), t-1)
+        avg_anat = os.path.join(j_args["optional_out_dirs"]["prebibsnet"], *sub_ses, "averaged", av_filename)
         aseg=os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "aseg_dseg")))
+
         run_FSL_sh_script(j_args, "flirt", "-applyxfm",
-                    "-ref", preBIBSnet_paths["avg"][f"T{t}w_avg"], "-in", out_BIBSnet_seg,
+                    "-ref", avg_anat, "-in", out_BIBSnet_seg,
                     "-init", seg2native, "-o", aseg,
                     "-interp", "nearestneighbour")
+        
+        LOGGER.info(f"BIBSNet segmentation has been trasnformed into native T{t} space")
 
-        LOGGER.info("Now generating segmentation-derived masks.")
-        mask=os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "aseg_dseg")))
-        make_asegderived_mask(j_args, aseg, t, mask)
+        # Generate brainmask from segmentation and write out to derivatives folder
+        mask_temp=os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "aseg_dseg")))
+        make_asegderived_mask(j_args, aseg, t, mask_temp)
 
         LOGGER.info(f"A mask of the BIBSnet T{t} segmentation has been produced")
 
