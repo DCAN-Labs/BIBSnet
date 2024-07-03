@@ -97,7 +97,7 @@ RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.1.tar.gz" | tar 
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
-COPY bin /home/bibsnet/bin
+# COPY bin /home/bibsnet/bin
 RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.1.tar.gz" | tar -xzpf - data.tar.gz -O | tar -xzpC /home/bibsnet/data --no-same-owner --strip-components 1
 
 COPY requirements.txt  /home/bibsnet/requirements.txt
@@ -107,6 +107,7 @@ ENV PATH="${PATH}:/home/bibsnet/"
 RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 
 RUN cd /home/bibsnet/ && pip install -r requirements.txt
-RUN cd /home/bibsnet/ && chmod 555 -R run.py bin src bibsnet
+# RUN cd /home/bibsnet/ && chmod 555 -R run.py bin src bibsnet
+RUN cd /home/bibsnet/ && chmod 555 -R run.py src bibsnet
 
 ENTRYPOINT ["bibsnet"]
