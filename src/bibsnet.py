@@ -87,7 +87,10 @@ def run_nnUNet_predict(cli_args):
     """
     to_run = [cli_args["nnUNet"], "-i",
                      cli_args["input"], "-o", cli_args["output"], "-t",
-                     str(cli_args["task"]), "-m", cli_args["model"]]
+                     str(cli_args["task"]), "-m", cli_args["model"], 
+                     "-tr nnUNetTrainerV2_noMirroring",
+                     "--disable_tta"
+                     ]
     LOGGER.verbose(f"Now running nnUNet with these parameters: {to_run}")
     process = subprocess.Popen(to_run, stdout=subprocess.PIPE, universal_newlines=True)
     with process.stdout:
