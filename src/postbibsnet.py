@@ -55,7 +55,7 @@ def run_postBIBSnet(j_args):
                     "-init", seg2native, "-o", aseg,
                     "-interp", "nearestneighbour")
         
-        LOGGER.info(f"BIBSNet segmentation has been trasnformed into native T{t} space")
+        LOGGER.info(f"BIBSNet segmentation has been transformed into native T{t} space")
 
         # Generate brainmask from segmentation and write out to derivatives folder
         mask_temp=os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "aseg_dseg")))
