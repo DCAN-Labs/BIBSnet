@@ -90,11 +90,17 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 
-RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - Task540_BIBSNet_Production_Model.tar.gz -O | tar -xzpC /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --no-same-owner --strip-components 1
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSNet_Production_Model.tar.gz && \
+    tar -xzf Task540_BIBSNet_Production_Model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task540_BIBSNet_Production_Model.tar.gz
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
-RUN curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" | tar -xzpf - data.tar.gz -O | tar -xzpC /home/bibsnet/data --no-same-owner --strip-components 1
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz data.tar.gz && \
+    tar -xzf data.tar.gz -C /home/bibsnet/data --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz data.tar.gz
 
 COPY requirements.txt  /home/bibsnet/requirements.txt
 
