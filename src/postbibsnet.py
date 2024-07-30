@@ -6,6 +6,7 @@ import nibabel as nib
 import numpy as np
 import json
 from scipy import ndimage
+import csv
 
 from src.logger import LOGGER
 
@@ -70,6 +71,14 @@ def run_postBIBSnet(j_args):
         reference_path = glob(input_path)[0]
         generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, "aseg_dseg")
         generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, "brain_mask")
+
+        # make per region volumes from segmentation
+        make_per_region_volume_from_segmentation(path_to_aseg=aseg,
+            derivs_dir=derivs_dir,
+            sub_ses=sub_ses,
+            t=t,
+            desc='aseg_volumes')
+
 
     # Copy dataset_description.json into bibsnet_derivs_dir directory for use in nibabies
     list_files(j_args["common"]["work_dir"])
@@ -162,7 +171,93 @@ def generate_sidecar_json(sub_ses, reference_path, derivs_dir, t, desc):
     with open(file_path, "w+") as file:
         json.dump(sidecar, file, indent = 4)
 
+def make_per_region_volume_from_segmentation(path_to_aseg,derivs_dir,sub_ses,t,desc):
+    """
+    Author: Tim Hendrickson
 
+    Produces volumes (in mm^3) for each segmentated structure within the aseg and 
+    produces a BIDS derivative compliant TSV file within the derivative folder
+
+    Parameters
+    ----------
+    path_to_aseg : str
+        The file path to the anatomical segmentation (aseg) file.
+    derivs_dir : str
+        The directory where derivative files are stored.
+    sub_ses : str
+        The subject and session identifier, typically in the format 'sub-XX_ses-YY'.
+    t : float
+        The anatomical image type, typically '1' for T1-weighted or '2' for T2-weighted
+    desc : str
+        A string representing the description of the output.
+
+
+    Returns
+    -------
+    Does not return a value. Generates TSV file within derivs_dir 
+
+    """
+    segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
+                                             "Freesurfer_LUT_DCAN.txt")
+    free_surfer_label_to_region = get_id_to_region_mapping(segmentation_lookup_table)
+    
+    # load aseg into nibabel 
+    aseg_img = nib.load(path_to_aseg)
+    aseg_data = aseg_img.get_fdata()
+
+    # get voxel dimensions (mm) and volume of single voxel (mm^3)
+    voxel_dims = aseg_img.header.get_zooms()
+    voxel_volume = np.prod(voxel_dims)
+
+    # get unique labels from aseg
+    unique_labels = np.unique(aseg_data)
+
+    region_volumes={}
+    for label in unique_labels:
+        try:
+            # not all values are labelled within lookup table, particularly 0
+            label_name = free_surfer_label_to_region[label]
+        except:
+            "label {} is not in lookup table".format(label)
+            continue
+        else:    
+            voxel_count = np.sum(aseg_data==label)
+            volume = voxel_count * voxel_volume
+            region_volumes[label_name] = volume 
+    
+    # write out region names and values to TSV file in BIDS derivative format
+    tsvFileName='{deriv_dir}/{ID}_space-T{image_type}w_desc-{desc}.tsv'.format(deriv_dir=derivs_dir,ID=sub_ses,image_type=t,desc=desc)
+    with open(tsvFileName,'w') as tsvfile:
+        tsv_writer = csv.writer(tsvfile,delimiter='\t')
+        tsv_writer.writerow(list(region_volumes.keys())) # write header
+        tsv_writer.writerow(list(region_volumes.values())) # write out values
+
+def get_id_to_region_mapping(mapping_file_name, separator=None):
+    """
+    Author: Paul Reiners
+    Create a map from region ID to region name from a from a FreeSurfer-style
+    look-up table. This function parses a FreeSurfer-style look-up table. It
+    then returns a map that maps region IDs to their names.
+    :param mapping_file_name: String, the name or path to the look-up table
+    :param separator: String delimiter separating parts of look-up table lines
+    :return: Dictionary, a map from the ID of a region to its name
+    """
+    with open(mapping_file_name, 'r') as infile:
+        lines = infile.readlines()
+
+    id_to_region = {}
+    for line in lines:
+        line = line.strip()
+        if line.startswith('#') or line == '':
+            continue
+        if separator:
+            parts = line.split(separator)
+        else:
+            parts = line.split()
+        region_id = int(parts[0])
+        region = parts[1]
+        id_to_region[region_id] = region
+    return id_to_region
 
 def remove_extra_clusters_from_mask(path_to_mask, path_to_aseg = None):
     '''Function that removes smaller/unconnected clusters from brain mask
