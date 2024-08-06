@@ -66,9 +66,11 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
 
 # Installing ANTs 2.3.3 (NeuroDocker build)
 # Note: the URL says 2.3.4 but it is actually 2.3.3
-RUN mkdir -p /opt/ants \
-    && curl -sSL --retry 5 "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
-    | tar -xzC /opt/ants --strip-components 1
+# TESTING: installing ANTS from tier2 tar.gz
+RUN echo "Downloading ANTs ..." && \
+    mkdir -p /opt/ants && \
+    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
+    | tar -xzpf - ants-Linux-centos6_x86_64-v2.3.4.tar.gz -O | tar -xzpC /opt/ants --no-same-owner --strip-components 1
 
 # Create a shared $HOME directory
 RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet
