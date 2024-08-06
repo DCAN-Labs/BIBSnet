@@ -69,7 +69,7 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
 # TESTING: installing ANTS from tier2 tar.gz
 RUN echo "Downloading ANTs ..." && \
     mkdir -p /opt/ants && \
-    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
+    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
     | tar -xzpf - ants-Linux-centos6_x86_64-v2.3.4.tar.gz -O | tar -xzpC /opt/ants --no-same-owner --strip-components 1
 
 # Create a shared $HOME directory
