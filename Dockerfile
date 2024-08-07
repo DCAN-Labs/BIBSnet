@@ -49,8 +49,10 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Downloading FSL ..." \
     && mkdir -p /opt/fsl-6.0.5.1 \
-    && curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
-    | tar -xzpf - fsl-6.0.5.1-centos7_64.tar.gz -O | tar -xzpC /opt/fsl-6.0.5.1 --no-same-owner --strip-components 1
+    && wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
+    && tar -xzf bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz \
+    && tar -xzf fsl-6.0.5.1-centos7_64.tar.gz -C /opt/fsl-6.0.5.1 --no-same-owner --strip-components 1 \
+    && rm bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz
     
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/afni-latest:/opt/ants:/opt/fsl-6.0.5.1/bin:$PATH" \
@@ -69,8 +71,10 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
 # TESTING: installing ANTS from tier2 tar.gz
 RUN echo "Downloading ANTs ..." && \
     mkdir -p /opt/ants && \
-    curl -sSL "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
-    | tar -xzpf - ants-Linux-centos6_x86_64-v2.3.4.tar.gz -O | tar -xzpC /opt/ants --no-same-owner --strip-components 1
+    wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz && \
+    tar -xzf ants-Linux-centos6_x86_64-v2.3.4.tar.gz -C /opt/ants --no-same-owner --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz
 
 # Create a shared $HOME directory
 RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet
