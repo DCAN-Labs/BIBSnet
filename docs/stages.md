@@ -2,8 +2,8 @@
 
 Prepares the anatomical BIDS images for BIBSnet segmentation generation.
 
-1. Renames T1 and T2 to fit nnU-Net naming (0000 and 0001 for T1 and T2, respectively)
-2. Average multiple T1/T2 weighted images into one T1/T2 weighted image
+1. Averages multiple T1/T2 weighted images into one T1/T2 weighted image (all images are registered to the first run)
+2. Renames T1 and T2 to fit nnU-Net naming (0000 and 0001 for T1 and T2, respectively)
 3. Crops the neck and shoulders out of the images
 4. Registers the T2 to the T1 either via traditional transform or ACPC-alignment. Optimal method gets chosen via eta-squared calculation
 
