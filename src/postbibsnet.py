@@ -75,7 +75,7 @@ def run_postBIBSnet(j_args):
         # make per region volumes from segmentation
         make_per_region_volume_from_segmentation(path_to_aseg=aseg,
             derivs_dir=derivs_dir,
-            sub_ses=j_args(*sub_ses),
+            sub_ses='_'.join(sub_ses),
             t=t,
             desc='aseg_volumes')
 
