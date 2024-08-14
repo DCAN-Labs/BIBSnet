@@ -97,9 +97,19 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 
 RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSNet_Production_Model.tar.gz && \
-    tar -xzf Task540_BIBSNet_Production_Model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz Task540_BIBSNet_Production_Model.tar.gz
+    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz && \
+    tar -xzf Task540_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz
+
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz && \
+    tar -xzf Task541_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz
+
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz && \
+    tar -xzf Task542_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
