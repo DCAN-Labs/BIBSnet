@@ -1,6 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:21.11-py3
 
 # Manually update the BIBSnet version when building
+
 ENV BIBSNET_VERSION="3.3.0"
 
 # Prepare environment
@@ -53,7 +54,7 @@ RUN apt-get update -qq \
     && tar -xzf bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz \
     && tar -xzf fsl-6.0.5.1-centos7_64.tar.gz -C /opt/fsl-6.0.5.1 --no-same-owner --strip-components 1 \
     && rm bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz
-    
+
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/afni-latest:/opt/ants:/opt/fsl-6.0.5.1/bin:$PATH" \
     FSLOUTPUTTYPE="NIFTI_GZ" \
