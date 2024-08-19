@@ -146,10 +146,13 @@ def run_preBIBSnet(j_args):
         # is chosen, so postBIBSnet can use the correct/chosen .mat file
         concat_mat = transformed_images[f"T{t}w_crop2BIBS_mat"]
         LOGGER.debug(f"concat_mat: {concat_mat}")
-        out_mat_fpath = os.path.join(  # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
+       
+         # TODO Pass this in (or out) from the beginning so we don't have to build the path twice (once here and once in postBIBSnet)
+        out_mat_fpath = os.path.join(
             j_args["optional_out_dirs"]["postbibsnet"],
             *sub_ses, "preBIBSnet_" + os.path.basename(concat_mat)
         )
+
         list_files(j_args["optional_out_dirs"]["postbibsnet"])
         list_files(j_args["common"]["work_dir"])
         LOGGER.debug(f"out_mat_fath: {out_mat_fpath}")
