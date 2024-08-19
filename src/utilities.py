@@ -99,16 +99,6 @@ def get_subj_ID_and_session(j_args):
     return [sub, ensure_prefixed(j_args["ID"]["session"], "ses-")
             ] if dict_has(j_args["ID"], "session") else [sub]
 
-
-def get_age_closest_to(subject_age, all_ages):
-    """
-    :param subject_age: Int, participant's actual age in months
-    :param all_ages: List of ints, each a potential participant age in months
-    :return: Int, the age in all_ages which is closest to subject_age
-    """
-    return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
-
-
 def list_files(startpath):
     """
     https://stackoverflow.com/a/9728478

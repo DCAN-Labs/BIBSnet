@@ -20,7 +20,6 @@ from src.validate import (
 from src.utilities import (
     dict_has,
     ensure_prefixed,
-    get_age_closest_to,
     only_Ts_needed_for_bibsnet_model
 )
 
