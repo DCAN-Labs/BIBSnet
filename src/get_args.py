@@ -378,39 +378,31 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     return sub_ses_IDs
 
 
-def get_brain_z_size(sub_ses_IDS, ix, buffer=5):
+def get_brain_z_size(sub_ses_IDS, ix):
     """ 
     Infer a participant's brain z-size from their age and from the average
-    brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
+    brain diameters table data/brainzsize_table.csv
     :param sub_ses_IDS: list, subject and session ids found by BIBSnet
     :param ix: int, index of the sub/ses to find in sub_ses_IDS
-    :param buffer: Int, extra space (in mm), defaults to 5
-    :return: Int, the brain z-size (height) in millimeters
+    :return: brain_z_size (in millimeters)
     """
-    MM_PER_IN = 25.4  # Conversion factor: inches to millimeters
     age_months = sub_ses_IDS[ix]["age_months"]
 
-    # Other columns' names in the age-to-head-radius table
-    age_months_col = "Candidate_Age(mo.)"
-    head_r_col = "Head_Radius(in.)"
-    head_diam_mm = "head_diameter_mm"
-
-    # Get table mapping each age in months to average head radius
-    age2headradius = pd.read_csv(AGE_TO_HEAD_RADIUS_TABLE)
-
-    # Get BCP age (in months) closest to the subject's age
-    closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    LOGGER.verbose(f"Age in months for Subject {sub_ses_IDS[ix]['subject']} Session {sub_ses_IDS[ix]['session']}: {age_months}\nClosest BCP age in "
-                f"months in age-to-head-radius table: {closest_age}")
-
-    # Get average head radii in millimeters by age from table
-    age2headradius[head_diam_mm] = age2headradius[head_r_col
-                                                  ] * MM_PER_IN * 2
-    row = age2headradius[age2headradius[age_months_col] == closest_age]
+    # Use default brain-z-size of 170 if age is >60 months 
+    if age_months > 60:
+        brain_z_size = 170
     
-    # Return the average brain z-size for the participant's age
-    return math.ceil(row.get(head_diam_mm)) + buffer
+    else:
+        # Get table mapping each age in months to average head diameter
+        brain_z_size_df = pd.read_csv('data/brainzsize_table.csv')
 
+        # Get BCP age (in months) closest to the subject's age
+        for index, row in brain_z_size_df.iterrows():
+            start, end = map(int, row['age_months'].split('-'))
+            if start <= age_months <= end:
+                return row['head_diameter_mm']
+
+    return brain_z_size
 
 def read_from_tsv(j_args, col_name, *sub_ses):
     """
