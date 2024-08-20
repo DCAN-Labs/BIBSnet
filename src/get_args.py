@@ -69,15 +69,6 @@ def get_params(stage_names):
               "prefix. Example: 'ABC12345'")  # TODO Make BIBSnet able to accept with OR without 'sub-' prefix
     )
     parser.add_argument(
-        "-age", "-months", "--age-months", type=valid_whole_number,
-        help=("Positive integer, the participant's age in months. For "
-              "example, -age 5 would mean the participant is 5 months old. "
-              "Include this argument unless the age in months is specified in "
-              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory "
-              "or inside the participants.tsv file inside the BIDS directory at the" 
-              "subject-level.")
-    )
-    parser.add_argument(
         "-end", "--ending-stage", dest="end",
         choices=stage_names, default=default_end_stage,
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names))
@@ -127,16 +118,6 @@ def get_params(stage_names):
               "already exist in the sub-directories of derivatives.")
     )
     parser.add_argument(
-        "--reduce-cropping", dest="reduce_cropping", nargs="?", const=20, default=0, type=int,
-        help=("This flag is used to specify a value by which to increase or decrease the brain z size used by FSL robustfov for cropping. "
-              "This is useful for cases where the default age-specific brain z size specified by BIBSNet "
-              "(calculated based on a table within the container of BCP participants' average head radius per age: "
-              "data/age_to_avg_head_radius_BCP.csv) results in overcropping. "
-              "The brain z size can be adjusted by a specified amount by including an integer with this flag "
-              "[REDUCE_CROPPING]: positive integers will increase brain z size to crop less and negative integers will decrease brain z size to crop more. "
-              "Default: Include this flag by itself to increase the brain z size and therefore reduce cropping by 20 millimeters.")
-    )
-    parser.add_argument(
         "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
         help=("The name of the session to processes participant data for. "
               "Example: baseline_year1")
@@ -151,13 +132,6 @@ def get_params(stage_names):
         default=os.path.join("/", "tmp", "bibsnet"),
         help=("Valid absolute path where intermediate results should be stored. "
               "Example: /path/to/working/directory")
-    )
-    parser.add_argument(
-        "-z", "--brain-z-size", action="store_true",
-        help=("Include this flag to infer participants' brain height (z) "
-              "using the sub-{}_sessions.tsv or participant.tsv brain_z_size column." 
-              "Otherwise, BIBSnet will estimate the brain height from the participant "
-              "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
     # Add mutually exclusive group for setting log level
     log_level = parser.add_mutually_exclusive_group()
@@ -375,33 +349,6 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
             sub_ses_IDs.append({"subject": os.path.basename(sub_dirpath)})
 
     return sub_ses_IDs
-
-
-def get_brain_z_size(sub_ses_IDS, ix):
-    """ 
-    Infer a participant's brain z-size from their age and from the average
-    brain diameters table data/brainzsize_table.csv
-    :param sub_ses_IDS: list, subject and session ids found by BIBSnet
-    :param ix: int, index of the sub/ses to find in sub_ses_IDS
-    :return: brain_z_size (in millimeters)
-    """
-    age_months = sub_ses_IDS[ix]["age_months"]
-
-    # Use default brain-z-size of 170 if age is >60 months 
-    if age_months > 60:
-        brain_z_size = 170
-    
-    else:
-        # Get table mapping each age in months to average head diameter
-        brain_z_size_df = pd.read_csv('data/brainzsize_table.csv')
-
-        # Get BCP age (in months) closest to the subject's age
-        for index, row in brain_z_size_df.iterrows():
-            start, end = map(int, row['age_months'].split('-'))
-            if start <= age_months <= end:
-                return row['head_diameter_mm']
-
-    return brain_z_size
 
 def read_from_tsv(j_args, col_name, *sub_ses):
     """
