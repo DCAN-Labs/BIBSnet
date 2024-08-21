@@ -43,17 +43,16 @@ def run_preBIBSnet(j_args):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
     
-    # ADD LOGIC TO RUN SYNTHSTRIP TO CREATE BRAINMASK
-    # Output to `cropped` dir
-    # Delete skull-stripped img - not needed 
-
-    # Crop T1w and T2w images
+    # Run SynthStrip to generate brainmask and crop T1w and T2w images
     cropped = dict()
     brainmask = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
+        # Generate brainmask
+        # NOTE: UNSURE HOW TO REFERENCE BRAINMASK FILEPATH HERE, CURRENTLY USING preBIBSnet_paths[f"brainmask_T{t}w"], but this likely needs to be added to preBIBSNet_paths elsewhere
+        brainmask[t] = synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"],
+                                  preBIBSnet_paths[f"brainmask_T{t}w"])
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
-        brainmask[t] = preBIBSnet_paths[f"brainmask_T{t}w"]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
                                   brainmask[t],
                                   cropped[t])
@@ -570,6 +569,25 @@ def create_avg_image(output_file_path, registered_files):
     new_header = n1_img.header.copy()
     new_img = nib.nifti1.Nifti1Image(avg_matrix, n1_img.affine.copy(), header=new_header)
     nib.save(new_img, output_file_path)
+
+def synthstrip(input_avg_img, brainmask_img):
+    '''
+    Add function description
+    '''
+    # Define skullstripped anat filepath
+    output_crop_dir = os.path.dirname(brainmask_img)
+    skullstripped_img=os.path.join(output_crop_dir, "skullstripped_img.nii.gz")
+    
+    # Run SynthStrip (currently dummy logic just to show arguments since I'm not sure how we want to run it yet)
+    cmd = f"mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m ${brainmask_img}" 
+    os.system(cmd)
+
+    # Delete skullstripped img as it is not needed for BIBSNet
+    shutil.remove(skullstripped_img)
+
+    return brainmask_img
+
+
 
 def crop_image(input_avg_img, brainmask_img, output_crop_img):
     """
