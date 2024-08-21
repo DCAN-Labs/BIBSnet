@@ -196,7 +196,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     # Define (and create) default paths in derivatives directory structure for 
     # each stage of each session of each subject
     sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
-                                      cli_args["session"])  # TODO Add brain_z_size into j_args[ID]
+                                      cli_args["session"])
     
     # TODO Iff the user specifies a session, then let them specify an age
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
@@ -323,52 +323,6 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
             sub_ses_IDs.append({"subject": os.path.basename(sub_dirpath)})
 
     return sub_ses_IDs
-
-def read_from_tsv(j_args, col_name, *sub_ses):
-    """
-    :param j_args: Dictionary containing all args
-    :param col_name: String naming the column of sessions.tsv to return
-                     a value from (for this subject or subject-session)
-    :param sub_ses: Tuple containing subject and session labels. 
-    :return: Int, either the subject's age (in months) or the subject's
-             brain_z_size (depending on col_name) as listed in sessions.tsv
-    """
-
-    session_tsv_path = os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
-                     "{}_sessions.tsv".format(sub_ses[0]))
-    participant_tsv_path = os.path.join(j_args["common"]["bids_dir"],
-                     "participants.tsv")
-
-    ID_col = "session_id" if os.path.exists(session_tsv_path) else "participant_id"
-
-    tsv_path = session_tsv_path if ID_col == "session_id" else participant_tsv_path
-
-    tsv_df = pd.read_csv(
-        tsv_path, delim_whitespace=True, index_col=ID_col
-    )
-    # Check if column name exists in either tsv, grab the value if column name exists
-    try:
-        if col_name not in tsv_df.columns:
-            raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-        else:
-            col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
-    except ValueError as exception:
-        LOGGER.verbose(exception)
-        if ID_col == "participant_id":
-            pass 
-        else:
-            ID_col = "participant_id"
-            tsv_path = participant_tsv_path
-            tsv_df = pd.read_csv(
-                tsv_path, delim_whitespace=True, index_col=ID_col
-            )
-            if col_name not in tsv_df.columns:
-                raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-            else:
-                col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
-        
-    return col_value
-
 
 def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
     # Get and return the col_name value from sessions.tsv
