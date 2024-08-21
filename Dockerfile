@@ -146,6 +146,15 @@ RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v
     tar -xzf data.tar.gz -C /home/bibsnet/data --strip-components 1 && \
     rm bibsnet-v3.3.0.tar.gz data.tar.gz
 
+RUN \
+  cd /tmp && \
+  wget https://github.com/freesurfer/surfa/archive/refs/tags/v0.6.0.tar.gz && \
+  tar xvfz v0.6.0.tar.gz && \
+  cd surfa-0.6.0 && \
+  python setup.py install && \
+  cd .. && \
+  rm -rf surfa-0.6.0 v0.6.0.tar.gz
+
 COPY requirements.txt  /home/bibsnet/requirements.txt
 
 #Add bibsnet dir to path
