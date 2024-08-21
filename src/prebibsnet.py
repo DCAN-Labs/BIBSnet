@@ -583,8 +583,7 @@ def synthstrip(input_avg_img, brainmask_img):
     skullstripped_img=os.path.join(output_crop_dir, "skullstripped_img.nii.gz")
     
     # Run SynthStrip and delete output skullstripped_img (not needed for BIBSNet)
-    # NOTE: may need to update call depending on how we install synthstrip
-    os.system(f'python3 /freesurfer/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m ${brainmask_img}')
+    os.system(f'python3 /opt/freesurfer/bin/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m ${brainmask_img}')
     shutil.remove(skullstripped_img)
 
 def crop_image(input_avg_img, brainmask_img, output_crop_img):
