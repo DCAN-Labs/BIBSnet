@@ -3,7 +3,6 @@ import os
 from glob import glob
 import sys
 import pandas as pd
-import math
 import logging
 import numpy as np
 
@@ -82,8 +81,8 @@ def get_params(stage_names):
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
               "inferred from {} based on which data exists in the "
-              "--bids-dir. BIBSnet will run model 514 by default for T1w-"
-              "only, model 515 for T2w-only, and model 526 for both T1w and "
+              "--bids-dir. BIBSnet will run model 541 by default for T1w-"
+              "only, model 542 for T2w-only, and model 540 for both T1w and "
               "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
     )
     parser.add_argument(
@@ -148,8 +147,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Tuple of 2 objects:
         1. Dictionary of validated parameters
-        2. List of dicts which each map "subject" to the subject ID string,
-           "age_months" to the age in months (int) during the session, & maybe
+        2. List of dicts which each map "subject" to the subject ID string & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
     # Set LOGGER level
@@ -159,9 +157,6 @@ def validate_cli_args(cli_args, stage_names, parser):
         LOGGER.setLevel(logging.DEBUG)
     else:
         LOGGER.setLevel(logging.INFO)
-    # Deprecation warning
-    if cli_args["parameter_json"] is not None:
-        LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
 
     # Crash immediately if the end is given as a stage that happens before start
     if (stage_names.index(cli_args["start"])
@@ -198,7 +193,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
                                       cli_args["session"])
     
-    # TODO Iff the user specifies a session, then let them specify an age
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
     for ix in range(len(sub_ses_IDs)):
         # Create a list with the subject ID and (if it exists) the session ID
@@ -324,16 +318,14 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
 
     return sub_ses_IDs
 
-def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
+def get_col_value_from_tsv(tsv_df, ID_col, col_name, sub_ses):
     # Get and return the col_name value from sessions.tsv
-
     subj_row = tsv_df.loc[
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
     LOGGER.debug(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
-
 
 def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser):
     """
