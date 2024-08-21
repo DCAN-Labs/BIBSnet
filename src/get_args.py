@@ -24,9 +24,6 @@ from src.utilities import (
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-AGE_TO_HEAD_RADIUS_TABLE = os.path.join(SCRIPT_DIR, "data",
-                                        "age_to_avg_head_radius_BCP.csv")
-
 
 def get_params(stage_names):
     """
@@ -79,13 +76,6 @@ def get_params(stage_names):
         default=default_fsl_bin_path,
         help=("Valid path to fsl bin. "
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
-    )
-    parser.add_argument(
-        "-jargs", "-params", "--parameter-json", dest="parameter_json",
-        help=("Parameter JSON is deprecated. "
-              "All arguments formerly in this file are now flags. "
-              "This argument does nothing. "
-              "See https://bibsnet.readthedocs.io/ for updated usage.")
     )
     parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
@@ -185,8 +175,7 @@ def validate_cli_args(cli_args, stage_names, parser):
             "fsl_bin_path": cli_args["fsl_bin_path"],
             "bids_dir": cli_args["bids_dir"],
             "overwrite": cli_args["overwrite"],
-            "work_dir": cli_args["work_dir"],
-            "reduce_cropping": cli_args["reduce_cropping"]
+            "work_dir": cli_args["work_dir"]
         },
 
         "bibsnet": {
@@ -203,7 +192,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     #      j_args[optional_out_dirs][derivatives] to instead be j_args[common][output_dir]
     j_args["optional_out_dirs"] = {stagename: None for stagename in stage_names} 
     j_args["optional_out_dirs"]["derivatives"] = cli_args["output_dir"]
-
 
     # Define (and create) default paths in derivatives directory structure for 
     # each stage of each session of each subject
@@ -229,20 +217,7 @@ def validate_cli_args(cli_args, stage_names, parser):
                          "that your participant_label and session are correct."
                          .format(sub_ses_dir))
     
-        # User only needs sessions.tsv if they didn't specify age_months
-        if not j_args["common"].get("age_months"): 
-            sub_ses_IDs[ix]["age_months"] = read_from_tsv(
-                j_args, "age", *sub_ses
-            )
         LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
-        # Infer brain_z_size for this sub_ses using sessions.tsv if the 
-        # user said to (by using --brain-z-size flag), otherwise infer it 
-        # using age_months and the age-to-head-radius table .csv file
-        sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
-                j_args, "brain_z_size", *sub_ses
-            ) if cli_args["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs, ix)
-
 
         # Check whether this sub ses has T1w and/or T2w input data
         data_path_BIDS_T = dict()  # Paths to expected input data to check
@@ -315,7 +290,6 @@ def get_df_with_valid_bibsnet_models(sub_ses_ID):
             t, models_df, sub_ses_ID[f"has_T{t}w"]
         )
     return models_df
-
 
 def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     """
