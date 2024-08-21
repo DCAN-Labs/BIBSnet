@@ -48,11 +48,12 @@ def run_preBIBSnet(j_args):
     brainmask = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        # Generate brainmask
-        # NOTE: UNSURE HOW TO REFERENCE BRAINMASK FILEPATH HERE, CURRENTLY USING preBIBSnet_paths[f"brainmask_T{t}w"], but this likely needs to be added to preBIBSNet_paths elsewhere
-        brainmask[t] = synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"],
-                                  preBIBSnet_paths[f"brainmask_T{t}w"])
+        # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane, 
+        # and crop average images 
+        brainmask[t] = preBIBSnet_paths[f"brainmask_T{t}w"]
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
+
+        synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"], brainmask[t])
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
                                   brainmask[t],
                                   cropped[t])
@@ -586,9 +587,6 @@ def synthstrip(input_avg_img, brainmask_img):
     os.system(f'python3 /freesurfer/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m ${brainmask_img}')
     shutil.remove(skullstripped_img)
 
-    return brainmask_img
-
-
 def crop_image(input_avg_img, brainmask_img, output_crop_img):
     """
     Use SynthStrip-derived brainmask to define axial cutting plane as
@@ -683,7 +681,9 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
   
         # Get paths to, and make, cropped image subdirectories  
         crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w")  
+        preBIBSnet_paths[f"brainmask_T{t}w"] = os.path.join(crop_dir, avg_img_name)
         preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
+        
         os.makedirs(crop_dir, exist_ok=True)
         LOGGER.debug(f"preBIBSnet_paths: {preBIBSnet_paths}")
         list_files(j_args["common"]["work_dir"])
