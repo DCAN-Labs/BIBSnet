@@ -572,7 +572,10 @@ def create_avg_image(output_file_path, registered_files):
 
 def synthstrip(input_avg_img, brainmask_img):
     '''
-    Add function description
+    Generate brainmasks for T1 and T2 using SynthStrip
+    :param input_avg_img: String, valid path to averaged (T1w or T2w) image
+    :param output_crop_img: String, valid path to save cropped image file at
+    :param brainmask_img: String, valid path to save (T1w or T2w) brainmask image out to
     '''
     # Define skullstripped anat filepath
     output_crop_dir = os.path.dirname(brainmask_img)
@@ -590,8 +593,8 @@ def crop_image(input_avg_img, brainmask_img, output_crop_img):
     """
     Use SynthStrip-derived brainmask to define axial cutting plane as
     10 voxels lower than lower edge of brainmask, crop average image using axial cutting plane, and generate full2crop.mat transform
-
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
+    :param brainmask_img: String, valid path to (T1w or T2w) brainmask image
     :param output_crop_img: String, valid path to save cropped image file at
     :return: String, path to crop2full.mat file in same dir as output_crop_img
     """
