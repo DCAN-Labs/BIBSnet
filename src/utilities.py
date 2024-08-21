@@ -207,7 +207,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     running = False
     for dict_with_IDs in sub_ses_IDs:
 
-        # ...make a j_args copy with its subject ID, session ID, and age 
+        # ...make a j_args copy with its subject ID and session ID
         sub_ses_j_args = ubiquitous_j_args.copy()
         sub_ses_j_args["ID"] = dict_with_IDs
         sub_ses = get_subj_ID_and_session(sub_ses_j_args)
