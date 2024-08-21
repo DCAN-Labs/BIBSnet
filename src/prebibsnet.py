@@ -36,7 +36,7 @@ def run_preBIBSnet(j_args):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_averages(preBIBSnet_paths["avg"])
 
     # On average image(s), run: intensity clip -> denoise -> N4 -> reclip
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
@@ -44,11 +44,13 @@ def run_preBIBSnet(j_args):
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
 
     # Crop T1w and T2w images
+    # NEED TO DEFINE BRAINMASK PATH
     cropped = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
+                                  preBIBSnet_paths["brainmask"][f"T{t}w_avg"],
                                   cropped[t], j_args)
     LOGGER.info(completion_msg.format("cropped"))
 
@@ -564,20 +566,60 @@ def create_avg_image(output_file_path, registered_files):
     new_img = nib.nifti1.Nifti1Image(avg_matrix, n1_img.affine.copy(), header=new_header)
     nib.save(new_img, output_file_path)
 
-def crop_image(input_avg_img, output_crop_img, j_args):
+def crop_image(input_avg_img, brainmask_img, output_crop_img):
     """
-    Run robustFOV to crop image
+    Use SynthStrip-derived brainmask to define axial cutting plane as
+    10 voxels lower than lower edge of brainmask, crop average image using axial cutting plane, and generate full2crop.mat transform
+
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
     :param output_crop_img: String, valid path to save cropped image file at
-    :param j_args: Dictionary containing all args
     :return: String, path to crop2full.mat file in same dir as output_crop_img
     """
+    # Define filenames
     output_crop_dir = os.path.dirname(output_crop_img)
-    crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
-    b = j_args["ID"]["brain_z_size"] + j_args["common"]["reduce_cropping"] # TODO Use head radius for -b
-    run_FSL_sh_script(j_args, "robustfov", "-i", input_avg_img, 
-                      "-m", crop2full, "-r", output_crop_img,
-                      "-b", b)
+    crop2full = os.path.join(output_crop_dir, "crop2full.mat")
+
+    # Load averaged image file and SynthSeg-derived brainmask data
+    av_img_path = input_avg_img
+    mask_img_path = brainmask_img
+
+    av_img = nib.load(av_img_path)
+    mask_img = nib.load(mask_img_path)
+
+    av_img_data = av_img.get_fdata()
+    mask_img_data = mask_img.get_fdata()
+
+    # Find the first lower axial slices (z-plane) with voxel values of 1 to identify the bottom of the brainmask in axial plane 
+    z_dim_size = mask_img_data.shape[2]
+    lower_mask_frame = None
+
+    # Iterate over frames starting at bottom of image in z-direction to find lower frame of brainmask
+    for z in range(z_dim_size):
+        axial_slice = mask_img_data[:, :, z]
+        if np.any(axial_slice == 1):
+            lower_mask_frame = z
+            break
+
+    # Add buffer to lower cutting plane
+    voxel_buffer = 10
+    lower_axial_crop_plane = lower_mask_frame - voxel_buffer 
+
+    # Crop average image
+    print(f'Now cropping average image at z-coordinate plane {lower_axial_crop_plane}')
+    cropped_img_data = av_img_data[:, :, lower_axial_crop_plane:]
+
+    cropped_img = nib.Nifti1Image(cropped_img_data, av_img.affine, av_img.header)
+    cropped_file = output_crop_img
+    nib.save(cropped_img, cropped_file)
+
+    # Create crop2full transformation matrix: create identity matrix and update translation (last column) by the cropping offset in z-direction
+    crop2full_matrix=np.eye(4) 
+    z_translation = lower_axial_crop_plane * av_img.header.get_zooms()[2]
+    crop2full_matrix[2,3] = z_translation
+
+    # Save crop2full.mat as FSL .mat file for use in future stages
+    np.savetxt(crop2full, crop2full_matrix, fmt='%.8f')
+
     return crop2full
 
 
