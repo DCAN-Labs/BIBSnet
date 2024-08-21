@@ -1,8 +1,9 @@
-FROM nvcr.io/nvidia/pytorch:21.11-py3
-
+FROM nvcr.io/nvidia/pytorch:21.11-py3 as build_pytorch
+FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
+FROM build_pytorch
 # Manually update the BIBSnet version when building
 
-ENV BIBSNET_VERSION="3.3.0"
+ENV BIBSNET_VERSION="3.5.0"
 
 # Prepare environment
 RUN apt-get update && \
@@ -22,9 +23,13 @@ RUN apt-get update && \
                     unzip \
                     wget \
                     xvfb \
-		    zlib1g && \
+		    zlib1g \
+                    bc \
+		    libgomp1 \
+                    libxmu6 \
+                    perl \
+		    tcsh && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/
-
 # FSL 6.0.5.1
 RUN apt-get update -qq \
     && apt-get install -y -q --no-install-recommends \
@@ -66,6 +71,28 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
     LD_LIBRARY_PATH="/opt/fsl-6.0.5.1/lib:$LD_LIBRARY_PATH" \
     AFNI_IMSAVE_WARNINGS="NO" \
     AFNI_PLUGINPATH="/opt/afni-latest"
+
+## Freesurfer
+COPY --from=build_freesurfer /opt/freesurfer /opt/freesurfer
+# Simulate SetUpFreeSurfer.sh
+ENV FSL_DIR="/opt/fsl-6.0.5.1" \
+    OS="Linux" \
+    FS_OVERRIDE=0 \
+    FIX_VERTEX_AREA="" \
+    FSF_OUTPUT_FORMAT="nii.gz" \
+    FREESURFER_HOME="/opt/freesurfer"
+ENV SUBJECTS_DIR="$FREESURFER_HOME/subjects" \
+    FUNCTIONALS_DIR="$FREESURFER_HOME/sessions" \
+    MNI_DIR="$FREESURFER_HOME/mni" \
+    LOCAL_DIR="$FREESURFER_HOME/local" \
+    MINC_BIN_DIR="$FREESURFER_HOME/mni/bin" \
+    MINC_LIB_DIR="$FREESURFER_HOME/mni/lib" \
+    MNI_DATAPATH="$FREESURFER_HOME/mni/data"
+ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
+    MNI_PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
+    PATH="$FREESURFER_HOME/bin:$FSFAST_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH" \
+    FREESURFER_DEPS="bc ca-certificates curl libgomp1 libxmu6 libxt6 tcsh perl"
+RUN chmod a+rx /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
 
 # Installing ANTs 2.3.3 (NeuroDocker build)
 # Note: the URL says 2.3.4 but it is actually 2.3.3
@@ -118,6 +145,15 @@ RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v
     tar -xzf bibsnet-v3.3.0.tar.gz data.tar.gz && \
     tar -xzf data.tar.gz -C /home/bibsnet/data --strip-components 1 && \
     rm bibsnet-v3.3.0.tar.gz data.tar.gz
+
+RUN \
+  cd /tmp && \
+  wget https://github.com/freesurfer/surfa/archive/refs/tags/v0.6.0.tar.gz && \
+  tar xvfz v0.6.0.tar.gz && \
+  cd surfa-0.6.0 && \
+  python setup.py install && \
+  cd .. && \
+  rm -rf surfa-0.6.0 v0.6.0.tar.gz
 
 COPY requirements.txt  /home/bibsnet/requirements.txt
 
