@@ -42,16 +42,21 @@ def run_preBIBSnet(j_args):
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
+    
+    # ADD LOGIC TO RUN SYNTHSTRIP TO CREATE BRAINMASK
+    # Output to `cropped` dir
+    # Delete skull-stripped img - not needed 
 
     # Crop T1w and T2w images
-    # NEED TO DEFINE BRAINMASK PATH
     cropped = dict()
+    brainmask = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
+        brainmask[t] = preBIBSnet_paths[f"brainmask_T{t}w"]
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
-                                  preBIBSnet_paths["brainmask"][f"T{t}w_avg"],
-                                  cropped[t], j_args)
+                                  brainmask[t],
+                                  cropped[t])
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
