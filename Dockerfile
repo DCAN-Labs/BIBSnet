@@ -1,6 +1,6 @@
-FROM nvcr.io/nvidia/pytorch:21.11-py3
+FROM nvcr.io/nvidia/pytorch:21.11-py3 as build_pytorch
 FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
-
+FROM build_pytorch
 # Manually update the BIBSnet version when building
 
 ENV BIBSNET_VERSION="3.3.0"
