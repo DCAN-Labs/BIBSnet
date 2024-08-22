@@ -152,7 +152,7 @@ COPY requirements.txt  /home/bibsnet/requirements.txt
 ENV PATH="${PATH}:/home/bibsnet/"
 RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 
-RUN cd /home/bibsnet/ && pip install -r requirements.txt
+RUN cd /home/bibsnet/ && pip install --no-cache-dir -r requirements.txt
 RUN cd /home/bibsnet/ && chmod 555 -R run.py src bibsnet
 
 ENTRYPOINT ["bibsnet"]
