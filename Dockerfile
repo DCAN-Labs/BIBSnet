@@ -1,8 +1,6 @@
-FROM nvcr.io/nvidia/pytorch:21.11-py3 as build_pytorch
-FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
-FROM build_pytorch
-# Manually update the BIBSnet version when building
+FROM nvcr.io/nvidia/pytorch:21.11-py3
 
+# Manually update the BIBSnet version when building
 ENV BIBSNET_VERSION="3.5.0"
 
 # Prepare environment
@@ -73,7 +71,7 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
     AFNI_PLUGINPATH="/opt/afni-latest"
 
 ## Freesurfer
-COPY --from=build_freesurfer /opt/freesurfer /opt/freesurfer
+COPY --from=pennbbl/qsiprep-freesurfer:23.3.0 /opt/freesurfer /opt/freesurfer
 # Simulate SetUpFreeSurfer.sh
 ENV FSL_DIR="/opt/fsl-6.0.5.1" \
     OS="Linux" \
