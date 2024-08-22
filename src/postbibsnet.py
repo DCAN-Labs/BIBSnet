@@ -60,7 +60,7 @@ def run_postBIBSnet(j_args):
 
         # Generate brainmask from segmentation and write out to derivatives folder
         mask_temp=os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "aseg_dseg")))
-        make_asegderived_mask(j_args, aseg, t, mask_temp)
+        make_asegderived_mask(j_args, sub_ses, t, derivs_dir, mask_temp)
 
         LOGGER.info(f"A mask of the BIBSnet T{t} segmentation has been produced")
 
@@ -102,7 +102,7 @@ def save_nifti(data, affine, file_path):
     img = nib.Nifti1Image(data, affine)
     nib.save(img, file_path)
 
-def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
+def make_asegderived_mask(j_args, sub_ses, t, derivs_dir, nii_outfpath):
     """
     Create mask file(s) derived from aseg file(s) in aseg_dir
     :param j_args: Dictionary containing all args
@@ -113,9 +113,8 @@ def make_asegderived_mask(j_args, aseg_dir, t, nii_outfpath):
     :return: List of strings; each is a valid path to an aseg mask file
     """
     # binarize, fillh, and erode aseg to make mask:
-    output_mask_fpath = os.path.join(
-        aseg_dir, f"{nii_outfpath.split('.nii.gz')[0]}_T{t}_mask.nii.gz"
-    )
+    output_mask_fpath = os.path.join(derivs_dir, ("{}_space-T{}w_desc-{}.nii.gz".format("_".join(sub_ses), t, "brain_mask")))
+    #output_mask_fpath = os.path.join(aseg_dir, filename)
     if (j_args["common"]["overwrite"] or not
             os.path.exists(output_mask_fpath)):
         maths = fsl.ImageMaths(in_file=nii_outfpath,
