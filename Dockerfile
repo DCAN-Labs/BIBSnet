@@ -1,6 +1,8 @@
-FROM nvcr.io/nvidia/pytorch:21.11-py3
-
+FROM nvcr.io/nvidia/pytorch:21.11-py3 as build_pytorch
+FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
+FROM build_pytorch
 # Manually update the BIBSnet version when building
+
 ENV BIBSNET_VERSION="3.3.0"
 
 # Prepare environment
@@ -71,7 +73,7 @@ ENV FSLDIR="/opt/fsl-6.0.5.1" \
     AFNI_PLUGINPATH="/opt/afni-latest"
 
 ## Freesurfer
-COPY --from=pennbbl/qsiprep-freesurfer:23.3.0 /opt/freesurfer /opt/freesurfer
+COPY --from=build_freesurfer /opt/freesurfer /opt/freesurfer
 # Simulate SetUpFreeSurfer.sh
 ENV FSL_DIR="/opt/fsl-6.0.5.1" \
     OS="Linux" \
@@ -123,12 +125,19 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 
 RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz data.tar.gz && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz && \
     tar -xzf Task540_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz
+
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz && \
     tar -xzf Task541_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz
+
+RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
+    tar -xzf bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz && \
     tar -xzf Task542_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    tar -xzf data.tar.gz -C /home/bibsnet/data --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz data.tar.gz
+    rm bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
@@ -152,7 +161,10 @@ COPY requirements.txt  /home/bibsnet/requirements.txt
 ENV PATH="${PATH}:/home/bibsnet/"
 RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 
-RUN cd /home/bibsnet/ && pip install --no-cache-dir -r requirements.txt
+#adding in debugging for nomodulefound pandas error
+RUN cd /home/bibsnet/ && pip install -v -r requirements.txt
+RUN pip list | grep pandas
+RUN python -c "import pandas; print(pandas.__version__)"
 RUN cd /home/bibsnet/ && chmod 555 -R run.py src bibsnet
 
 ENTRYPOINT ["bibsnet"]
