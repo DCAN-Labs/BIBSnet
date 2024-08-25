@@ -9,7 +9,6 @@ from nipype.interfaces.ants import N4BiasFieldCorrection
 from niworkflows.interfaces.nibabel import IntensityClip
 import numpy as np
 from glob import glob
-import torch
 
 from src.logger import LOGGER
 
@@ -22,9 +21,7 @@ from src.utilities import (
     get_preBIBS_final_digit_T
 ) 
 
-
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-
 
 def run_preBIBSnet(j_args):
     """
@@ -44,24 +41,25 @@ def run_preBIBSnet(j_args):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
     
-    # Run SynthStrip to generate brainmask and crop T1w and T2w images
+    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane,and crop average T1w and T2w images
     cropped = dict()
+    crop_dir= dict()
     brainmask = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
-        # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane, 
-        # and crop average images 
-        brainmask[t] = preBIBSnet_paths[f"brainmask_T{t}w"]
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
+        crop_dir[t] = os.path.dirname(cropped[t])
 
-        synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"], brainmask[t])
+        brainmask[t] = synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"], 
+                                  crop_dir[t]
+                                  )
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
                                   brainmask[t],
-                                  cropped[t])
+                                  cropped[t]
+                                  )
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
-    # TODO Make ref_img an input parameter if someone wants a different reference image?
     # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz")
@@ -572,20 +570,23 @@ def create_avg_image(output_file_path, registered_files):
     new_img = nib.nifti1.Nifti1Image(avg_matrix, n1_img.affine.copy(), header=new_header)
     nib.save(new_img, output_file_path)
 
-def synthstrip(input_avg_img, brainmask_img):
+def synthstrip(input_avg_img, output_crop_dir):
     '''
     Generate brainmasks for T1 and T2 using SynthStrip
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
-    :param output_crop_img: String, valid path to save cropped image file at
-    :param brainmask_img: String, valid path to save (T1w or T2w) brainmask image out to
+    :param output_crop_dir: String, valid folder path to save (T1w or T2w) brainmask image out to
     '''
     # Define skullstripped anat filepath
-    output_crop_dir = os.path.dirname(brainmask_img)
-    skullstripped_img=os.path.join(output_crop_dir, "skullstripped_img.nii.gz")
-    
+    skullstripped_img=os.path.join(output_crop_dir, "skullstripped.nii.gz")
+    brainmask_img=os.path.join(output_crop_dir, "brainmask.nii.gz")
+
     # Run SynthStrip and delete output skullstripped_img (not needed for BIBSNet)
-    os.system(f'python /opt/freesurfer/bin/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m ${brainmask_img}')
+    os.system(f'python /opt/freesurfer/bin/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m {brainmask_img}')
     os.remove(skullstripped_img)
+
+    brainmask=os.path.join(output_crop_dir, brainmask_img)
+
+    return brainmask
 
 def crop_image(input_avg_img, brainmask_img, output_crop_img):
     """
@@ -659,6 +660,7 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     preBIBSnet_paths = {"parent": os.path.join(
                             j_args["optional_out_dirs"]["prebibsnet"], *sub_ses
                         )}
+
     for work_dirname in ("averaged", "cropped", "resized"):
         preBIBSnet_paths[work_dirname] = os.path.join(
             preBIBSnet_paths["parent"], work_dirname
@@ -680,15 +682,14 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
         )  
   
         # Get paths to, and make, cropped image subdirectories  
-        crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w")  
-        preBIBSnet_paths[f"brainmask_T{t}w"] = os.path.join(crop_dir, avg_img_name)
+        crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w") 
         preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
         
         os.makedirs(crop_dir, exist_ok=True)
         LOGGER.debug(f"preBIBSnet_paths: {preBIBSnet_paths}")
         list_files(j_args["common"]["work_dir"])
-    return preBIBSnet_paths
 
+    return preBIBSnet_paths
 
 def get_preBIBS_final_img_fpath_T(t, parent_dir, sub_ses_ID):
     """
