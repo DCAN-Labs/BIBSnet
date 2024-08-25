@@ -236,7 +236,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     LOGGER.verbose(" ".join(sys.argv[:]))  # Print all
     LOGGER.debug(f"j_args: {j_args}")
 
-    # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
     return j_args, sub_ses_IDs
 
