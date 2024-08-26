@@ -1,6 +1,6 @@
 ## Usage
 
-We reccommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) with a GPU (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA), but a CPU is also sufficient.
+BIBSNet utilizies nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We recommened running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. However, please note that this may not be a hard dependency as we have also had success running BIBSNet on a CPU with 40 GB of RAM.
 
 ### Command-Line Arguments
 
