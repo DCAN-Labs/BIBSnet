@@ -2,8 +2,8 @@
 
 Prepares the anatomical BIDS images for BIBSnet segmentation generation.
 
-1. Creates average T1w/T2w images: images are registered to the first run and averaged - **PLEASE NOTE:** currently the container will use all anatomical images present in the BIDS input. If you would like to exclude any images or process with only the T1w/T2w, these images must be removed from the inputs
-2. Renames T1 and T2 to fit nnU-Net naming conventions (0000 and 0001 for T1 and T2, respectively)
+1. Renames T1 and T2 to fit nnU-Net naming conventions (0000 and 0001 for T1 and T2, respectively)
+2. Creates average T1w/T2w images: images are registered to the first run and averaged - **PLEASE NOTE:** currently the container will use all anatomical images present in the BIDS input. If you would like to exclude any images or process with only the T1w/T2w, these images must be removed from the inputs
 3. Crops the neck and shoulders using SynthStrip to identify the optimal axial cropping plane inferior to the bottom of the brain
 4. Registers the T2 to the T1 either directly or following ACPC-alignment of both T1w and T2w. The optimal registration method is chosen based on based on eta-squared calculation
 
