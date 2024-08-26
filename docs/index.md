@@ -14,7 +14,7 @@ Please post questions or issues to our [Github](https://github.com/DCAN-Labs/BIB
 
 <br />
 
-![BIBSnet - Stages for MRI Processing](https://github.com/DCAN-Labs/BIBSnet/assets/95246814/6db1660e-6476-4ee1-abbd-30b5917882bb)
+![BIBSnet - Stages for MRI Processing](BIBSNetWorkflowDiagram.drawio.png)
 
 [BIBSnet Github Repository](https://github.com/DCAN-Labs/BIBSnet)
 
