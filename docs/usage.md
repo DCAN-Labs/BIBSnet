@@ -1,16 +1,14 @@
 ## Usage
 
-[BIBSnet](https://github.com/DCAN-Labs/BIBSnet) can only be run with a GPU, and cannot currently be run with a CPU. BIBSnet needs a Volta (v), Ampere (a), or Turing (t) NVIDIA GPU.
+We reccommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) with a GPU (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA), but a CPU is also sufficient.
 
 ### Command-Line Arguments
 
 ```
-usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL] [-age AGE_MONTHS]
+usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL]
                [-end {prebibsnet,bibsnet,postbibsnet}]
-               [--fsl-bin-path FSL_BIN_PATH] [-jargs PARAMETER_JSON]
-               [-model MODEL] [--nnUNet NNUNET]
-               [--nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}]
-               [--overwrite] [--reduce-cropping [REDUCE_CROPPING]]
+               [--fsl-bin-path FSL_BIN_PATH]
+               [--overwrite]
                [-ses SESSION] [-start {prebibsnet,bibsnet,postbibsnet}]
                [-w WORK_DIR] [-z] [-v | -d]
                bids_dir output_dir {participant}
@@ -30,14 +28,6 @@ optional arguments:
   -participant PARTICIPANT_LABEL, --subject PARTICIPANT_LABEL, -sub PARTICIPANT_LABEL, --participant-label PARTICIPANT_LABEL
                         The participant's unique subject identifier, without
                         'sub-' prefix. Example: 'ABC12345'
-  -age AGE_MONTHS, -months AGE_MONTHS, --age-months AGE_MONTHS
-                        Positive integer, the participant's age in months. For
-                        example, -age 5 would mean the participant is 5 months
-                        old. Include this argument unless the age in months is
-                        specified in each subject's sub-{}_sessions.tsv file
-                        inside its BIDS input directory or inside the
-                        participants.tsv file inside the BIDS directory at
-                        thesubject-level.
   -end {prebibsnet,bibsnet,postbibsnet}, --ending-stage {prebibsnet,bibsnet,postbibsnet}
                         Name of the stage to run last. By default, this will
                         be the postbibsnet stage. Valid choices: prebibsnet,
@@ -45,46 +35,12 @@ optional arguments:
   --fsl-bin-path FSL_BIN_PATH
                         Valid path to fsl bin. Defaults to the path used by
                         the container: /opt/fsl-6.0.5.1/bin/
-  -jargs PARAMETER_JSON, -params PARAMETER_JSON, --parameter-json PARAMETER_JSON
-                        Parameter JSON is deprecated. All arguments formerly
-                        in this file are now flags. This argument does
-                        nothing. See https://bibsnet.readthedocs.io/ for
-                        updated usage.
-  -model MODEL, --model-number MODEL, --bibsnet-model MODEL
-                        Model/task number for BIBSnet. By default, this will
-                        be inferred from /home/bibsnet/data/models.csv based
-                        on which data exists in the --bids-dir. BIBSnet will
-                        run model 514 by default for T1w-only, model 515 for
-                        T2w-only, and model 526 for both T1w and T2w.
-  --nnUNet NNUNET, -n NNUNET
-                        Valid path to existing executable file to run nnU-
-                        Net_predict. By default, this script will assume that
-                        nnU-Net_predict will be the path used by the
-                        container: /opt/conda/bin/nnUNet_predict
-  --nnUNet-configuration {2d,3d_fullres,3d_lowres,3d_cascade_fullres}
-                        The nnUNet configuration to use.Defaults to 3d_fullres
   --overwrite, --overwrite-old
                         Include this flag to overwrite any previous BIBSnet
                         outputs in the derivatives sub-directories. Otherwise,
                         by default BIBSnet will skip creating any BIBSnet
                         output files that already exist in the sub-directories
                         of derivatives.
-  --reduce-cropping [REDUCE_CROPPING]
-                        This flag is used to specify a value by which to
-                        increase or decrease the brain z size used by FSL
-                        robustfov for cropping. This is useful for cases where
-                        the default age-specific brain z size specified by
-                        BIBSNet (calculated based on a table within the
-                        container of BCP participants' average head radius per
-                        age: data/age_to_avg_head_radius_BCP.csv) results in
-                        overcropping. The brain z size can be adjusted by a
-                        specified amount by including an integer with this
-                        flag [REDUCE_CROPPING]: positive integers will
-                        increase brain z size to crop less and negative
-                        integers will decrease brain z size to crop more.
-                        Default: Include this flag by itself to increase the
-                        brain z size and therefore reduce cropping by 20
-                        millimeters.
   -ses SESSION, --session SESSION, --session-id SESSION
                         The name of the session to processes participant data
                         for. Example: baseline_year1
@@ -95,11 +51,6 @@ optional arguments:
   -w WORK_DIR, --work-dir WORK_DIR
                         Valid absolute path where intermediate results should
                         be stored. Example: /path/to/working/directory
-  -z, --brain-z-size    Include this flag to infer participants' brain height
-                        (z) using the sub-{}_sessions.tsv or participant.tsv
-                        brain_z_size column.Otherwise, BIBSnet will estimate
-                        the brain height from the participant age and averages
-                        of a large sample of infant brain heights.
   -v, --verbose         Include this flag to print detailed information and
                         every command being run by BIBSnet to stdout.
                         Otherwise BIBSnet will only print warnings, errors,

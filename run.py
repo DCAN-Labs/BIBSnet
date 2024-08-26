@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # coding: utf-8
 
 """
@@ -7,6 +7,8 @@ Greg Conan: gconan@umn.edu
 Created: 2021-11-12
 Barry Tikalsky: tikal004@umn.edu
 Updated: 2023-10-04
+Lucille A. Moore: lmoore@umn.edu
+Updated: 2024-08-21
 """
 # Import standard libraries
 from datetime import datetime

@@ -3,7 +3,6 @@ import os
 from glob import glob
 import sys
 import pandas as pd
-import math
 import logging
 import numpy as np
 
@@ -20,14 +19,10 @@ from src.validate import (
 from src.utilities import (
     dict_has,
     ensure_prefixed,
-    get_age_closest_to,
     only_Ts_needed_for_bibsnet_model
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-AGE_TO_HEAD_RADIUS_TABLE = os.path.join(SCRIPT_DIR, "data",
-                                        "age_to_avg_head_radius_BCP.csv")
-
 
 def get_params(stage_names):
     """
@@ -70,15 +65,6 @@ def get_params(stage_names):
               "prefix. Example: 'ABC12345'")  # TODO Make BIBSnet able to accept with OR without 'sub-' prefix
     )
     parser.add_argument(
-        "-age", "-months", "--age-months", type=valid_whole_number,
-        help=("Positive integer, the participant's age in months. For "
-              "example, -age 5 would mean the participant is 5 months old. "
-              "Include this argument unless the age in months is specified in "
-              "each subject's sub-{}_sessions.tsv file inside its BIDS input directory "
-              "or inside the participants.tsv file inside the BIDS directory at the" 
-              "subject-level.")
-    )
-    parser.add_argument(
         "-end", "--ending-stage", dest="end",
         choices=stage_names, default=default_end_stage,
         help=msg_stage.format("last", default_end_stage, ", ".join(stage_names))
@@ -91,19 +77,12 @@ def get_params(stage_names):
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
     )
     parser.add_argument(
-        "-jargs", "-params", "--parameter-json", dest="parameter_json",
-        help=("Parameter JSON is deprecated. "
-              "All arguments formerly in this file are now flags. "
-              "This argument does nothing. "
-              "See https://bibsnet.readthedocs.io/ for updated usage.")
-    )
-    parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
               "inferred from {} based on which data exists in the "
-              "--bids-dir. BIBSnet will run model 514 by default for T1w-"
-              "only, model 515 for T2w-only, and model 526 for both T1w and "
+              "--bids-dir. BIBSnet will run model 541 by default for T1w-"
+              "only, model 542 for T2w-only, and model 540 for both T1w and "
               "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
     )
     parser.add_argument(
@@ -128,16 +107,6 @@ def get_params(stage_names):
               "already exist in the sub-directories of derivatives.")
     )
     parser.add_argument(
-        "--reduce-cropping", dest="reduce_cropping", nargs="?", const=20, default=0, type=int,
-        help=("This flag is used to specify a value by which to increase or decrease the brain z size used by FSL robustfov for cropping. "
-              "This is useful for cases where the default age-specific brain z size specified by BIBSNet "
-              "(calculated based on a table within the container of BCP participants' average head radius per age: "
-              "data/age_to_avg_head_radius_BCP.csv) results in overcropping. "
-              "The brain z size can be adjusted by a specified amount by including an integer with this flag "
-              "[REDUCE_CROPPING]: positive integers will increase brain z size to crop less and negative integers will decrease brain z size to crop more. "
-              "Default: Include this flag by itself to increase the brain z size and therefore reduce cropping by 20 millimeters.")
-    )
-    parser.add_argument(
         "-ses", "--session", "--session-id", type=valid_subj_ses_ID,
         help=("The name of the session to processes participant data for. "
               "Example: baseline_year1")
@@ -152,13 +121,6 @@ def get_params(stage_names):
         default=os.path.join("/", "tmp", "bibsnet"),
         help=("Valid absolute path where intermediate results should be stored. "
               "Example: /path/to/working/directory")
-    )
-    parser.add_argument(
-        "-z", "--brain-z-size", action="store_true",
-        help=("Include this flag to infer participants' brain height (z) "
-              "using the sub-{}_sessions.tsv or participant.tsv brain_z_size column." 
-              "Otherwise, BIBSnet will estimate the brain height from the participant "
-              "age and averages of a large sample of infant brain heights.")  # TODO rephrase
     )
     # Add mutually exclusive group for setting log level
     log_level = parser.add_mutually_exclusive_group()
@@ -185,8 +147,7 @@ def validate_cli_args(cli_args, stage_names, parser):
     :param parser: argparse.ArgumentParser to raise error if anything's invalid
     :return: Tuple of 2 objects:
         1. Dictionary of validated parameters
-        2. List of dicts which each map "subject" to the subject ID string,
-           "age_months" to the age in months (int) during the session, & maybe
+        2. List of dicts which each map "subject" to the subject ID string & maybe
            also "session" to the session ID string. Each will be j_args[IDs]
     """
     # Set LOGGER level
@@ -196,9 +157,6 @@ def validate_cli_args(cli_args, stage_names, parser):
         LOGGER.setLevel(logging.DEBUG)
     else:
         LOGGER.setLevel(logging.INFO)
-    # Deprecation warning
-    if cli_args["parameter_json"] is not None:
-        LOGGER.warning("Parameter JSON is deprecated.\nAll arguments formerly in this file are now flags.\nSee https://bibsnet.readthedocs.io/ for updated usage.")
 
     # Crash immediately if the end is given as a stage that happens before start
     if (stage_names.index(cli_args["start"])
@@ -212,8 +170,7 @@ def validate_cli_args(cli_args, stage_names, parser):
             "fsl_bin_path": cli_args["fsl_bin_path"],
             "bids_dir": cli_args["bids_dir"],
             "overwrite": cli_args["overwrite"],
-            "work_dir": cli_args["work_dir"],
-            "reduce_cropping": cli_args["reduce_cropping"]
+            "work_dir": cli_args["work_dir"]
         },
 
         "bibsnet": {
@@ -231,13 +188,11 @@ def validate_cli_args(cli_args, stage_names, parser):
     j_args["optional_out_dirs"] = {stagename: None for stagename in stage_names} 
     j_args["optional_out_dirs"]["derivatives"] = cli_args["output_dir"]
 
-
     # Define (and create) default paths in derivatives directory structure for 
     # each stage of each session of each subject
     sub_ses_IDs = get_all_sub_ses_IDs(j_args, cli_args["participant_label"],
-                                      cli_args["session"])  # TODO Add brain_z_size into j_args[ID]
+                                      cli_args["session"])
     
-    # TODO Iff the user specifies a session, then let them specify an age
     default_derivs_dir = os.path.join(j_args["common"]["bids_dir"], "derivatives")
     for ix in range(len(sub_ses_IDs)):
         # Create a list with the subject ID and (if it exists) the session ID
@@ -256,20 +211,7 @@ def validate_cli_args(cli_args, stage_names, parser):
                          "that your participant_label and session are correct."
                          .format(sub_ses_dir))
     
-        # User only needs sessions.tsv if they didn't specify age_months
-        if not j_args["common"].get("age_months"): 
-            sub_ses_IDs[ix]["age_months"] = read_from_tsv(
-                j_args, "age", *sub_ses
-            )
         LOGGER.debug(f"sub_ses_IDS: {sub_ses_IDs}")
-        # Infer brain_z_size for this sub_ses using sessions.tsv if the 
-        # user said to (by using --brain-z-size flag), otherwise infer it 
-        # using age_months and the age-to-head-radius table .csv file
-        sub_ses_IDs[ix]["brain_z_size"] = read_from_tsv(
-                j_args, "brain_z_size", *sub_ses
-            ) if cli_args["brain_z_size"] else get_brain_z_size(
-                sub_ses_IDs, ix)
-
 
         # Check whether this sub ses has T1w and/or T2w input data
         data_path_BIDS_T = dict()  # Paths to expected input data to check
@@ -294,7 +236,6 @@ def validate_cli_args(cli_args, stage_names, parser):
     LOGGER.verbose(" ".join(sys.argv[:]))  # Print all
     LOGGER.debug(f"j_args: {j_args}")
 
-    # 2. roi2full for preBIBSnet and postBIBSnet transformation
     # j_args["xfm"]["roi2full"] =   # TODO
     return j_args, sub_ses_IDs
 
@@ -343,7 +284,6 @@ def get_df_with_valid_bibsnet_models(sub_ses_ID):
         )
     return models_df
 
-
 def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
     """
     :param j_args: Dictionary containing all args
@@ -377,97 +317,14 @@ def get_all_sub_ses_IDs(j_args, subj_or_none, ses_or_none):
 
     return sub_ses_IDs
 
-
-def get_brain_z_size(sub_ses_IDS, ix, buffer=5):
-    """ 
-    Infer a participant's brain z-size from their age and from the average
-    brain diameters table at the AGE_TO_HEAD_RADIUS_TABLE path
-    :param sub_ses_IDS: list, subject and session ids found by BIBSnet
-    :param ix: int, index of the sub/ses to find in sub_ses_IDS
-    :param buffer: Int, extra space (in mm), defaults to 5
-    :return: Int, the brain z-size (height) in millimeters
-    """
-    MM_PER_IN = 25.4  # Conversion factor: inches to millimeters
-    age_months = sub_ses_IDS[ix]["age_months"]
-
-    # Other columns' names in the age-to-head-radius table
-    age_months_col = "Candidate_Age(mo.)"
-    head_r_col = "Head_Radius(in.)"
-    head_diam_mm = "head_diameter_mm"
-
-    # Get table mapping each age in months to average head radius
-    age2headradius = pd.read_csv(AGE_TO_HEAD_RADIUS_TABLE)
-
-    # Get BCP age (in months) closest to the subject's age
-    closest_age = get_age_closest_to(age_months, age2headradius[age_months_col])
-    LOGGER.verbose(f"Age in months for Subject {sub_ses_IDS[ix]['subject']} Session {sub_ses_IDS[ix]['session']}: {age_months}\nClosest BCP age in "
-                f"months in age-to-head-radius table: {closest_age}")
-
-    # Get average head radii in millimeters by age from table
-    age2headradius[head_diam_mm] = age2headradius[head_r_col
-                                                  ] * MM_PER_IN * 2
-    row = age2headradius[age2headradius[age_months_col] == closest_age]
-    
-    # Return the average brain z-size for the participant's age
-    return math.ceil(row.get(head_diam_mm)) + buffer
-
-
-def read_from_tsv(j_args, col_name, *sub_ses):
-    """
-    :param j_args: Dictionary containing all args
-    :param col_name: String naming the column of sessions.tsv to return
-                     a value from (for this subject or subject-session)
-    :param sub_ses: Tuple containing subject and session labels. 
-    :return: Int, either the subject's age (in months) or the subject's
-             brain_z_size (depending on col_name) as listed in sessions.tsv
-    """
-
-    session_tsv_path = os.path.join(j_args["common"]["bids_dir"], sub_ses[0],
-                     "{}_sessions.tsv".format(sub_ses[0]))
-    participant_tsv_path = os.path.join(j_args["common"]["bids_dir"],
-                     "participants.tsv")
-
-    ID_col = "session_id" if os.path.exists(session_tsv_path) else "participant_id"
-
-    tsv_path = session_tsv_path if ID_col == "session_id" else participant_tsv_path
-
-    tsv_df = pd.read_csv(
-        tsv_path, delim_whitespace=True, index_col=ID_col
-    )
-    # Check if column name exists in either tsv, grab the value if column name exists
-    try:
-        if col_name not in tsv_df.columns:
-            raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-        else:
-            col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
-    except ValueError as exception:
-        LOGGER.verbose(exception)
-        if ID_col == "participant_id":
-            pass 
-        else:
-            ID_col = "participant_id"
-            tsv_path = participant_tsv_path
-            tsv_df = pd.read_csv(
-                tsv_path, delim_whitespace=True, index_col=ID_col
-            )
-            if col_name not in tsv_df.columns:
-                raise ValueError("Did not find {} in {}".format(col_name, tsv_path))
-            else:
-                col_value = get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses)
-        
-    return col_value
-
-
-def get_col_value_from_tsv(j_args, tsv_df, ID_col, col_name, sub_ses):
+def get_col_value_from_tsv(tsv_df, ID_col, col_name, sub_ses):
     # Get and return the col_name value from sessions.tsv
-
     subj_row = tsv_df.loc[
         ensure_prefixed(sub_ses[1], "ses-") if ID_col == "session_id" else ensure_prefixed(sub_ses[0], "sub-")
     ]  # select where "participant_id" matches
     LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
     LOGGER.debug(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
-
 
 def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser):
     """

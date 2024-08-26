@@ -99,16 +99,6 @@ def get_subj_ID_and_session(j_args):
     return [sub, ensure_prefixed(j_args["ID"]["session"], "ses-")
             ] if dict_has(j_args["ID"], "session") else [sub]
 
-
-def get_age_closest_to(subject_age, all_ages):
-    """
-    :param subject_age: Int, participant's actual age in months
-    :param all_ages: List of ints, each a potential participant age in months
-    :return: Int, the age in all_ages which is closest to subject_age
-    """
-    return all_ages[np.argmin(np.abs(np.array(all_ages)-subject_age))]
-
-
 def list_files(startpath):
     """
     https://stackoverflow.com/a/9728478
@@ -217,7 +207,7 @@ def run_all_stages(all_stages, sub_ses_IDs, start, end,
     running = False
     for dict_with_IDs in sub_ses_IDs:
 
-        # ...make a j_args copy with its subject ID, session ID, and age 
+        # ...make a j_args copy with its subject ID and session ID
         sub_ses_j_args = ubiquitous_j_args.copy()
         sub_ses_j_args["ID"] = dict_with_IDs
         sub_ses = get_subj_ID_and_session(sub_ses_j_args)

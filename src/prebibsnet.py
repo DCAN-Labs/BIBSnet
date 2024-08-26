@@ -21,9 +21,7 @@ from src.utilities import (
     get_preBIBS_final_digit_T
 ) 
 
-
 SCRIPT_DIR = os.path.dirname(os.path.dirname(__file__))
-
 
 def run_preBIBSnet(j_args):
     """
@@ -36,24 +34,32 @@ def run_preBIBSnet(j_args):
     sub_ses = get_subj_ID_and_session(j_args)
 
     # If there are multiple T1ws/T2ws, then average them
-    create_anatomical_averages(preBIBSnet_paths["avg"])  # TODO make averaging optional with later BIBSnet model?
+    create_anatomical_averages(preBIBSnet_paths["avg"])
 
     # On average image(s), run: intensity clip -> denoise -> N4 -> reclip
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
-
-    # Crop T1w and T2w images
+    
+    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane,and crop average T1w and T2w images
     cropped = dict()
+    crop_dir= dict()
+    brainmask = dict()
     crop2full = dict()
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         cropped[t] = preBIBSnet_paths[f"crop_T{t}w"]
+        crop_dir[t] = os.path.dirname(cropped[t])
+
+        brainmask[t] = synthstrip(preBIBSnet_paths["avg"][f"T{t}w_avg"], 
+                                  crop_dir[t]
+                                  )
         crop2full[t] = crop_image(preBIBSnet_paths["avg"][f"T{t}w_avg"],
-                                  cropped[t], j_args)
+                                  brainmask[t],
+                                  cropped[t]
+                                  )
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
-    # TODO Make ref_img an input parameter if someone wants a different reference image?
     # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz")
@@ -564,20 +570,78 @@ def create_avg_image(output_file_path, registered_files):
     new_img = nib.nifti1.Nifti1Image(avg_matrix, n1_img.affine.copy(), header=new_header)
     nib.save(new_img, output_file_path)
 
-def crop_image(input_avg_img, output_crop_img, j_args):
-    """
-    Run robustFOV to crop image
+def synthstrip(input_avg_img, output_crop_dir):
+    '''
+    Generate brainmasks for T1 and T2 using SynthStrip
     :param input_avg_img: String, valid path to averaged (T1w or T2w) image
+    :param output_crop_dir: String, valid folder path to save (T1w or T2w) brainmask image out to
+    '''
+    # Define skullstripped anat filepath
+    skullstripped_img=os.path.join(output_crop_dir, "skullstripped.nii.gz")
+    brainmask_img=os.path.join(output_crop_dir, "brainmask.nii.gz")
+
+    # Run SynthStrip and delete output skullstripped_img (not needed for BIBSNet)
+    os.system(f'python /opt/freesurfer/bin/mri_synthstrip -i {input_avg_img} -o {skullstripped_img} -m {brainmask_img}')
+    os.remove(skullstripped_img)
+
+    brainmask=os.path.join(output_crop_dir, brainmask_img)
+
+    return brainmask
+
+def crop_image(input_avg_img, brainmask_img, output_crop_img):
+    """
+    Use SynthStrip-derived brainmask to define axial cutting plane as
+    10 voxels lower than lower edge of brainmask, crop average image using axial cutting plane, and generate full2crop.mat transform
+    :param input_avg_img: String, valid path to averaged (T1w or T2w) image
+    :param brainmask_img: String, valid path to (T1w or T2w) brainmask image
     :param output_crop_img: String, valid path to save cropped image file at
-    :param j_args: Dictionary containing all args
     :return: String, path to crop2full.mat file in same dir as output_crop_img
     """
+    # Define filenames
     output_crop_dir = os.path.dirname(output_crop_img)
-    crop2full = os.path.join(output_crop_dir, "crop2full.mat")  # TODO Define this path outside of stages because it's used by preBIBSnet and postBIBSnet
-    b = j_args["ID"]["brain_z_size"] + j_args["common"]["reduce_cropping"] # TODO Use head radius for -b
-    run_FSL_sh_script(j_args, "robustfov", "-i", input_avg_img, 
-                      "-m", crop2full, "-r", output_crop_img,
-                      "-b", b)
+    crop2full = os.path.join(output_crop_dir, "crop2full.mat")
+
+    # Load averaged image file and SynthSeg-derived brainmask data
+    av_img_path = input_avg_img
+    mask_img_path = brainmask_img
+
+    av_img = nib.load(av_img_path)
+    mask_img = nib.load(mask_img_path)
+
+    av_img_data = av_img.get_fdata()
+    mask_img_data = mask_img.get_fdata()
+
+    # Find the first lower axial slices (z-plane) with voxel values of 1 to identify the bottom of the brainmask in axial plane 
+    z_dim_size = mask_img_data.shape[2]
+    lower_mask_frame = None
+
+    # Iterate over frames starting at bottom of image in z-direction to find lower frame of brainmask
+    for z in range(z_dim_size):
+        axial_slice = mask_img_data[:, :, z]
+        if np.any(axial_slice == 1):
+            lower_mask_frame = z
+            break
+
+    # Add buffer to lower cutting plane
+    voxel_buffer = 10
+    lower_axial_crop_plane = lower_mask_frame - voxel_buffer 
+
+    # Crop average image
+    print(f'Now cropping average image at z-coordinate plane {lower_axial_crop_plane}')
+    cropped_img_data = av_img_data[:, :, lower_axial_crop_plane:]
+
+    cropped_img = nib.Nifti1Image(cropped_img_data, av_img.affine, av_img.header)
+    cropped_file = output_crop_img
+    nib.save(cropped_img, cropped_file)
+
+    # Create crop2full transformation matrix: create identity matrix and update translation (last column) by the cropping offset in z-direction
+    crop2full_matrix=np.eye(4) 
+    z_translation = lower_axial_crop_plane * av_img.header.get_zooms()[2]
+    crop2full_matrix[2,3] = z_translation
+
+    # Save crop2full.mat as FSL .mat file for use in future stages
+    np.savetxt(crop2full, crop2full_matrix, fmt='%.8f')
+
     return crop2full
 
 
@@ -596,6 +660,7 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
     preBIBSnet_paths = {"parent": os.path.join(
                             j_args["optional_out_dirs"]["prebibsnet"], *sub_ses
                         )}
+
     for work_dirname in ("averaged", "cropped", "resized"):
         preBIBSnet_paths[work_dirname] = os.path.join(
             preBIBSnet_paths["parent"], work_dirname
@@ -617,13 +682,14 @@ def get_and_make_preBIBSnet_work_dirs(j_args):
         )  
   
         # Get paths to, and make, cropped image subdirectories  
-        crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w")  
+        crop_dir = os.path.join(preBIBSnet_paths["cropped"], f"T{t}w") 
         preBIBSnet_paths[f"crop_T{t}w"] = os.path.join(crop_dir, avg_img_name)
+        
         os.makedirs(crop_dir, exist_ok=True)
         LOGGER.debug(f"preBIBSnet_paths: {preBIBSnet_paths}")
         list_files(j_args["common"]["work_dir"])
-    return preBIBSnet_paths
 
+    return preBIBSnet_paths
 
 def get_preBIBS_final_img_fpath_T(t, parent_dir, sub_ses_ID):
     """
