@@ -94,13 +94,14 @@ This has been primarily tested in Singularity. We are less able to provide techn
 <br />
 ### Application
 
-We do not recommend running `BIBSnet` outside of the container for the following reasons:
-
+We do not recommend running `BIBSnet` outside of the container for the following reasons: 
 1. Installing nnU-Net can be complicated.
 
 1. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
 
 1. It is hard to diagnose your errors if you are working in a different environment.
+
+
 
 However, if you run `BIBSnet` outside of the container as an application, then you will need to do the following:
 
