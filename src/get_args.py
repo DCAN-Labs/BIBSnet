@@ -77,6 +77,13 @@ def get_params(stage_names):
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
     )
     parser.add_argument(
+        "-tx", "--tx-only", 
+        type=valid_whole_number, dest="tx-only",
+        help=("Specify if you would like to run using only T1w or T2w images "
+              "for segmentation, which will determine which nnUNet task is used "
+              "from {}".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
+    )
+    parser.add_argument(
         "-model", "--model-number", "--bibsnet-model",
         type=valid_whole_number, dest="model",
         help=("Model/task number for BIBSnet. By default, this will be "
@@ -174,6 +181,7 @@ def validate_cli_args(cli_args, stage_names, parser):
         },
 
         "bibsnet": {
+            "tx-only": cli_args["tx-only"],
             "model": cli_args["nnUNet_configuration"],
             "nnUNet_predict_path": cli_args["nnUNet"]
         },
@@ -215,11 +223,21 @@ def validate_cli_args(cli_args, stage_names, parser):
 
         # Check whether this sub ses has T1w and/or T2w input data
         data_path_BIDS_T = dict()  # Paths to expected input data to check
-        for t in (1, 2):
+        if cli_args["txonly"] != None:
+            if cli_args["txonly"] == "T1w":
+                t=1
+            elif cli_args["txonly"] == "T2w":
+                t=2
             data_path_BIDS_T[t] = os.path.join(j_args["common"]["bids_dir"],
                                                *sub_ses, "anat",
                                                f"*T{t}w.nii.gz")
             sub_ses_IDs[ix][f"has_T{t}w"] = bool(glob(data_path_BIDS_T[t]))
+        else:    
+            for t in (1, 2):
+                data_path_BIDS_T[t] = os.path.join(j_args["common"]["bids_dir"],
+                                                *sub_ses, "anat",
+                                                f"*T{t}w.nii.gz")
+                sub_ses_IDs[ix][f"has_T{t}w"] = bool(glob(data_path_BIDS_T[t]))
 
         models_df = get_df_with_valid_bibsnet_models(sub_ses_IDs[ix])
         sub_ses_IDs[ix]["model"] = validate_model_num(
