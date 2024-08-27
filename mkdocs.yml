@@ -5,8 +5,7 @@ plugins:
 docs_dir: docs
 nav:
   - Overview and Workflow: index.md
-  - Installation: installation.md
-  - Usage: usage.md
+  - Installation & Usage: usage.md
   - Outputs: outputs.md
   - Contributions: contributions.md
   - Get Help: help.md
