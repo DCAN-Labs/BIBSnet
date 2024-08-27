@@ -1,4 +1,4 @@
-# Derivatives
+## Derivatives
 
 ```
 
@@ -42,7 +42,7 @@ Below is an example JSON for a file `sub-01_ses-A_space-T1w_desc-aseg_dseg.json`
 }
 ```
 
-#Working Directory
+## Working Directory
 
 ```
 ├── work_dir

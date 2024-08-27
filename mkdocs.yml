@@ -4,11 +4,10 @@ plugins:
   - search
 docs_dir: docs
 nav:
-  - 1. Overview: index.md
-  - 2. Installation: installation.md
-  - 3. Usage: usage.md
-  - 4. Participant and Sessions TSV Requirements: participants.md
-  - 5. Stages: stages.md
-  - 6. Outputs: outputs.md
-  - 7. Contributions: contributions.md
+  - Overview and Workflow: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Outputs: outputs.md
+  - Contributions: contributions.md
+  - Get Help: help.md
 

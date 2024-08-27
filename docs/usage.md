@@ -1,6 +1,12 @@
 ## Usage
 
-BIBSNet utilizies nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We recommened running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. However, please note that this may not be a hard dependency as we have also had success running BIBSNet on a CPU with 40 GB of RAM.
+### Important Notes
+
+**Computing Resources: GPU vs CPU**<br/>
+BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We recommened running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. However, please note that this may not be a hard dependency as we have also had success running BIBSNet on a CPU with 40 GB of RAM.
+
+**Choosing T1w/T2w Files to Include in Input Directory**<br/>
+Currently BIBSNet uses ALL anatomical images present in the BIDS input directory. Therefore, any images that you would like to exclude (e.g. due to poor QC) must be removed from the input directory. Similarly, to use the T1w- or T2w-only model, you will need to remove all T2w or T1w image files, respectively.
 
 ### Command-Line Arguments
 
@@ -86,16 +92,16 @@ This has been primarily tested in Singularity. We are less able to provide techn
     /input /output participant -v 
 
 <br />
-
 ### Application
 
-We do not recommend running `BIBSnet` outside of the container for the following reasons:
-
+We do not recommend running `BIBSnet` outside of the container for the following reasons: 
 1. Installing nnU-Net can be complicated.
 
 1. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
 
 1. It is hard to diagnose your errors if you are working in a different environment.
+
+
 
 However, if you run `BIBSnet` outside of the container as an application, then you will need to do the following:
 
