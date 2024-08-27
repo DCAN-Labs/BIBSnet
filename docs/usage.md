@@ -1,12 +1,22 @@
+# Installation and Usage
+
+## Installation
+
+Running the BIBSNet container requires installation of either Singularity or Docker. The container is hosted on our dockerhub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). To create a local container to execute, use the relevant command depending on which platform you choose:
+
+*Singularity* \
+`singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest`
+
+*Docker* \
+`docker pull dcanumn/bibsnet:latest`
+
+<br />
+
 ## Usage
 
-### Important Notes
+### Input Data
 
-**Computing Resources: GPU vs CPU**<br/>
-BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We recommened running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. However, please note that this may not be a hard dependency as we have also had success running BIBSNet on a CPU with 40 GB of RAM.
-
-**Choosing T1w/T2w Files to Include in Input Directory**<br/>
-Currently BIBSNet uses ALL anatomical images present in the BIDS input directory. Therefore, any images that you would like to exclude (e.g. due to poor QC) must be removed from the input directory. Similarly, to use the T1w- or T2w-only model, you will need to remove all T2w or T1w image files, respectively.
+Currently, BIBSNet uses ALL anatomical images present in the BIDS input directory. Therefore, any images that you would like to exclude (e.g. due to poor QC) must be removed from the input directory. Similarly, to use the T1w- or T2w-only model, you will need to remove all T2w or T1w image files, respectively.
 
 ### Command-Line Arguments
 
@@ -70,18 +80,11 @@ optional arguments:
 
 <br />
 
-### Container
+### Container and Resource Recomendations
 
-When running BIBSnet using a GPU, the job typically takes about 45 minutes, 20 tasks, and one node with 40 gb of memory to run effectively. Less memory could result in holes in the segmentation produced by BIBSnet.
+We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM.
 
-This has been primarily tested in Singularity. We are less able to provide technical support for Docker execution.
-
-#### Docker
-
-    docker run --rm -it \
-    -v /path/to/input:/input \
-    -v /path/to/output:/output \
-    docker_image:version /input /output participant -v
+BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. When running BIBSnet using a GPU, the job typically requires about 45 minutes, 20 tasks, and one node with 40 GB of memory. However, we have also had success running BIBSNet on a CPU with 40 GB of RAM.
 
 #### Singularity
 
@@ -90,6 +93,13 @@ This has been primarily tested in Singularity. We are less able to provide techn
     -B /path/to/output:/output \
     /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
     /input /output participant -v 
+
+#### Docker
+
+    docker run --rm -it \
+    -v /path/to/input:/input \
+    -v /path/to/output:/output \
+    docker_image:version /input /output participant -v
 
 <br />
 ### Application
