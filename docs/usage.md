@@ -1,6 +1,4 @@
-# Installation and Usage
-
-## Installation
+# Installation
 
 Running the BIBSNet container requires installation of either Singularity or Docker. The container is hosted on our dockerhub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). To create a local container to execute, use the relevant command depending on which platform you choose:
 
@@ -8,13 +6,15 @@ Singularity: `singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest`
 
 Docker: `docker pull dcanumn/bibsnet:latest`
 
-## Usage
+<br />
+  
+# Usage
 
-### Input Data
+## Input Data
 
 Currently, BIBSNet uses ALL anatomical images present in the BIDS input directory. Therefore, any images that you would like to exclude (e.g. due to poor QC) must be removed from the input directory. Similarly, to use the T1w- or T2w-only model, you will need to remove all T2w or T1w image files, respectively.
 
-### Command-Line Arguments
+## Command-Line Arguments
 
 ```
 usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL]
@@ -76,13 +76,13 @@ optional arguments:
 
 <br />
 
-### Container and Resource Recomendations
+## Container and Resource Recomendations
 
 We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM.
 
 BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. When running BIBSnet using a GPU, the job typically requires about 45 minutes, 20 tasks, and one node with 40 GB of memory. However, we have also had success running BIBSNet on a CPU with 40 GB of RAM.
 
-#### Singularity
+### Singularity
 
     singularity run --nv --cleanenv --no-home \
     -B /path/to/input:/input \
@@ -90,14 +90,14 @@ BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the tr
     /home/faird/shared/code/internal/pipelines/bibsnet_container/bibsnet_3.0.0.sif \
     /input /output participant -v 
 
-#### Docker
+### Docker
 
     docker run --rm -it \
     -v /path/to/input:/input \
     -v /path/to/output:/output \
     docker_image:version /input /output participant -v
 
-### Application
+## Application
 We do not recommend running `BIBSnet` outside of the container for the following reasons: 
 1. Installing nnU-Net can be complicated.
 2. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
