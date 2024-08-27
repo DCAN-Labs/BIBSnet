@@ -4,7 +4,7 @@ plugins:
   - search
 docs_dir: docs
 nav:
-  - Overview and Workflow: index.md
+  - Overview: introduction.md
   - Installation & Usage: usage.md
   - Outputs: outputs.md
   - Contributions: contributions.md
