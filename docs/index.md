@@ -7,6 +7,8 @@ This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility o
 [BIBSnet Github Repository](https://github.com/DCAN-Labs/BIBSnet)<br>
 [BIBSnet dockerhub Repository](https://hub.docker.com/repository/docker/dcanumn/bibsnet/)
 
+
+## Pipeline Workflow
 ![BIBSnet - Stages for MRI Processing](BIBSNetWorkflowDiagram.drawio.png)
 
 ### Stage 1 - PreBIBSnet 
