@@ -4,7 +4,7 @@
 
 This [BIDS App](https://bids-apps.neuroimaging.io/about/) provides the utility of creating a [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) anatomical MRI segmentation and mask with a infant brain trained model for the purposes of circumventing JLF within [Nibabies](https://nibabies.readthedocs.io/en/latest/index.html). 
 
-[BIBSnet Github Repository](https://github.com/DCAN-Labs/BIBSnet)\
+[BIBSnet Github Repository](https://github.com/DCAN-Labs/BIBSnet)<br>
 [BIBSnet dockerhub Repository](https://hub.docker.com/repository/docker/dcanumn/bibsnet/)
 
 ## Stages
