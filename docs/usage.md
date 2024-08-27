@@ -4,13 +4,9 @@
 
 Running the BIBSNet container requires installation of either Singularity or Docker. The container is hosted on our dockerhub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). To create a local container to execute, use the relevant command depending on which platform you choose:
 
-*Singularity* \
-`singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest`
+Singularity: `singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest`
 
-*Docker* \
-`docker pull dcanumn/bibsnet:latest`
-
-<br />
+Docker: `docker pull dcanumn/bibsnet:latest`
 
 ## Usage
 
@@ -101,24 +97,16 @@ BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the tr
     -v /path/to/output:/output \
     docker_image:version /input /output participant -v
 
-<br />
 ### Application
-
 We do not recommend running `BIBSnet` outside of the container for the following reasons: 
 1. Installing nnU-Net can be complicated.
-
-1. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
-
-1. It is hard to diagnose your errors if you are working in a different environment.
-
-
+2. Running `BIBSnet` inside the container ensures you have the proper versions of all software.
+3. It is hard to diagnose your errors if you are working in a different environment.
 
 However, if you run `BIBSnet` outside of the container as an application, then you will need to do the following:
 
 1. Download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`
-
-1. Extract `data.tar.gz` then extract all files in it and move them into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
-
-1. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
+2. Extract `data.tar.gz` then extract all files in it and move them into your cloned `BIBSnet` repository directory here: `BIBSnet/data/`
+3. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation)
 
 <br />
