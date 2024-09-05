@@ -165,6 +165,6 @@ RUN cp /home/bibsnet/run.py /home/bibsnet/bibsnet
 RUN cd /home/bibsnet/ && pip install -v -r requirements.txt
 RUN pip list | grep pandas
 RUN python -c "import pandas; print(pandas.__version__)"
-RUN cd /home/bibsnet/ && chmod 555 -R run.py src bibsnet
+RUN chmod -R a+rx /home/bibsnet /opt/nnUNet
 
 ENTRYPOINT ["bibsnet"]
