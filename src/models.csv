@@ -1,0 +1,4 @@
+model_num,T1w,T2w,is_default,description,sÃ¸rensen_dice_coefficient,image_augmentation,details
+540,TRUE,TRUE,TRUE,"BIBSNet T1+T2 production model using noMirroring Class and Flipping=False in SynthSeg","not applicable",TRUE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/540/540.md"
+541,TRUE,FALSE,TRUE,"BIBSNet T1-only production model using noMirroring Class and Flipping=False in SynthSeg","not applicable",TRUE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/541/541.md"
+542,FALSE,TRUE,TRUE,"BIBSNet T2-only production model using noMirroring Class and Flipping=False in SynthSeg","not applicable",TRUE,"https://github.com/DCAN-Labs/dcan-nn-unet/blob/main/doc/tasks/542/542.md"

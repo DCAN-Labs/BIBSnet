@@ -77,15 +77,6 @@ def get_params(stage_names):
               "Defaults to the path used by the container: {}".format(default_fsl_bin_path))
     )
     parser.add_argument(
-        "-model", "--model-number", "--bibsnet-model",
-        type=valid_whole_number, dest="model",
-        help=("Model/task number for BIBSnet. By default, this will be "
-              "inferred from {} based on which data exists in the "
-              "--bids-dir. BIBSnet will run model 541 by default for T1w-"
-              "only, model 542 for T2w-only, and model 540 for both T1w and "
-              "T2w.".format(os.path.join(SCRIPT_DIR, "data", "models.csv")))
-    )
-    parser.add_argument(
         "--nnUNet", "-n", type=valid_readable_file, default=default_nnUNet_predict_path,
         help=("Valid path to existing executable file to run nnU-Net_predict. "
               "By default, this script will assume that nnU-Net_predict will "
@@ -221,10 +212,15 @@ def validate_cli_args(cli_args, stage_names, parser):
                                                f"*T{t}w.nii.gz")
             sub_ses_IDs[ix][f"has_T{t}w"] = bool(glob(data_path_BIDS_T[t]))
 
-        models_df = get_df_with_valid_bibsnet_models(sub_ses_IDs[ix])
-        sub_ses_IDs[ix]["model"] = validate_model_num(
-            cli_args, data_path_BIDS_T, models_df, sub_ses_IDs[ix], parser
-        )
+        # Select which nnU-Net model/task to use based on presence of T1w/T2w
+        models_df = pd.read_csv(os.path.join(SCRIPT_DIR, "data", "models.csv"))
+
+        ## Exclude any models which require (T1w or T2w) data the user lacks
+        for t in only_Ts_needed_for_bibsnet_model(sub_ses_IDs[ix]):
+            models_df = select_model_with_data_for_T(
+                t, models_df, sub_ses_IDs[ix][f"has_T{t}w"]
+            )
+        sub_ses_IDs[ix]["model"] = models_df.squeeze()["model_num"]
 
         # Create BIBSnet in/out directories
         dir_BIBSnet = dict()
@@ -325,48 +321,6 @@ def get_col_value_from_tsv(tsv_df, ID_col, col_name, sub_ses):
     LOGGER.debug(f"ID_col used to get details from tsv for {sub_ses[0]}: {ID_col}")
     LOGGER.debug(f"Subject {sub_ses[0]} details from tsv row:\n{subj_row}")
     return int(subj_row[col_name])
-
-def validate_model_num(cli_args, data_path_BIDS_T, models_df, sub_ses_ID, parser):
-    """
-    :param cli_args: Dictionary containing all command-line input arguments
-    :param data_path_BIDS_T: Dictionary mapping 1 and 2 to the (incomplete)
-                             paths to expected T1w and T2w data respectively
-    :param models_df: pd.DataFrame of all bibsnet models viable for input data
-    :param sub_ses_ID: Dict mapping (string) names to values for sub- &
-                       ses-specific input parameters; same as j_args[ID]
-    :param parser: argparse.ArgumentParser to raise error if anything's invalid
-    :return: Int, validated bibsnet model number
-    """
-    model = cli_args["model"]  # Model number (if given from command line)
-
-    # Exclude any models which require (T1w or T2w) data the user lacks
-    LOGGER.debug(f"data_path_BIDS_T: {data_path_BIDS_T}")
-    if model:
-        LOGGER.debug(f"model {model} to int64 in model_nums to_list: {np.int64(model) in models_df['model_num'].to_list()}")
-        if (np.int64(model) not in models_df["model_num"].to_list()):
-            parser.error(f"BIBSnet model {model} was selected but model must be in {models_df['model_num'].to_list()}")
-        for t in (1, 2):
-            needs_t = models_df.loc[models_df['model_num'] == model][f'T{t}w'].item()
-            has_t = len(glob(data_path_BIDS_T[t])) > 0
-            LOGGER.debug(f"needs_t: {needs_t}, has_t: {has_t}")
-            if needs_t and not has_t:
-                # If user gave a model number but not the data the model needs,
-                # then crash with an informative error message
-                parser.error("BIBSnet needs T{}w data at the path below " 
-                                "to run model {}, but none was found.\n{}\n"
-                                .format(t, model, data_path_BIDS_T[t]))
-
-    else:  # Get default model number if user did not give one
-        models_df = models_df[models_df["is_default"]]
-        if len(models_df) > 1:
-            for t in (1, 2):
-                models_df = select_model_with_data_for_T(
-                    t, models_df, sub_ses_ID[f"has_T{t}w"]
-                )
-        model = models_df.squeeze()["model_num"]
-            
-    return model
-
 
 def select_model_with_data_for_T(t, models_df, has_T):
     """
