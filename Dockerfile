@@ -105,7 +105,7 @@ RUN echo "Downloading ANTs ..." && \
     rm bibsnet-v3.3.0.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz
 
 # Create a shared $HOME directory
-RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet
+RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet && chmod -R 777 /home/bibsnet
 WORKDIR /home/bibsnet
 ENV HOME="/home/bibsnet" \
     LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
