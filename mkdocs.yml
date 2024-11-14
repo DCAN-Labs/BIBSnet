@@ -1,5 +1,19 @@
 site_name: BIBSnet - DCAN Labs
-theme: readthedocs
+
+theme:
+  name: readthedocs
+  features:
+    - toc.integrate
+    - navigation.expand
+    - toc.follow
+    - navigation.sections
+    - header.autohide
+    - content.code.annotate  
+
+markdown_extensions:
+  - toc:
+      permalink: '🔗'
+
 plugins:
   - search
 docs_dir: docs
