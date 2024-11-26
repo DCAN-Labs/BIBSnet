@@ -22,7 +22,8 @@ docs_dir: docs
 nav:
   - Overview: index.md
   - Installation & Usage: usage.md
-  - Outputs: outputs.md
+  - Testing: testing.md
+  - BIBSNet Outputs: outputs.md
   - Contributions: contributions.md
   - Get Help: help.md
 
