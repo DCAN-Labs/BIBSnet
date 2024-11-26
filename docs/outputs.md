@@ -1,5 +1,6 @@
-## Derivatives
+# BIBSNet Outputs
 
+The derivative output folder is organized as follows:
 ```
 
 ├── derivatives
