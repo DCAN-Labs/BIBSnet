@@ -1,6 +1,6 @@
 # Installation
 
-Running the BIBSNet container requires installation of either Singularity or Docker. The container is hosted on our dockerhub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). To create a local container to execute, use the relevant command depending on which platform you choose:
+Running the BIBSNet container requires installation of either Singularity or Docker. The container is hosted on Docker Hub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). To create a local container to execute, use the relevant command depending on which platform you choose:
 
 Singularity: `singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest`
 
