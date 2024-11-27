@@ -28,7 +28,7 @@ We do not recommend running `BIBSnet` outside of the container because installin
 
 1. **Clone BIBSNet repository locally**, e.g. `git clone https://github.com/DCAN-Labs/BIBSnet.git`
 
-2. **Download data required for BIBSNet:** download data from `https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz` either from the command line or by entering this path into a browser. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`.
+2. **Download data required for BIBSNet:** download data from [https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz](https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz) either via the command line or web browser. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`.
 
 3. **Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation) following the instructions on their GitHub repository**
 
