@@ -1,28 +1,45 @@
-# Installation
+# Installation & Usage
 
-We highly recommend running BIBSnet using a container service such as [Singularity](https://docs.sylabs.io/guides/3.0/user-guide/installation.html) or [Docker](https://www.docker.com/get-started/): please visit the links provided for installation instructions. 
+## Installation
+### Option 1: Execute as Container (*recommended for general user*)
+We highly recommend running BIBSnet using a container service such as [Singularity](https://docs.sylabs.io/guides/3.0/user-guide/installation.html) or [Docker](https://www.docker.com/get-started/): please visit these links for installation instructions. The BIBSNet container is hosted on Docker Hub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). Once the container service is installed, create a local container to execute using the relevant command:
 
-The BIBSNet container is hosted on Docker Hub under [dcanumn/bibsnet](https://hub.docker.com/r/dcanumn/bibsnet). Once the container service is installed, create a local container to execute using the relevant command:
-
-*Singularity*
 ```
+# Singularity command:
 singularity pull bibsnet.sif docker://dcanumn/bibsnet:latest
-```
 
-*Docker*
-```
+# Docker command:
 docker pull dcanumn/bibsnet:latest
 ```
 
 To pull a specific version, replace `latest` (which is connected to the most recent version) with the version number, e.g: 
 ```
+# Singularity command:
+singularity pull bibsnet.sif docker://dcanumn/bibsnet:release-3.4.2
+
+# Docker command:
 docker pull dcanumn/bibsnet:release-3.4.2
 ```
 
+<br>
 
-# Usage
+### Option 2: Bare-metal installation with manually prepared environment (*recommended for developers*)
+We do not recommend running `BIBSnet` outside of the container because installing nnU-Net can be complicated and containerization ensures reproducibility by providing standardized software versions. However, if you wish to run `BIBSnet` as an application for development or other purposes, then you will need to do the following:
 
-## BIDS Input Data
+1. **Clone BIBSNet repository locally**, e.g. `git clone https://github.com/DCAN-Labs/BIBSnet.git`
+2. **Download data required for BIBSNet:** download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`
+3. **Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation) following the instructions on their GitHub repository**
+4. **Install Additional Dependencies:** Install other dependencies listed [here](https://github.com/DCAN-Labs/BIBSnet/network/dependencies). You can also refer the [Dockerfile](https://github.com/DCAN-Labs/BIBSnet/blob/main/Dockerfile) as a guide for all the dependencies.
+
+-----------------
+
+## Resource Requirements
+BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. When running BIBSnet using a GPU, the job typically requires about 45 minutes, 20 tasks, and one node with 40 GB of memory. However, we have also had success running BIBSNet on a CPU with 40 GB of RAM.
+
+-----------------
+
+## Usage
+### BIDS Input Data
 
 BIBSNet expects at least one T1-weighted and/or one T2-weighted structural MRI image in valid [BIDS format](https://bids.neuroimaging.io/), e.g.:
 
@@ -40,7 +57,7 @@ assembly_bids/
 
 Note that, currently, BIBSNet uses ALL anatomical images present in the BIDS input directory. Therefore, any images that you would like to exclude (e.g. due to poor QC) must be removed from the input directory. Similarly, to use the T1w- or T2w-only model, you will need to remove all T2w or T1w image files, respectively.
 
-## Command-Line Arguments
+### Command-Line Arguments
 
 ```
 usage: BIBSnet [-h] [-participant PARTICIPANT_LABEL]
@@ -100,7 +117,7 @@ optional arguments:
 
 ```
 
-## Example Usage
+### Example Usage
 Example run command using Singularity:
 ```
 singularity run --nv --cleanenv --no-home \
@@ -117,16 +134,3 @@ docker run --rm -it \
 -v /path/to/output:/output \
 docker_image:version /input /output participant -v
 ```
-
-<br>
-
-# Dependencies
-### Container
-BIBSNet utilizes nnU-Net for model training and inference, i.e. deploying the trained model to generate image segmentations for new data. We therefore recommend running [BIBSnet](https://github.com/DCAN-Labs/BIBSnet) on a GPU if possible (e.g. Volta (v), Ampere (a), Turing (t) NVIDIA) as the [nnU-Net installation instructions](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1?tab=readme-ov-file#installation) note that running inference requires a GPU with 4 GB of VRAM. When running BIBSnet using a GPU, the job typically requires about 45 minutes, 20 tasks, and one node with 40 GB of memory. However, we have also had success running BIBSNet on a CPU with 40 GB of RAM.
-
-### Application
-We do not recommend running `BIBSnet` outside of the container because installing nnU-Net can be complicated and containerization ensures reproducibility by providing standardized software versions. However, if you wish to run `BIBSnet` as an application for development or other purposes, then you will need to do the following:
-
-1. Download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`
-2. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`
-3. Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation) and other dependencies listed [here](https://github.com/DCAN-Labs/BIBSnet/network/dependencies)
