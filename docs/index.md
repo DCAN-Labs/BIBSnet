@@ -48,4 +48,5 @@ Please acknowledge this work using the citation listed on the [Zenodo page](http
 > Houghton, A., Conan, G., Hendrickson, T. J., Alexopoulos, D., Goncalves, M., Koirala, S., Latham, A., Lee, E., Lundquist, J., Madison, T. J., Markiewicz, C. J., Moore, L. A., Moser, J., Reiners, P., Rueter, A., Barry J. Tikalsky, Fair, D. A., & Feczko, E. (2024). BIBSnet (3.4.2). Zenodo. [https://doi.org/10.5281/zenodo.13743295](https://doi.org/10.5281/zenodo.13743295)
 
 Please also acknowledge the associated publication for this tool:
+
 >Hendrickson TJ, Reiners P, Moore LA, Perrone AJ, Alexopoulos D, Lee E, Styner M, Kardan O, Chamberlain TA, Mummaneni A, Caldas HA, Bower B, Stoyell S, Martin T, Sung S, Fair E, Uriarte-Lopez J, Rueter AR, Rosenberg MD, Smyser CD, Elison JT, Graham A, Fair DA, Feczko E. (2023). BIBSNet: A Deep Learning Baby Image Brain Segmentation Network for MRI Scans. BioRxiv, 2023.03.22.533696. [https://doi.org/10.1101/2023.03.22.533696](https://doi.org/10.1101/2023.03.22.533696)

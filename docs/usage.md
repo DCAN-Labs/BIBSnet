@@ -27,8 +27,11 @@ docker pull dcanumn/bibsnet:release-3.4.2
 We do not recommend running `BIBSnet` outside of the container because installing nnU-Net can be complicated and containerization ensures reproducibility by providing standardized software versions. However, if you wish to run `BIBSnet` as an application for development or other purposes, then you will need to do the following:
 
 1. **Clone BIBSNet repository locally**, e.g. `git clone https://github.com/DCAN-Labs/BIBSnet.git`
-2. **Download data required for BIBSNet:** download the appropriate data release from `https://s3.msi.umn.edu/bibsnet-data/<DATA_RELEASE>.tar.gz`. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`
+
+2. **Download data required for BIBSNet:** download data from `https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz` either from the command line or by entering this path into a browser. Extract files from `data.tar.gz` and move them into your locally cloned `BIBSnet` repository under `BIBSnet/data/`.
+
 3. **Install [nnU-Net](https://github.com/MIC-DKFZ/nnUNet#installation) following the instructions on their GitHub repository**
+
 4. **Install Additional Dependencies:** Install other dependencies listed [here](https://github.com/DCAN-Labs/BIBSnet/network/dependencies). You can also refer the [Dockerfile](https://github.com/DCAN-Labs/BIBSnet/blob/main/Dockerfile) as a guide for all the dependencies.
 
 -----------------
