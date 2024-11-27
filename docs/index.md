@@ -7,12 +7,30 @@ We introduce BIBSNet (Baby and Infant Brain Segmentation Neural Network), an ope
 [BIBSnet Github Repository](https://github.com/DCAN-Labs/BIBSnet)<br>
 [BIBSnet dockerhub Repository](https://hub.docker.com/repository/docker/dcanumn/bibsnet/)
 
+-------------------
+
+## Background & Significance
+
+From [Hendrickson et al. 2023](https://doi.org/10.1101/2023.03.22.533696):
+
+
+>***Objectives:*** *Brain segmentation of infant magnetic resonance (MR) images is vitally important in studying developmental mental health and disease. The infant brain undergoes many changes throughout the first years of postnatal life, making tissue segmentation difficult for most existing algorithms. Here, we introduce a deep neural network BIBSNet (Baby and Infant Brain Segmentation Neural Network), an open-source, community-driven model that relies on data augmentation and a large sample size of manually annotated images to facilitate the production of robust and generalizable brain segmentations.*
+
+>***Experimental Design:*** *Included in model training and testing were MR brain images on 84 participants with an age range of 0-8 months (median postmenstrual ages of 13.57 months). Using manually annotated real and synthetic segmentation images, the model was trained using a 10-fold cross-validation procedure. Testing occurred on MRI data processed with the DCAN labs infant-ABCD-BIDS processing pipeline using segmentations produced from gold standard manual annotation, joint-label fusion (JLF), and BIBSNet to assess model performance.*
+
+>***Principal Observations:*** *Using group analyses, results suggest that cortical metrics produced using BIBSNet segmentations outperforms JLF segmentations. Additionally, when analyzing individual differences, BIBSNet segmentations perform even better.*
+
+>***Conclusions:*** *BIBSNet segmentation shows marked improvement over JLF segmentations across all age groups analyzed. The BIBSNet model is 600x faster compared to JLF and can be easily included in other processing pipelines.*
+
+-------------------
 
 ## Pipeline Workflow
 ![BIBSnet - Stages for MRI Processing](BIBSNetWorkflowDiagram.drawio.png)
 
 ### Stage 1 - PreBIBSnet 
-Prepares the input T1w and/or T2w anatomical image(s) for BIBSnet:
+
+Prepares the input T1-weighted and/or one T2-weighted structural MRI image(s) for BIBSNet:      
+
 * T1w and T2w images are renamed to fit nnU-Net naming conventions (_0000 and _0001 respectively) and if there are multiple T1w or T2w, they are registered to the first run and averaged
 * The neck and shoulders are cropped from the average images using a [SynthStrip](https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/)-derived brain mask to identify the optimal axial cropping plane
 * T2w-to-T1w registration is performed via multiple workflows (either directly or following ACPC-alignment of both T1w and T2w), eta-squared is used to choose the optimal registration method, and the resulting best pair is fed into the next stage for segmentation
@@ -22,3 +40,13 @@ Quickly and accurately segments an optimally-aligned T1 and T2 pair with a deep 
 
 ### Stage 3 - PostBIBSnet
 Transforms segmentation back to native space for both T1w and T2w, generates brain masks derived from the segmentation, and creates derivative outputs including sidecar jsons. The working directories for pre- through postBIBSNet are removed if user did not specify a working directory.
+
+-------------------
+
+## How to Cite
+Please acknowledge this work using the citation listed on the [Zenodo page](https://zenodo.org/records/13743295). There is a "Citation" section in the right-hand sidebar where you can select the citation format, e.g. APA style:
+> Houghton, A., Conan, G., Hendrickson, T. J., Alexopoulos, D., Goncalves, M., Koirala, S., Latham, A., Lee, E., Lundquist, J., Madison, T. J., Markiewicz, C. J., Moore, L. A., Moser, J., Reiners, P., Rueter, A., Barry J. Tikalsky, Fair, D. A., & Feczko, E. (2024). BIBSnet (3.4.2). Zenodo. [https://doi.org/10.5281/zenodo.13743295](https://doi.org/10.5281/zenodo.13743295)
+
+Please also acknowledge the associated publication for this tool:
+
+>Hendrickson TJ, Reiners P, Moore LA, Perrone AJ, Alexopoulos D, Lee E, Styner M, Kardan O, Chamberlain TA, Mummaneni A, Caldas HA, Bower B, Stoyell S, Martin T, Sung S, Fair E, Uriarte-Lopez J, Rueter AR, Rosenberg MD, Smyser CD, Elison JT, Graham A, Fair DA, Feczko E. (2023). BIBSNet: A Deep Learning Baby Image Brain Segmentation Network for MRI Scans. BioRxiv, 2023.03.22.533696. [https://doi.org/10.1101/2023.03.22.533696](https://doi.org/10.1101/2023.03.22.533696)
