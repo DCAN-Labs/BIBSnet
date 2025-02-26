@@ -439,7 +439,7 @@ def calculate_eta(img_paths):
 
     LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
 
-    return 1 - sswithin / sstot  # Should there be parentheses around (1 - sswithin)?
+    return 1 - sswithin / sstot
 
 
 def reshape_volume_to_array(array_img):
