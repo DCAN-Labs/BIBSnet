@@ -2,21 +2,19 @@
 
 The derivative output folder is organized as follows:
 ```
-
-├── derivatives
-│   ├── bibsnet
-│   │   ├── sub-01
-|   |   |   ├── ses-A
-|   |   |   |   ├── anat
-|   |   |   |   |   ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.json
-|   |   |   |   |   ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.nii.gz
-|   |   |   |   |   ├── sub-01_ses-A_space-T1w_desc-brain_mask.json
-|   |   |   |   |   ├── sub-01_ses-A_space-T1w_desc-brain_mask.nii.gz
-|   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.json
-|   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.nii.gz
-|   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-brain_mask.json
-|   |   |   |   |   ├── sub-01_ses-A_space-T2w_desc-brain_mask.nii.gz
-
+├── derivatives/
+    ├── bibsnet/
+        ├── sub-01/
+            ├── ses-A/
+                ├── anat/
+                    ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.json
+                    ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.nii.gz
+                    ├── sub-01_ses-A_space-T1w_desc-brain_mask.json
+                    ├── sub-01_ses-A_space-T1w_desc-brain_mask.nii.gz
+                    ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.json
+                    ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.nii.gz
+                    ├── sub-01_ses-A_space-T2w_desc-brain_mask.json
+                    ├── sub-01_ses-A_space-T2w_desc-brain_mask.nii.gz
 ```
 <br />
 
@@ -46,8 +44,75 @@ Below is an example JSON for a file `sub-01_ses-A_space-T1w_desc-aseg_dseg.json`
 ## Working Directory
 
 ```
-├── work_dir
-│   ├── prebibsnet
-│   ├── bibsnet
-│   ├── postbibsnet
+├── work_dir/
+    ├── prebibsnet/
+    |   ├── sub-01/
+    |       ├── ses-A/
+    |           ├── averaged/
+    |           |   ├── <T1w|T2w>_denoise_and_bfcorrect/
+    |           |   |   ├── clip/
+    |           |   |   ├── denoise/
+    |           |   |   ├── final_clip/
+    |           |   |   ├── n4_correct/
+    |           |   |   ├── d3.js
+    |           |   |   ├──graph.json
+    |           |   |   ├──graph1.json
+    |           |   |   ├──index.html
+    |           |   ├── sub-150712_ses-V02_0000.nii.gz
+    |           |   ├── sub-150712_ses-V02_0001.nii.gz
+    |           |
+    |           ├── cropped/
+    |           |   ├── T1w/
+    |           |   |   ├── brainmask.nii.gz
+    |           |   |   ├── crop2full.mat
+    |           |   |   ├── sub-01_ses-A_0000.nii.gz
+    |           |   ├── T2w/
+    |           |       ├── brainmask.nii.gz
+    |           |       ├── crop2full.mat
+    |           |       ├── sub-01_ses-A_0001.nii.gz
+    |           |
+    |           ├── resized/
+    |               ├── ACPC_align/
+    |               |   ├── ACPC_T1w_registered_to_T1w.nii.gz
+    |               |   ├── ACPC_T2w_registered_to_T1w.nii.gz
+    |               |   ├── ACPC_aligned_<T1w|T2w>.nii.gz
+    |               |   ├── <T1w|T2w>_acpc2rigidbody.mat
+    |               |   ├── <T1w|T2w>_crop2acpc.mat
+    |               |   ├── <T1w|T2w>_full2acpc.mat
+    |               |   ├── <T1w|T2w>_full2crop.mat
+    |               |   ├── T2w_to_rigidbody.mat
+    |               |   ├── cropT2tocropT1.mat
+    |               |   ├── crop_<T1w|T2w>_to_BIBS_template.mat
+    |               |   ├── preBIBSnet_final_0000.nii.gz
+    |               |   ├── preBIBSnet_final_0001.nii.gz
+    |               |
+    |               ├── xfms/
+    |                   ├── <T1w|T2w>_to_BIBS.nii.gz
+    |                   ├── T2w_registered_to_T1w.nii.gz
+    |                   ├── cropT2tocropT1.mat
+    |                   ├── crop_<T1w|T2w>_to_BIBS_template.mat
+    |                   ├── full2crop<T1w|T2w>.mat
+    |                   ├── full2cropT2toT1.mat
+    |                   ├── full_crop_<T1w|T2w>_to_BIBS_template.mat
+    |                   ├── preBIBSnet_final_0000.nii.gz
+    |                   ├── preBIBSnet_final_0001.nii.gz
+    |
+    ├── bibsnet/
+    |   ├── sub-01/
+    |       ├── ses-A/
+    |           ├── input/
+    |           |   ├── sub-01_ses-A_optimal_resized_0000.nii.gz
+    |           |   ├── sub-01_ses-A_optimal_resized_0001.nii.gz
+    |           ├── output/
+    |               ├── plans.pkl
+    |               ├── prediction_time.txt
+    |               ├── sub-01_ses-A_optimal_resized.nii.gz
+    |
+    ├── postbibsnet/
+        ├── sub-01/
+            ├── ses-A/
+                ├── preBIBSnet_full_crop_T1w_to_BIBS_template.mat
+                ├── preBIBSnet_full_crop_T2w_to_BIBS_template.mat
+                ├── seg_reg_to_T1w_native.mat
+                ├── seg_reg_to_T2w_native.mat
 ```
