@@ -15,3 +15,5 @@
 /data/*/
 **/trained_models
 bibsnet.json
+.DS_Store
+data/.DS_Store
