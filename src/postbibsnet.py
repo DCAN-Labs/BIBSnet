@@ -217,7 +217,7 @@ class sidecar_json:
         """
         
         segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
-                                                 "Freesurfer_LUT_DCAN.txt")
+                                                 "FreeSurferColorLUT.txt")
         free_surfer_label_to_region = get_id_to_region_mapping(segmentation_lookup_table)
        
         self.sidecar["Units"] = 'cubic millimeters (mm^3)'
