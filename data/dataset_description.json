@@ -1,0 +1,13 @@
+{
+    "Name": "BIBSnet",
+    "BIDSVersion": "1.4.0",
+    "DatasetType": "derivative",
+    "GeneratedBy": [
+        {
+            "Name": "BIBSnet",
+            "Version": "0+unknown",
+            "CodeURL": "https://github.com/DCAN-Labs/BIBSnet"
+        }
+    ],
+    "HowToAcknowledge": "TODO"
+}
