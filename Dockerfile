@@ -3,7 +3,7 @@ FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
 FROM build_pytorch
 # Manually update the BIBSnet version when building
 
-ENV BIBSNET_VERSION="3.4.2"
+ENV BIBSNET_VERSION="3.4.3"
 
 # Prepare environment
 RUN apt-get update && \
@@ -55,10 +55,10 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Downloading FSL ..." \
     && mkdir -p /opt/fsl-6.0.5.1 \
-    && wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" \
-    && tar -xzf bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz \
+    && wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-latest.tar.gz" \
+    && tar -xzf bibsnet-latest.tar.gz fsl-6.0.5.1-centos7_64.tar.gz \
     && tar -xzf fsl-6.0.5.1-centos7_64.tar.gz -C /opt/fsl-6.0.5.1 --no-same-owner --strip-components 1 \
-    && rm bibsnet-v3.3.0.tar.gz fsl-6.0.5.1-centos7_64.tar.gz
+    && rm bibsnet-latest.tar.gz fsl-6.0.5.1-centos7_64.tar.gz
 
 ENV FSLDIR="/opt/fsl-6.0.5.1" \
     PATH="/opt/afni-latest:/opt/ants:/opt/fsl-6.0.5.1/bin:$PATH" \
@@ -95,14 +95,12 @@ ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
 RUN chmod a+rx /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
 
 # Installing ANTs 2.3.3 (NeuroDocker build)
-# Note: the URL says 2.3.4 but it is actually 2.3.3
-# TESTING: installing ANTS from tier2 tar.gz
 RUN echo "Downloading ANTs ..." && \
     mkdir -p /opt/ants && \
-    wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz && \
+    wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-latest.tar.gz" && \
+    tar -xzf bibsnet-latest.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz && \
     tar -xzf ants-Linux-centos6_x86_64-v2.3.4.tar.gz -C /opt/ants --no-same-owner --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz
+    rm bibsnet-latest.tar.gz ants-Linux-centos6_x86_64-v2.3.4.tar.gz
 
 # Create a shared $HOME directory
 RUN useradd -m -s /bin/bash -G users -u 1000 bibsnet
@@ -124,27 +122,23 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 
-RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz && \
+RUN wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-latest.tar.gz" && \
+    tar -xzf bibsnet-latest.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz && \
     tar -xzf Task540_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz
+    rm bibsnet-latest.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz
 
-RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz && \
+RUN wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-latest.tar.gz" && \
+    tar -xzf bibsnet-latest.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz && \
     tar -xzf Task541_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz
+    rm bibsnet-latest.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz
 
-RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz && \
+RUN wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-latest.tar.gz" && \
+    tar -xzf bibsnet-latest.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz && \
     tar -xzf Task542_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz
+    rm bibsnet-latest.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
-RUN wget -O bibsnet-v3.3.0.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-v3.3.0.tar.gz" && \
-    tar -xzf bibsnet-v3.3.0.tar.gz data.tar.gz && \
-    tar -xzf data.tar.gz -C /home/bibsnet/data --strip-components 1 && \
-    rm bibsnet-v3.3.0.tar.gz data.tar.gz
 
 RUN \
   cd /tmp && \
