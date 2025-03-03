@@ -139,6 +139,7 @@ RUN wget -O bibsnet-latest.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-l
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
+COPY data /home/bibsnet/data
 
 RUN \
   cd /tmp && \
