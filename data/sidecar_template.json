@@ -1,0 +1,16 @@
+{
+    "Name": "BIBSnet Outputs",
+    "BIDSVersion": "",
+    "DatasetType": "derivative",
+    "GeneratedBy": [
+      {
+        "Name": "BIBSnet",
+        "Version": "",
+        "Container": {
+          "Type": "docker",
+          "Tag": ""
+          }
+      }
+    ],
+    "SpatialReference":""
+  }

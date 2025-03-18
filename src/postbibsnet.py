@@ -216,8 +216,7 @@ class sidecar_json:
 
         """
         
-        segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
-                                                 "Freesurfer_LUT_DCAN.txt")
+        segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "FreeSurferColorLUT.txt")
         free_surfer_label_to_region = get_id_to_region_mapping(segmentation_lookup_table)
        
         self.sidecar["Units"] = 'cubic millimeters (mm^3)'
@@ -252,8 +251,7 @@ def make_per_region_volume_from_segmentation(path_to_aseg,derivs_dir,sub_ses,t,d
     Does not return a value. Generates TSV file within derivs_dir 
 
     """
-    segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "look_up_tables",
-                                             "Freesurfer_LUT_DCAN.txt")
+    segmentation_lookup_table = os.path.join(SCRIPT_DIR, "data", "FreeSurferColorLUT.txt")
     free_surfer_label_to_region = get_id_to_region_mapping(segmentation_lookup_table)
     
     # load aseg into nibabel 
