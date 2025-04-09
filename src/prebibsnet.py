@@ -60,22 +60,30 @@ def run_preBIBSnet(j_args):
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
-    # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz")
     LOGGER.debug(f"reference_img: {reference_img}")
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     # TODO Resolution is hardcoded; infer it or get it from the command-line
     resolution = "1"
+
+    # Perform T2w-to-T1w registration via multiple methods if both T1w and T2w are present (including non-ACPC/xfms and ACPC)
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
-        # Non-ACPC
+        # Non-ACPC Path 1
         regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
         )
         LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
+
+        # # Non-ACPC Path 2
+        # regn_non_ACPC_2 = register_preBIBSnet_imgs_non_ACPC_2(
+        #     cropped, preBIBSnet_paths["resized"], reference_img, 
+        #     id_mx, resolution, j_args
+        # )
+        # LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC_2["vars"]))
 
         # ACPC
         regn_ACPC = register_preBIBSnet_imgs_ACPC(
@@ -84,6 +92,7 @@ def run_preBIBSnet(j_args):
         )
         LOGGER.verbose(msg_xfm.format("", regn_ACPC["vars"]))
 
+        # Apply final transforms to average images
         transformed_images = apply_final_prebibsnet_xfms(
             regn_non_ACPC, regn_ACPC, preBIBSnet_paths["avg"], j_args
         )
@@ -816,21 +825,14 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
 def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 
                                       ident_mx, resolution, j_args):
     """
-    :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
-                         paths to existing image files to resize)
-    :param output_dir: String, valid path to a dir to save resized images into
-    :param ref_images: Dictionary mapping string keys to valid paths to real
-                       image file strings for "ACPC" (alignment) and (T2-to-T1)
-                       "reg"(istration) for flirt to use as a reference image.
-                       The ACPC string has a "{}" in it to represent (T) 1 or 2
-    :param ident_mx: String, valid path to existing identity matrix .mat file
-    :param resolution:
+    Registers T2w to T1w using non-ACPC method.
+    :param cropped_imgs: Cropped T1 and T2 image filepaths (dictionary)
+    :param output_dir: Output folder filepath
+    :param ref_images: MNI template paths (dictionary)
+    :param ident_mx: identity matrix .mat filepath
     :param j_args: Dictionary containing all args
     """
-    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
-
-    # Build dictionaries of variables used for image transformations with and
-    # without ACPC alignment
+    # Build dictionaries of variables used for image transformations
     xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
                          "resolution": resolution, "ident_mx": ident_mx,
                          "ref_img": ref_image}
@@ -840,8 +842,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
 
-        # Non-ACPC input to registration
-        # for keyname in ("crop_", "reg_input_"):
+        # Non-ACPC input to registration for keyname in ("crop_", "reg_input_"):
         xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
 
         # Non-ACPC outputs to registration
@@ -853,14 +854,34 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     # Make output directory for transformed images
     os.makedirs(xfm_non_ACPC_vars["out_dir"], exist_ok=True)
 
-    xfm_imgs_non_ACPC = registration_T2w_to_T1w(
-        j_args, xfm_non_ACPC_vars, reg_in_var, acpc=False
-    )
+    # xfm_imgs_non_ACPC = registration_T2w_to_T1w(
+    #     j_args, xfm_non_ACPC_vars, reg_in_var, acpc=False
+    # )
 
-    # pdb.set_trace()  # TODO Add "debug" flag?
+    # Define paths to registration output matrices and images
+    registration_outputs = {"cropT1tocropT1": xfm_non_ACPC_vars["ident_mx"],
+                            "cropT2tocropT1": os.path.join(xfm_non_ACPC_vars["out_dir"], "cropT2tocropT1.mat")}
+    for t in (1, 2):
+    # Define paths to registration output files
+        registration_outputs[f"T{t}w_crop2BIBS_mat"] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], f"crop_T{t}w_to_BIBS_template.mat"
+        )
+        registration_outputs[f"T{t}w"] = xfm_non_ACPC_vars[f"output_T{t}w_img"]
+        registration_outputs[f"T{t}w_to_BIBS"] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], f"T{t}w_to_BIBS.nii.gz"
+        )
 
-    return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
+    # Perform registration
+    run_FSL_sh_script(j_args, "flirt",
+                            "-ref", xfm_non_ACPC_vars[reg_in_var.format(1)],
+                            "-in", xfm_non_ACPC_vars[reg_in_var.format(2)],
+                            "-omat", registration_outputs["cropT2tocropT1"],
+                            "-out", registration_outputs["T2w"],
+                            '-cost', 'mutualinfo',
+                            '-searchrx', '-15', '15', '-searchry', '-15', '15',
+                            '-searchrz', '-15', '15', '-dof', '6')
 
+    return {"vars": xfm_non_ACPC_vars, "img_paths": registration_outputs}
 
 def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     """
@@ -872,7 +893,7 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     :return: Dictionary mapping "T1w" and "T2w" to their respective newly
              registered image file paths
     """
-    # String naming the key in xfm_vars mapped to the path
+    # String for naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
