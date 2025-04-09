@@ -40,7 +40,7 @@ def run_preBIBSnet(j_args):
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
-    
+
     # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane,and crop average T1w and T2w images
     cropped = dict()
     crop_dir= dict()
@@ -188,43 +188,50 @@ def denoise_and_n4(tmod, input_avg_img):
     wd=os.path.dirname(input_avg_img)
     wf = pe.Workflow(name=f'{tmod}_denoise_and_bfcorrect', base_dir=wd)
 
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=["in_anat"]),
-        name="inputnode",
-        )
-    outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_anat"]),
-        name="outputnode",
-    )
-
-    inputnode.inputs.in_anat = input_avg_img
-
-    clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
-    denoise = pe.Node(DenoiseImage(dimension=3, noise_model="Rician"), name="denoise")
-    n4_correct=pe.Node(N4BiasFieldCorrection(
-            dimension=3,
-            bspline_fitting_distance=200,
-            save_bias=True,
-            copy_header=True,
-            n_iterations=[50] * 5,
-            convergence_threshold=1e-7,
-            rescale_intensities=True,
-            shrink_factor=4), 
-            name="n4_correct")
-    final_clip = pe.Node(IntensityClip(p_min=5.0, p_max=99.5), name="final_clip")
-
-    wf.connect([
-        (inputnode, clip, [("in_anat", "in_file")]),
-        (clip, denoise, [("out_file", "input_image")]),
-        (denoise, n4_correct, [("output_image", "input_image")]),
-        (n4_correct, final_clip, [("output_image", "in_file")]),
-        (final_clip, outputnode, [("out_file", "out_anat")]),
-    ])
-    wf.run()
-
+    # Skip if clipped image already exists
     src=os.path.join(wd, f'{tmod}_denoise_and_bfcorrect/final_clip/clipped.nii.gz')
-    dest=input_avg_img
-    shutil.copy(src, dest)
+    if os.path.exists(src):
+        LOGGER.info(f"Skipping denoise and N4 correction, {src} already exists")
+        return src
+
+    else:
+        inputnode = pe.Node(
+            niu.IdentityInterface(fields=["in_anat"]),
+            name="inputnode",
+            )
+        outputnode = pe.Node(
+            niu.IdentityInterface(fields=["out_anat"]),
+            name="outputnode",
+        )
+
+        inputnode.inputs.in_anat = input_avg_img
+
+        clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
+        denoise = pe.Node(DenoiseImage(dimension=3, noise_model="Rician"), name="denoise")
+        n4_correct=pe.Node(N4BiasFieldCorrection(
+                dimension=3,
+                bspline_fitting_distance=200,
+                save_bias=True,
+                copy_header=True,
+                n_iterations=[50] * 5,
+                convergence_threshold=1e-7,
+                rescale_intensities=True,
+                shrink_factor=4), 
+                name="n4_correct")
+        final_clip = pe.Node(IntensityClip(p_min=5.0, p_max=99.5), name="final_clip")
+
+        wf.connect([
+            (inputnode, clip, [("in_anat", "in_file")]),
+            (clip, denoise, [("out_file", "input_image")]),
+            (denoise, n4_correct, [("output_image", "input_image")]),
+            (n4_correct, final_clip, [("output_image", "in_file")]),
+            (final_clip, outputnode, [("out_file", "out_anat")]),
+        ])
+        wf.run()
+
+        #src=os.path.join(wd, f'{tmod}_denoise_and_bfcorrect/final_clip/clipped.nii.gz')
+        dest=input_avg_img
+        shutil.copy(src, dest)
 
 def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
                                 j_args):
@@ -860,7 +867,8 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
 
     # Define paths to registration output matrices and images
     registration_outputs = {"cropT1tocropT1": xfm_non_ACPC_vars["ident_mx"],
-                            "cropT2tocropT1": os.path.join(xfm_non_ACPC_vars["out_dir"], "cropT2tocropT1.mat")}
+                            "cropT2tocropT1": os.path.join(xfm_non_ACPC_vars["out_dir"], 
+                            "cropT2tocropT1.mat")}
     for t in (1, 2):
     # Define paths to registration output files
         registration_outputs[f"T{t}w_crop2BIBS_mat"] = os.path.join(
@@ -880,6 +888,21 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
                             '-cost', 'mutualinfo',
                             '-searchrx', '-15', '15', '-searchry', '-15', '15',
                             '-searchrz', '-15', '15', '-dof', '6')
+     
+        # Make transformed T1ws and T2ws
+        # transform_image_T(t, (xfm_non_ACPC_vars[reg_in_var.format(t)] if t == 1 else
+        #         registration_outputs["T2w"]), xfm_non_ACPC_vars, registration_outputs, j_args
+        # )
+    for t in (1, 2):
+        run_FSL_sh_script(
+            j_args, "flirt",
+            "-in", xfm_non_ACPC_vars[reg_in_var.format(t)] if t == 1 else registration_outputs["T2w"],  
+            "-ref", xfm_non_ACPC_vars["ref_img"].format(t),
+            "-applyisoxfm", xfm_non_ACPC_vars["resolution"],
+            "-init", xfm_non_ACPC_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)]
+            "-o", registration_outputs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)]
+            "-omat", registration_outputs[f"T{t}w_crop2BIBS_mat"]
+        )
 
     return {"vars": xfm_non_ACPC_vars, "img_paths": registration_outputs}
 
