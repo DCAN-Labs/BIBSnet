@@ -904,10 +904,9 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
                 "-in", xfm_vars[reg_in_var(2)],
                 "-omat", registration_outputs["cropT2tocropT1"],
                 "-out", registration_outputs["T2w"],
-                "-cost", "mutualinfo",
                 "-dof", "6"
             )
-
+                # "-cost", "mutualinfo",
                 # "-searchrx", "-15", "15",
                 # "-searchry", "-15", "15",
                 # "-searchrz", "-15", "15",
@@ -973,8 +972,9 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
                             "-in", xfm_vars[reg_input_var.format(2)],
                             "-omat", registration_outputs["cropT2tocropT1"],
                             "-out", registration_outputs["T2w"],
-                            '-cost', 'mutualinfo', '-dof', '6')
+                            '-dof', '6')
             
+                            # '-cost', 'mutualinfo',
                             # '-searchrx', '-15', '15', '-searchry', '-15', '15',
                             # '-searchrz', '-15', '15', '-dof', '6')
 
