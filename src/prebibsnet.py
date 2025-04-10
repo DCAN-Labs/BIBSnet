@@ -42,7 +42,7 @@ def run_preBIBSnet(j_args):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
 
-    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane,and crop average T1w and T2w images
+    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane, and crop average T1w and T2w images
     cropped = dict()
     crop_dir= dict()
     brainmask = dict()
@@ -904,12 +904,13 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
                 "-in", xfm_vars[reg_in_var(2)],
                 "-omat", registration_outputs["cropT2tocropT1"],
                 "-out", registration_outputs["T2w"],
+                 "-cost", "mutualinfo",
+                 "-searchrx", "-15", "15",
+                 "-searchry", "-15", "15",
+                 "-searchrz", "-15", "15",
                 "-dof", "6"
             )
-                # "-cost", "mutualinfo",
-                # "-searchrx", "-15", "15",
-                # "-searchry", "-15", "15",
-                # "-searchrz", "-15", "15",
+
 
         input_img = xfm_vars[reg_in_var(t)] if t == 1 else registration_outputs["T2w"]
 
@@ -972,11 +973,9 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
                             "-in", xfm_vars[reg_input_var.format(2)],
                             "-omat", registration_outputs["cropT2tocropT1"],
                             "-out", registration_outputs["T2w"],
-                            '-dof', '6')
-            
-                            # '-cost', 'mutualinfo',
-                            # '-searchrx', '-15', '15', '-searchry', '-15', '15',
-                            # '-searchrz', '-15', '15', '-dof', '6')
+                            '-cost', 'mutualinfo',
+                            '-searchrx', '-15', '15', '-searchry', '-15', '15',
+                            '-searchrz', '-15', '15', '-dof', '6')
 
         elif acpc:  # Save cropped and aligned T1w image 
             shutil.copy2(xfm_vars[reg_input_var.format(1)],
