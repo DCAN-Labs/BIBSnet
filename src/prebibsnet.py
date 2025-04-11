@@ -452,8 +452,8 @@ def calculate_eta(img_paths):
     m_grand = (np.mean(vectors["T1w"]) + np.mean(vectors["T2w"])) / 2  # mean value over all locations in both images
     m_within = (vectors["T1w"] + vectors["T2w"]) / 2  # mean value matrix for each location in the 2 images
 
-    sswithin = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_within)  # medians["within"])
-    sstot = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_grand)  # medians["grand"])
+    sswithin = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_within)
+    sstot = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_grand) 
     LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
 
     return 1 - sswithin / sstot
