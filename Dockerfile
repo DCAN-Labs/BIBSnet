@@ -162,4 +162,7 @@ RUN pip list | grep pandas
 RUN python -c "import pandas; print(pandas.__version__)"
 RUN chmod -R a+rx /home/bibsnet /opt/nnUNet
 
+# Run as non-root user (otherwise output files are root-owned)
+USER bibsnet
+
 ENTRYPOINT ["bibsnet"]
