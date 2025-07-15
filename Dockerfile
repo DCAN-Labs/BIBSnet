@@ -111,9 +111,9 @@ ENV HOME="/home/bibsnet" \
 # install nnUNet git repo
 RUN cd /home/bibsnet && \
     mkdir SW && \
-    git clone https://github.com/MIC-DKFZ/nnUNet.git && \
+    git clone https://github.com/DCAN-Labs/nnUNet.git && \
     cd nnUNet && \
-    git checkout -b v1.7.1 v1.7.1 && \
+    git checkout -b 1.7.1-maintenance v1.7.1m0 && \
     pip install -e .
 
 #ENV nnUNet_raw_data_base="/output"
