@@ -114,6 +114,7 @@ RUN cd /home/bibsnet && \
     git clone https://github.com/DCAN-Labs/nnUNet.git && \
     cd nnUNet && \
     git checkout -b 1.7.1-maintenance v1.7.1m7 && \
+    pip install -v "SimpleITK==2.4.1"
     pip install -e .
 
 #ENV nnUNet_raw_data_base="/output"
