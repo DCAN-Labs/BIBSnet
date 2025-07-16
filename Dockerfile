@@ -113,7 +113,7 @@ RUN cd /home/bibsnet && \
     mkdir SW && \
     git clone https://github.com/DCAN-Labs/nnUNet.git && \
     cd nnUNet && \
-    git checkout -b 1.7.1-maintenance v1.7.1m4 && \
+    git checkout -b 1.7.1-maintenance v1.7.1m5 && \
     pip install -e .
 
 #ENV nnUNet_raw_data_base="/output"
