@@ -3,7 +3,7 @@ FROM pennbbl/qsiprep-freesurfer:23.3.0 as build_freesurfer
 FROM build_pytorch
 # Manually update the BIBSnet version when building
 
-ENV BIBSNET_VERSION="3.5.0"
+ENV BIBSNET_VERSION="3.5.1"
 
 # Prepare environment
 RUN apt-get update && \
