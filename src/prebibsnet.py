@@ -72,7 +72,14 @@ def run_preBIBSnet(j_args):
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
-        # Non-ACPC
+        # Non-ACPC WITH restricted search space parameters and cost function set to mutualinfo
+        regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
+            cropped, preBIBSnet_paths["resized"], reference_img, 
+            id_mx, resolution, j_args
+        )
+        LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
+
+        # Non-ACPC WITHOUT restricted search space parameters and cost function set to mutualinfo
         regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
