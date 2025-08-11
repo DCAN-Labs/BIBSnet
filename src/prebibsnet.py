@@ -415,7 +415,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     try:
         acpc_t1_path = xfm_imgs_ACPC_and_reg['T1w']
         output_dir = os.path.abspath(os.path.join(os.path.dirname(acpc_t1_path), ".."))
-        output_path = os.path.join(output_dir, "registration_metrics.txt")
+        output_path = os.path.join(output_dir, "registration_metrics_acpc-vs-xfms.txt")
 
         with open(output_path, "w") as f:
             f.write("Eta-Squared Values:\n")
@@ -982,7 +982,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
 
     # Save results to text file
     try:
-        output_path = os.path.join(output_dir, "registration_metrics.txt")
+        output_path = os.path.join(output_dir, "registration_metrics_xfms.txt")
         with open(output_path, "w") as f:
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
