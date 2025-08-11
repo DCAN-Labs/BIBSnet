@@ -405,11 +405,11 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
 
     # ssim calculations
-    ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
-    ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
+    # ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
+    # ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
 
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    LOGGER.verbose(f"SSIM Values: {ssim}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to a text file in parent directory of xfm_imgs_ACPC_and_reg
     try:
