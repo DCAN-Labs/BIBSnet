@@ -968,16 +968,21 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
     xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
 
-    # Calculate ETA2 and SSIM for each workflows
+    # Calculate ETA2, Pearson, SSIM for each workflows
     eta = {
         "free":       calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
+    }
+    pearson = {
+        "free":       compute_eta2_between_images(xfm_vars_free), 
+        "restricted": compute_eta2_between_images(xfm_vars_restrict)
     }
     ssim = {
         "free":       calculate_ssim(xfm_vars_free),
         "restricted": calculate_ssim(xfm_vars_restrict)
     }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    LOGGER.verbose(f"Pearson Values: {pearson}")
     LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to text file
@@ -986,6 +991,9 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
         with open(output_path, "w") as f:
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
+                f.write(f"  {k}: {v:.4f}\n")
+            f.write("Pearson Values:\n")
+            for k, v in pearson.items():
                 f.write(f"  {k}: {v:.4f}\n")
             f.write("\nSSIM Values:\n")
             for k, v in ssim.items():
