@@ -76,6 +76,26 @@ def compute_eta2_between_images(img_path_a, img_path_b, mask=None):
         return 0.0
     return float(r ** 2)
 
+def calculate_ssim(img_paths):
+    """
+    Computes the Structural Similarity Index (SSIM) between two MRI images.
+    SSIM ranges from -1 to 1, where 1 indicates perfect similarity.
+    :param img_paths: Dictionary mapping "T1w" and "T2w" to strings that are
+                      valid paths to the existing respective image files
+    :return: SSIM value (Float)
+    """  
+    # Load niftis as arrays and normalize intensity values to [0,1] for SSIM
+    vectors = dict()
+    for t in (1, 2): 
+        anat = f"T{t}w"
+        vectors[anat]=nib.load(img_paths[anat]).get_fdata()
+        vectors[anat] = (vectors[anat] - np.min(vectors[anat])) / (np.max(vectors[anat]) - np.min(vectors[anat])) # normalize
+
+    # Compute SSIM
+    ssim_value = ssim(vectors["T1w"], vectors["T2w"], data_range=1.0)
+
+    return ssim_value
+
 def main():
     parser = argparse.ArgumentParser(description="Compare two NIfTI images using eta metrics.")
     parser.add_argument("img1", help="Path to first NIfTI image")
@@ -86,12 +106,14 @@ def main():
     try:
         eta_method1 = calculate_eta({"T1w": args.img1, "T2w": args.img2})
         eta_method2 = compute_eta2_between_images(args.img1, args.img2, mask=args.mask)
+        ssim = calculate_ssim({"T1w": args.img1, "T2w": args.img2})
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Eta (method 1): {eta_method1:.6f}")
     print(f"Eta (method 2, r^2): {eta_method2:.6f}")
+    print(f"SSIM: {ssim:.6f}")
 
 if __name__ == "__main__":
     main()
