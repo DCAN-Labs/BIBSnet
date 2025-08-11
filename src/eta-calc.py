@@ -3,6 +3,7 @@ import nibabel as nib
 import numpy as np
 import argparse
 import sys
+from skimage.metrics import structural_similarity as ssim
 
 def reshape_volume_to_array(array_img):
     """Return a flattened float64 array from a NIfTI image."""
