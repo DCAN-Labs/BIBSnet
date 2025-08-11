@@ -1,20 +1,25 @@
 # BIBSNet Outputs
 
-The derivative output folder is organized as follows:
+BIBSNet generates brain segmentations, brain masks, and ROI volumes in native T1w and/or T2w space (depending on the presence of T1w and/or T2w files in the input BIDS):
+
+- Brain segmentation files in native T1w/T2w space
+- Brain mask files in native T1w/T2w space
+- Brain volumes computed for segmented ROIs in native T1w/T2w space
+
+The derivative output folder is organized as follows. Note that each image file (`.nii.gz`) and `.tsv` is accompanied by a sidecar `.json` file that contains metadata for that file:
+
 ```
-├── derivatives/
-    ├── bibsnet/
-        ├── sub-01/
-            ├── ses-A/
-                ├── anat/
-                    ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.json
-                    ├── sub-01_ses-A_space-T1w_desc-aseg_dseg.nii.gz
-                    ├── sub-01_ses-A_space-T1w_desc-brain_mask.json
-                    ├── sub-01_ses-A_space-T1w_desc-brain_mask.nii.gz
-                    ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.json
-                    ├── sub-01_ses-A_space-T2w_desc-aseg_dseg.nii.gz
-                    ├── sub-01_ses-A_space-T2w_desc-brain_mask.json
-                    ├── sub-01_ses-A_space-T2w_desc-brain_mask.nii.gz
+derivatives/
+|_ bibsnet/
+   |_ sub-01/
+      |_ ses-A/
+        |_ anat/  
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-aseg_dseg.nii.gz   # Brain segmentation(s)
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-aseg_dseg.json
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-brain_mask.nii.gz  # Brain mask(s)
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-brain_mask.json
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-aseg_volumes.tsv   # Brain ROI volumes
+           |_ sub-01_ses-A_space-<T1w|T2w>_desc-aseg_volumes.json
 ```
 <br />
 
