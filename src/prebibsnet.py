@@ -398,18 +398,18 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     """
     msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
-    ssim = dict()
+    # ssim = dict()
 
     # eta squared calculations
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
 
     # ssim calculations
-    ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
-    ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
+    # ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
+    # ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
 
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    LOGGER.verbose(f"SSIM Values: {ssim}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to a text file in parent directory of xfm_imgs_ACPC_and_reg
     try:
@@ -421,9 +421,9 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
-            f.write("\nSSIM Values:\n")
-            for k, v in ssim.items():
-                f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
@@ -974,12 +974,12 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
         "free":       calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
     }
-    ssim = {
-        "free":       calculate_ssim(xfm_vars_free),
-        "restricted": calculate_ssim(xfm_vars_restrict)
-    }
+    # ssim = {
+    #     "free":       calculate_ssim(xfm_vars_free),
+    #     "restricted": calculate_ssim(xfm_vars_restrict)
+    # }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    LOGGER.verbose(f"SSIM Values: {ssim}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to text file
     try:
@@ -988,9 +988,9 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
-            f.write("\nSSIM Values:\n")
-            for k, v in ssim.items():
-                f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
