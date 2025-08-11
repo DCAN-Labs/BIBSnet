@@ -72,18 +72,13 @@ def run_preBIBSnet(j_args):
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
-        # Non-ACPC WITH restricted search space parameters and cost function set to mutualinfo
+        # Non-ACPC with and without restricted search space parameters 
         regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
         )
         LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
 
-        # Non-ACPC WITHOUT restricted search space parameters and cost function set to mutualinfo
-        regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
-            cropped, preBIBSnet_paths["resized"], reference_img, 
-            id_mx, resolution, j_args
-        )
         LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
 
         # ACPC
@@ -855,10 +850,51 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
     # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
 
+def compute_eta2_between_images(img_path_a, img_path_b, mask=None):
+    """
+    Compute eta^2-like metric between two images.
+    Here we compute Pearson r between nonzero voxels and return r**2.
+    Returns float in [0,1]. Higher -> more similar.
+    """
+    a = nib.load(img_path_a).get_fdata(dtype=np.float64)
+    b = nib.load(img_path_b).get_fdata(dtype=np.float64)
+    if a.shape != b.shape:
+        raise ValueError(f"Image shapes differ: {a.shape} vs {b.shape}")
+
+    # Build mask: nonzero in both images (and user-supplied mask)
+    mask_data = (np.isfinite(a) & np.isfinite(b) & (a != 0) & (b != 0))
+    if mask is not None:
+        mask_img = nib.load(mask).get_fdata(dtype=bool)
+        if mask_img.shape == mask_data.shape:
+            mask_data &= mask_img.astype(bool)
+    vals_a = a[mask_data].ravel()
+    vals_b = b[mask_data].ravel()
+
+    if vals_a.size < 10:
+        # Too few voxels to get a reliable estimate; fallback to whole-image finite vals
+        mask_data = (np.isfinite(a) & np.isfinite(b))
+        vals_a = a[mask_data].ravel()
+        vals_b = b[mask_data].ravel()
+
+    if vals_a.size == 0:
+        return 0.0
+
+    # Remove constant signals
+    if np.nanstd(vals_a) == 0 or np.nanstd(vals_b) == 0:
+        return 0.0
+
+    r = np.corrcoef(vals_a, vals_b)[0, 1]
+    if np.isnan(r):
+        return 0.0
+    return float(r**2)
+
 def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 
                                       ident_mx, resolution, j_args):
     """
-    Registers T2w to T1w using non-ACPC method.
+    Registers T2w to T1w using non-ACPC method, both with and without
+    restricted search space parameters, then chooses the better result
+    based on eta-squared (and optionally SSIM). Finally, applies chosen 
+    result to make *_to_BIBS and *_crop2BIBS_mat transform matrices.
     :param cropped_imgs: Cropped T1 and T2 image filepaths (dictionary)
     :param output_dir: Output folder filepath
     :param ref_image: MNI template paths (dictionary)
@@ -866,78 +902,144 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     :param resolution: Output resolution
     :param j_args: Dictionary containing all args
     """
-    # Prepare output directory for transformations
-    xfm_out_dir = os.path.join(output_dir, "xfms")
-    os.makedirs(xfm_out_dir, exist_ok=True)
+    # Output dirs for free and restricted registrations
+    xfm_out_dir_free = os.path.join(output_dir, "xfms_free")
+    xfm_out_dir_restrict = os.path.join(output_dir, "xfms_restrict")
+    os.makedirs(xfm_out_dir_free, exist_ok=True)
+    os.makedirs(xfm_out_dir_restrict, exist_ok=True)
 
     # Helper lambdas for variable names
     reg_in_var = lambda t: f"reg_input_T{t}w_img"
     out_var = lambda t: f"output_T{t}w_img"
 
-    # Build transformation variable dictionary
-    xfm_vars = {
-        "out_dir": xfm_out_dir,
-        "resolution": resolution,
-        "ident_mx": ident_mx,
-        "ref_img": ref_image,
-    }
+    # Build base variables
+    xfm_vars_free = {"out_dir": xfm_out_dir_free,
+                    "resolution": resolution,
+                    "ident_mx": ident_mx,
+                    "ref_img": ref_image}
+    xfm_vars_restrict = {"out_dir": xfm_out_dir_restrict,
+                         "resolution": resolution,
+                         "ident_mx": ident_mx,
+                         "ref_img": ref_image}
 
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
-        xfm_vars[reg_in_var(t)] = crop_img_path
-        out_fname = f"T{t}w_registered_to_T1w{img_ext}"
-        xfm_vars[out_var(t)] = os.path.join(xfm_out_dir, out_fname)
+        for xfm_vars in (xfm_vars_free, xfm_vars_restrict):
+            xfm_vars[reg_in_var(t)] = crop_img_path
+            xfm_vars[out_var(t)] = os.path.join(xfm_vars["out_dir"], f"T{t}w_registered_to_T1w{img_ext}")
 
-    # Define registration output paths
+    # Run free-space registration
+    mat_free = os.path.join(xfm_out_dir_free, "cropT2tocropT1.mat")
+    run_FSL_sh_script(
+        j_args, "flirt",
+        "-ref", xfm_vars_free[reg_in_var(1)],
+        "-in", xfm_vars_free[reg_in_var(2)],
+        "-omat", mat_free,
+        "-out", xfm_vars_free["output_T2w_img"],
+        "-cost", "mutualinfo",
+        "-dof", "6"
+    )
+
+    # expose convenient keys for metric funcs
+    xfm_vars_free["T1w"] = xfm_vars_free["output_T1w_img"] if "output_T1w_img" in xfm_vars_free else xfm_vars_free[reg_in_var(1)]
+    xfm_vars_free["T2w"] = xfm_vars_free["output_T2w_img"]
+    xfm_vars_free["cropT2tocropT1"] = mat_free
+
+    # Run restricted-space registration
+    mat_restrict = os.path.join(xfm_out_dir_restrict, "cropT2tocropT1.mat")
+    run_FSL_sh_script(
+        j_args, "flirt",
+        "-ref", xfm_vars_restrict[reg_in_var(1)],
+        "-in", xfm_vars_restrict[reg_in_var(2)],
+        "-omat", mat_restrict,
+        "-out", xfm_vars_restrict["output_T2w_img"],
+        "-cost", "mutualinfo",
+        "-searchrx", "-15", "15",
+        "-searchry", "-15", "15",
+        "-searchrz", "-15", "15",
+        "-dof", "6"
+    )
+
+    # expose convenient keys for metric funcs
+    xfm_vars_restrict["T1w"] = xfm_vars_restrict["output_T1w_img"] if "output_T1w_img" in xfm_vars_restrict else xfm_vars_restrict[reg_in_var(1)]
+    xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
+    xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
+
+    # Calculate ETA2 and SSIM for each workflows
+    eta = {
+        "free": calculate_eta(xfm_vars_free),
+        "restricted": calculate_eta(xfm_vars_restrict)
+    }
+    ssim = {
+        "free": calculate_ssim(xfm_vars_free),
+        "restricted": calculate_ssim(xfm_vars_restrict)
+    }
+    LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    LOGGER.verbose(f"SSIM Values: {ssim}")
+
+    # Save results to text file
+    try:
+        output_path = os.path.join(output_dir, "registration_metrics.txt")
+        with open(output_path, "w") as f:
+            f.write("Eta-Squared Values:\n")
+            for k, v in eta.items():
+                f.write(f"  {k}: {v:.4f}\n")
+            f.write("\nSSIM Values:\n")
+            for k, v in ssim.items():
+                f.write(f"  {k}: {v:.4f}\n")
+    except Exception as e:
+        LOGGER.warning(f"Could not write registration metrics to file: {e}")
+
+    # Choose best registration
+    if eta["free"] > eta["restricted"]:
+        chosen = xfm_vars_free
+        mode = "free"
+        LOGGER.info("Using free-space search T2w-to-T1w registration.")
+    else:
+        chosen = xfm_vars_restrict
+        mode = "restricted"
+        LOGGER.info("Using restricted search T2w-to-T1w registration.")
+
+    # Create BIBS outputs and *_crop2BIBS_mat
     registration_outputs = {
         "cropT1tocropT1": ident_mx,
-        "cropT2tocropT1": os.path.join(xfm_out_dir, "cropT2tocropT1.mat"),
+        "cropT2tocropT1": chosen["cropT2tocropT1"],
+        "T1w": chosen.get("T1w", chosen[reg_in_var(1)]),
+        "T2w": chosen["T2w"],
+        "chosen_T2_mode": mode,
+        "eta_free": eta["free"],
+        "eta_restricted": eta["restricted"],
     }
 
+    # Loop through T1, T2 to apply transformations
     for t in (1, 2):
         t_key = f"T{t}w"
         registration_outputs[f"{t_key}_crop2BIBS_mat"] = os.path.join(
-            xfm_out_dir, f"crop_{t_key}_to_BIBS_template.mat"
+            chosen["out_dir"], f"crop_{t_key}_to_BIBS_template.mat"
         )
-        registration_outputs[t_key] = xfm_vars[out_var(t)]
         registration_outputs[f"{t_key}_to_BIBS"] = os.path.join(
-            xfm_out_dir, f"{t_key}_to_BIBS.nii.gz"
+            chosen["out_dir"], f"{t_key}_to_BIBS.nii.gz"
         )
 
-        if t == 2:
-            run_FSL_sh_script(
-                j_args, "flirt",
-                "-ref", xfm_vars[reg_in_var(1)],
-                "-in", xfm_vars[reg_in_var(2)],
-                "-omat", registration_outputs["cropT2tocropT1"],
-                "-out", registration_outputs["T2w"],
-                 "-cost", "mutualinfo",
-                 "-searchrx", "-15", "15",
-                 "-searchry", "-15", "15",
-                 "-searchrz", "-15", "15",
-                "-dof", "6"
-            )
+        input_img = chosen[reg_in_var(t)] if t == 1 else registration_outputs["T2w"]
 
-
-        input_img = xfm_vars[reg_in_var(t)] if t == 1 else registration_outputs["T2w"]
-
-        # Create transformation matrices
+        # user-defined: make any extra composite matrices you need
         transform_image_T(
             t, input_img,
-            xfm_vars, registration_outputs, j_args
+            chosen, registration_outputs, j_args
         )
 
         run_FSL_sh_script(
             j_args, "flirt",
             "-in", input_img,
-            "-ref", xfm_vars["ref_img"][t],
-            "-applyisoxfm", xfm_vars["resolution"],
-            "-init", xfm_vars["ident_mx"],
+            "-ref", chosen["ref_img"][t],
+            "-applyisoxfm", chosen["resolution"],
+            "-init", chosen["ident_mx"],
             "-o", registration_outputs[f"{t_key}_to_BIBS"],
             "-omat", registration_outputs[f"{t_key}_crop2BIBS_mat"]
         )
 
-    return {"vars": xfm_vars, "img_paths": registration_outputs}
+    return {"vars": chosen, "img_paths": registration_outputs}
 
 def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     """
