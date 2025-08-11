@@ -396,13 +396,20 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     with and without first doing the ACPC registration)
     :param j_args: Dictionary containing all args
     """
+    msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
+    # ssim = dict()
 
     # eta squared calculations
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
 
+    # ssim calculations
+    ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
+    ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
+
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to a text file in parent directory of xfm_imgs_ACPC_and_reg
     try:
@@ -414,10 +421,11 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
-
-    msg = "Using {} T2w-to-T1w registration for resizing."
 
     if eta["non-ACPC"] > eta["ACPC"]:
         optimal_resize = xfm_imgs_non_ACPC
@@ -885,7 +893,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     """
     Registers T2w to T1w using non-ACPC method, both with and without
     restricted search space parameters, then chooses the better result
-    based on eta-squared. Finally, applies chosen 
+    based on eta-squared (and optionally SSIM). Finally, applies chosen 
     result to make *_to_BIBS and *_crop2BIBS_mat transform matrices.
     :param cropped_imgs: Cropped T1 and T2 image filepaths (dictionary)
     :param output_dir: Output folder filepath
@@ -960,12 +968,17 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
     xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
 
-    # Calculate ETA2 for each workflow
+    # Calculate ETA2 and SSIM for each workflows
     eta = {
         "free":       calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
     }
+    # ssim = {
+    #     "free":       calculate_ssim(xfm_vars_free),
+    #     "restricted": calculate_ssim(xfm_vars_restrict)
+    # }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
 
     # Save results to text file
     try:
@@ -974,6 +987,9 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
