@@ -938,7 +938,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     xfm_vars_free["T1w"] = xfm_vars_free[reg_in_var(1)]
     xfm_vars_restrict["T1w"] = xfm_vars_restrict[reg_in_var(1)]
 
-    # Run free-space registration
+    # Run free-space registration and cost function set to default (correlation ratio)
     mat_free = os.path.join(xfm_out_dir_free, "cropT2tocropT1.mat")
     run_FSL_sh_script(
         j_args, "flirt",
@@ -946,7 +946,6 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
         "-in",  xfm_vars_free[reg_in_var(2)],
         "-omat", mat_free,
         "-out",  xfm_vars_free["output_T2w_img"],
-        "-cost", "mutualinfo",
         "-dof", "6"
     )
     xfm_vars_free["T2w"] = xfm_vars_free["output_T2w_img"]
