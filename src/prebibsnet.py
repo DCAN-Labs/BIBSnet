@@ -921,27 +921,34 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
                          "resolution": resolution,
                          "ident_mx": ident_mx,
                          "ref_img": ref_image}
-
+    
+    # Assign inputs
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
         for xfm_vars in (xfm_vars_free, xfm_vars_restrict):
             xfm_vars[reg_in_var(t)] = crop_img_path
-            xfm_vars[out_var(t)] = os.path.join(xfm_vars["out_dir"], f"T{t}w_registered_to_T1w{img_ext}")
+
+            if t == 2:
+                # Only create an output for T2 (T1 is not registered/transformed in this function)
+                xfm_vars[out_var(t)] = os.path.join(
+                    xfm_vars["out_dir"], f"T{t}w_registered_to_T1w{img_ext}"
+                )
+
+    # Always set T1w to the input cropped T1 (no separate registered T1 file)
+    xfm_vars_free["T1w"] = xfm_vars_free[reg_in_var(1)]
+    xfm_vars_restrict["T1w"] = xfm_vars_restrict[reg_in_var(1)]
 
     # Run free-space registration
     mat_free = os.path.join(xfm_out_dir_free, "cropT2tocropT1.mat")
     run_FSL_sh_script(
         j_args, "flirt",
         "-ref", xfm_vars_free[reg_in_var(1)],
-        "-in", xfm_vars_free[reg_in_var(2)],
+        "-in",  xfm_vars_free[reg_in_var(2)],
         "-omat", mat_free,
-        "-out", xfm_vars_free["output_T2w_img"],
+        "-out",  xfm_vars_free["output_T2w_img"],
         "-cost", "mutualinfo",
         "-dof", "6"
     )
-
-    # expose convenient keys for metric funcs
-    xfm_vars_free["T1w"] = xfm_vars_free["output_T1w_img"] if "output_T1w_img" in xfm_vars_free else xfm_vars_free[reg_in_var(1)]
     xfm_vars_free["T2w"] = xfm_vars_free["output_T2w_img"]
     xfm_vars_free["cropT2tocropT1"] = mat_free
 
@@ -950,28 +957,25 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     run_FSL_sh_script(
         j_args, "flirt",
         "-ref", xfm_vars_restrict[reg_in_var(1)],
-        "-in", xfm_vars_restrict[reg_in_var(2)],
+        "-in",  xfm_vars_restrict[reg_in_var(2)],
         "-omat", mat_restrict,
-        "-out", xfm_vars_restrict["output_T2w_img"],
+        "-out",  xfm_vars_restrict["output_T2w_img"],
         "-cost", "mutualinfo",
         "-searchrx", "-15", "15",
         "-searchry", "-15", "15",
         "-searchrz", "-15", "15",
         "-dof", "6"
     )
-
-    # expose convenient keys for metric funcs
-    xfm_vars_restrict["T1w"] = xfm_vars_restrict["output_T1w_img"] if "output_T1w_img" in xfm_vars_restrict else xfm_vars_restrict[reg_in_var(1)]
     xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
     xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
 
     # Calculate ETA2 and SSIM for each workflows
     eta = {
-        "free": calculate_eta(xfm_vars_free),
+        "free":       calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
     }
     ssim = {
-        "free": calculate_ssim(xfm_vars_free),
+        "free":       calculate_ssim(xfm_vars_free),
         "restricted": calculate_ssim(xfm_vars_restrict)
     }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
@@ -1004,7 +1008,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     registration_outputs = {
         "cropT1tocropT1": ident_mx,
         "cropT2tocropT1": chosen["cropT2tocropT1"],
-        "T1w": chosen.get("T1w", chosen[reg_in_var(1)]),
+        "T1w": chosen["T1w"],
         "T2w": chosen["T2w"],
         "chosen_T2_mode": mode,
         "eta_free": eta["free"],
@@ -1022,12 +1026,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
         )
 
         input_img = chosen[reg_in_var(t)] if t == 1 else registration_outputs["T2w"]
-
-        # user-defined: make any extra composite matrices you need
-        transform_image_T(
-            t, input_img,
-            chosen, registration_outputs, j_args
-        )
+        transform_image_T(t, input_img, chosen, registration_outputs, j_args)
 
         run_FSL_sh_script(
             j_args, "flirt",
