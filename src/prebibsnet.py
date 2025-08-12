@@ -9,6 +9,7 @@ from nipype.interfaces.ants import N4BiasFieldCorrection
 from niworkflows.interfaces.nibabel import IntensityClip
 import numpy as np
 from glob import glob
+from skimage.metrics import structural_similarity as ssim
 
 from src.logger import LOGGER
 
@@ -40,8 +41,8 @@ def run_preBIBSnet(j_args):
     for t in only_Ts_needed_for_bibsnet_model(j_args["ID"]):
         mod=f"T{t}w"
         denoise_and_n4(mod, preBIBSnet_paths["avg"][f"T{t}w_avg"])
-    
-    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane,and crop average T1w and T2w images
+
+    # Generate brainmask with SynthStrip, use as reference to determine axial cutting plane, and crop average T1w and T2w images
     cropped = dict()
     crop_dir= dict()
     brainmask = dict()
@@ -60,21 +61,24 @@ def run_preBIBSnet(j_args):
     LOGGER.info(completion_msg.format("cropped"))
 
     # Resize T1w and T2w images if running a BIBSnet model using T1w and T2w
-    # TODO Pipeline should verify that reference_img files exist before running
     reference_img = os.path.join(SCRIPT_DIR, "data", "MNI_templates",
                                  "INFANT_MNI_T{}_1mm.nii.gz")
     LOGGER.debug(f"reference_img: {reference_img}")
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     # TODO Resolution is hardcoded; infer it or get it from the command-line
     resolution = "1"
+
+    # Perform T2w-to-T1w registration via multiple methods if both T1w and T2w are present (including non-ACPC/xfms and ACPC)
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
-        # Non-ACPC
+        # Non-ACPC with and without restricted search space parameters 
         regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
         )
+        LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
+
         LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
 
         # ACPC
@@ -84,6 +88,7 @@ def run_preBIBSnet(j_args):
         )
         LOGGER.verbose(msg_xfm.format("", regn_ACPC["vars"]))
 
+        # Apply final transforms to average images
         transformed_images = apply_final_prebibsnet_xfms(
             regn_non_ACPC, regn_ACPC, preBIBSnet_paths["avg"], j_args
         )
@@ -104,7 +109,7 @@ def run_preBIBSnet(j_args):
         run_FSL_sh_script(  # Get xfm moving the T1 (or T2) into BIBS space
             j_args, "flirt", "-in", cropped[t1or2],
             "-ref", reference_img.format(t1or2), "-applyisoxfm", resolution,
-            "-init", id_mx, # TODO Should this be a matrix that does a transformation?
+            "-init", id_mx, 
             "-omat", crop2BIBS_mat
         )
 
@@ -118,10 +123,8 @@ def run_preBIBSnet(j_args):
         run_FSL_sh_script(j_args, "convert_xfm", "-inverse",
                           crop2full[t], "-omat", full2crop) 
 
-        # - Concatenate crop .mat to out_mat (in that order) and apply the
-        #   concatenated .mat to the averaged image as the output
-        # - Treat that concatenated output .mat as the output to pass
-        #   along to postBIBSnet, and the image output to BIBSnet
+        # Concatenate crop .mat to out_mat (in that order) and apply the concatenated .mat to the averaged image as the output
+        # Treat that concatenated output .mat as the output to pass along to postBIBSnet, and the image output to BIBSnet
         run_FSL_sh_script(  # Combine ACPC-alignment with robustFOV output
             j_args, "convert_xfm", "-omat", out_mat,
             "-concat", full2crop, crop2BIBS_mat
@@ -179,41 +182,47 @@ def denoise_and_n4(tmod, input_avg_img):
     wd=os.path.dirname(input_avg_img)
     wf = pe.Workflow(name=f'{tmod}_denoise_and_bfcorrect', base_dir=wd)
 
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=["in_anat"]),
-        name="inputnode",
-        )
-    outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_anat"]),
-        name="outputnode",
-    )
-
-    inputnode.inputs.in_anat = input_avg_img
-
-    clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
-    denoise = pe.Node(DenoiseImage(dimension=3, noise_model="Rician"), name="denoise")
-    n4_correct=pe.Node(N4BiasFieldCorrection(
-            dimension=3,
-            bspline_fitting_distance=200,
-            save_bias=True,
-            copy_header=True,
-            n_iterations=[50] * 5,
-            convergence_threshold=1e-7,
-            rescale_intensities=True,
-            shrink_factor=4), 
-            name="n4_correct")
-    final_clip = pe.Node(IntensityClip(p_min=5.0, p_max=99.5), name="final_clip")
-
-    wf.connect([
-        (inputnode, clip, [("in_anat", "in_file")]),
-        (clip, denoise, [("out_file", "input_image")]),
-        (denoise, n4_correct, [("output_image", "input_image")]),
-        (n4_correct, final_clip, [("output_image", "in_file")]),
-        (final_clip, outputnode, [("out_file", "out_anat")]),
-    ])
-    wf.run()
-
+    # Skip if clipped image already exists
     src=os.path.join(wd, f'{tmod}_denoise_and_bfcorrect/final_clip/clipped.nii.gz')
+    if os.path.exists(src):
+        LOGGER.info(f"Skipping denoise and N4 correction, {src} already exists")
+        return src
+
+    else:
+        inputnode = pe.Node(
+            niu.IdentityInterface(fields=["in_anat"]),
+            name="inputnode",
+            )
+        outputnode = pe.Node(
+            niu.IdentityInterface(fields=["out_anat"]),
+            name="outputnode",
+        )
+
+        inputnode.inputs.in_anat = input_avg_img
+
+        clip = pe.Node(IntensityClip(p_min=10.0, p_max=99.5), name="clip")
+        denoise = pe.Node(DenoiseImage(dimension=3, noise_model="Rician"), name="denoise")
+        n4_correct=pe.Node(N4BiasFieldCorrection(
+                dimension=3,
+                bspline_fitting_distance=200,
+                save_bias=True,
+                copy_header=True,
+                n_iterations=[50] * 5,
+                convergence_threshold=1e-7,
+                rescale_intensities=True,
+                shrink_factor=4), 
+                name="n4_correct")
+        final_clip = pe.Node(IntensityClip(p_min=5.0, p_max=99.5), name="final_clip")
+
+        wf.connect([
+            (inputnode, clip, [("in_anat", "in_file")]),
+            (clip, denoise, [("out_file", "input_image")]),
+            (denoise, n4_correct, [("output_image", "input_image")]),
+            (n4_correct, final_clip, [("output_image", "in_file")]),
+            (final_clip, outputnode, [("out_file", "out_anat")]),
+        ])
+        wf.run()
+
     dest=input_avg_img
     shutil.copy(src, dest)
 
@@ -377,6 +386,7 @@ def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                       "-o", outputs[f"T{t}w"])
     return outputs
 
+import os
 
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     """
@@ -388,22 +398,47 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     """
     msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
-    LOGGER.verbose("ACPC:")
+    # ssim = dict()
+
+    # eta squared calculations
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
-    LOGGER.verbose("Non-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
+
+    # ssim calculations
+    # ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
+    # ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
+
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
+
+    # Save results to a text file in parent directory of xfm_imgs_ACPC_and_reg
+    try:
+        acpc_t1_path = xfm_imgs_ACPC_and_reg['T1w']
+        output_dir = os.path.abspath(os.path.join(os.path.dirname(acpc_t1_path), ".."))
+        output_path = os.path.join(output_dir, "registration_metrics_acpc-vs-xfms.txt")
+
+        with open(output_path, "w") as f:
+            f.write("Eta-Squared Values:\n")
+            for k, v in eta.items():
+                f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
+    except Exception as e:
+        LOGGER.warning(f"Could not write registration metrics to file: {e}")
+
     if eta["non-ACPC"] > eta["ACPC"]:
         optimal_resize = xfm_imgs_non_ACPC
         LOGGER.info(msg.format("only"))
         LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
+        LOGGER.verbose(f"Best registration path: non-ACPC/XFMS")
     else:
         optimal_resize = xfm_imgs_ACPC_and_reg
         LOGGER.info(msg.format("ACPC and"))
         LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
+        LOGGER.verbose(f"Best registration path: ACPC")
 
     return optimal_resize
-
 
 def calculate_eta(img_paths):
     """
@@ -411,36 +446,39 @@ def calculate_eta(img_paths):
                       valid paths to the existing respective image files
     :return: Float(?), the eta value
     """  
-    # get the data from each nifti image as a flattened vector
     vectors = dict()
-    for t in (1, 2):  # TODO Make this also work for (T1-only or?) T2-only by comparing to the registered image instead of the other T
+    for t in (1, 2):  
         anat = f"T{t}w"
-        vectors[anat] = reshape_volume_to_array(nib.load(img_paths[anat]))  # np.abs()
-        negatives = vectors[anat][vectors[anat] < 0]
-        LOGGER.verbose("{} has {} negatives.".format(anat, len(negatives)))  # TODO REMOVE LINE
+        vectors[anat] = reshape_volume_to_array(nib.load(img_paths[anat]))
 
-    """
-    medians = {
-        "grand": (np.median(vectors["T1w"]) + np.median(vectors["T2w"])) / 2,
-        "within": np.median(np.concatenate((vectors["T1w"], vectors["T2w"])))
-    }
-    """
-    # mean value over all locations in both images  # TODO Add if statement to not average if T1-/T2-only 
-    m_grand = (np.mean(vectors["T1w"]) + np.mean(vectors["T2w"])) / 2  # TODO Try using np.median instead of np.mean?
+    m_grand = (np.mean(vectors["T1w"]) + np.mean(vectors["T2w"])) / 2  # mean value over all locations in both images
+    m_within = (vectors["T1w"] + vectors["T2w"]) / 2  # mean value matrix for each location in the 2 images
 
-    # mean value matrix for each location in the 2 images
-    m_within = (vectors["T1w"] + vectors["T2w"]) / 2  # TODO Try combining both arrays and taking the median of the result?
-
-    sswithin = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_within)  # medians["within"])
-    sstot = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_grand)  # medians["grand"])
-
-    # NOTE SStot = SSwithin + SSbetween so eta can also be
-    #      written as SSbetween/SStot
-
+    sswithin = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_within)
+    sstot = sum_of_2_sums_of_squares_of(vectors["T1w"], vectors["T2w"], m_grand) 
     LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
 
     return 1 - sswithin / sstot
 
+def calculate_ssim(img_paths):
+    """
+    Computes the Structural Similarity Index (SSIM) between two MRI images.
+    SSIM ranges from -1 to 1, where 1 indicates perfect similarity.
+    :param img_paths: Dictionary mapping "T1w" and "T2w" to strings that are
+                      valid paths to the existing respective image files
+    :return: SSIM value (Float)
+    """  
+    # Load niftis as arrays and normalize intensity values to [0,1] for SSIM
+    vectors = dict()
+    for t in (1, 2): 
+        anat = f"T{t}w"
+        vectors[anat]=nib.load(img_paths[anat]).get_fdata()
+        vectors[anat] = (vectors[anat] - np.min(vectors[anat])) / (np.max(vectors[anat]) - np.min(vectors[anat])) # normalize
+
+    # Compute SSIM
+    ssim_value = ssim(vectors["T1w"], vectors["T2w"], data_range=1.0)
+
+    return ssim_value
 
 def reshape_volume_to_array(array_img):
     """ 
@@ -812,55 +850,194 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
     # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
 
+def compute_eta2_between_images(img_path_a, img_path_b, mask=None):
+    """
+    Compute eta^2-like metric between two images.
+    Here we compute Pearson r between nonzero voxels and return r**2.
+    Returns float in [0,1]. Higher -> more similar.
+    """
+    a = nib.load(img_path_a).get_fdata(dtype=np.float64)
+    b = nib.load(img_path_b).get_fdata(dtype=np.float64)
+    if a.shape != b.shape:
+        raise ValueError(f"Image shapes differ: {a.shape} vs {b.shape}")
+
+    # Build mask: nonzero in both images (and user-supplied mask)
+    mask_data = (np.isfinite(a) & np.isfinite(b) & (a != 0) & (b != 0))
+    if mask is not None:
+        mask_img = nib.load(mask).get_fdata(dtype=bool)
+        if mask_img.shape == mask_data.shape:
+            mask_data &= mask_img.astype(bool)
+    vals_a = a[mask_data].ravel()
+    vals_b = b[mask_data].ravel()
+
+    if vals_a.size < 10:
+        # Too few voxels to get a reliable estimate; fallback to whole-image finite vals
+        mask_data = (np.isfinite(a) & np.isfinite(b))
+        vals_a = a[mask_data].ravel()
+        vals_b = b[mask_data].ravel()
+
+    if vals_a.size == 0:
+        return 0.0
+
+    # Remove constant signals
+    if np.nanstd(vals_a) == 0 or np.nanstd(vals_b) == 0:
+        return 0.0
+
+    r = np.corrcoef(vals_a, vals_b)[0, 1]
+    if np.isnan(r):
+        return 0.0
+    return float(r**2)
 
 def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 
                                       ident_mx, resolution, j_args):
     """
-    :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
-                         paths to existing image files to resize)
-    :param output_dir: String, valid path to a dir to save resized images into
-    :param ref_images: Dictionary mapping string keys to valid paths to real
-                       image file strings for "ACPC" (alignment) and (T2-to-T1)
-                       "reg"(istration) for flirt to use as a reference image.
-                       The ACPC string has a "{}" in it to represent (T) 1 or 2
-    :param ident_mx: String, valid path to existing identity matrix .mat file
-    :param resolution:
+    Registers T2w to T1w using non-ACPC method, both with and without
+    restricted search space parameters, then chooses the better result
+    based on eta-squared (and optionally SSIM). Finally, applies chosen 
+    result to make *_to_BIBS and *_crop2BIBS_mat transform matrices.
+    :param cropped_imgs: Cropped T1 and T2 image filepaths (dictionary)
+    :param output_dir: Output folder filepath
+    :param ref_image: MNI template paths (dictionary)
+    :param ident_mx: identity matrix .mat filepath
+    :param resolution: Output resolution
     :param j_args: Dictionary containing all args
     """
-    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
+    # Output dirs for free and restricted registrations
+    xfm_out_dir_free = os.path.join(output_dir, "xfms_free")
+    xfm_out_dir_restrict = os.path.join(output_dir, "xfms_restrict")
+    os.makedirs(xfm_out_dir_free, exist_ok=True)
+    os.makedirs(xfm_out_dir_restrict, exist_ok=True)
 
-    # Build dictionaries of variables used for image transformations with and
-    # without ACPC alignment
-    xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms"),
-                         "resolution": resolution, "ident_mx": ident_mx,
+    # Helper lambdas for variable names
+    reg_in_var = lambda t: f"reg_input_T{t}w_img"
+    out_var = lambda t: f"output_T{t}w_img"
+
+    # Build base variables
+    xfm_vars_free = {"out_dir": xfm_out_dir_free,
+                    "resolution": resolution,
+                    "ident_mx": ident_mx,
+                    "ref_img": ref_image}
+    xfm_vars_restrict = {"out_dir": xfm_out_dir_restrict,
+                         "resolution": resolution,
+                         "ident_mx": ident_mx,
                          "ref_img": ref_image}
-    out_var = "output_T{}w_img"
-    reg_in_var = "reg_input_T{}w_img"
-
+    
+    # Assign inputs
     for t, crop_img_path in cropped_imgs.items():
         img_ext = split_2_exts(crop_img_path)[-1]
+        for xfm_vars in (xfm_vars_free, xfm_vars_restrict):
+            xfm_vars[reg_in_var(t)] = crop_img_path
 
-        # Non-ACPC input to registration
-        # for keyname in ("crop_", "reg_input_"):
-        xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
+            if t == 2:
+                # Only create an output for T2 (T1 is not registered/transformed in this function)
+                xfm_vars[out_var(t)] = os.path.join(
+                    xfm_vars["out_dir"], f"T{t}w_registered_to_T1w{img_ext}"
+                )
 
-        # Non-ACPC outputs to registration
-        outfname = f"T{t}w_registered_to_T1w" + img_ext
-        xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
-            xfm_non_ACPC_vars["out_dir"], outfname
+    # Always set T1w to the input cropped T1 (no separate registered T1 file)
+    xfm_vars_free["T1w"] = xfm_vars_free[reg_in_var(1)]
+    xfm_vars_restrict["T1w"] = xfm_vars_restrict[reg_in_var(1)]
+
+    # Run free-space registration and cost function set to default (correlation ratio)
+    mat_free = os.path.join(xfm_out_dir_free, "cropT2tocropT1.mat")
+    run_FSL_sh_script(
+        j_args, "flirt",
+        "-ref", xfm_vars_free[reg_in_var(1)],
+        "-in",  xfm_vars_free[reg_in_var(2)],
+        "-omat", mat_free,
+        "-out",  xfm_vars_free["output_T2w_img"],
+        "-dof", "6"
+    )
+    xfm_vars_free["T2w"] = xfm_vars_free["output_T2w_img"]
+    xfm_vars_free["cropT2tocropT1"] = mat_free
+
+    # Run restricted-space registration
+    mat_restrict = os.path.join(xfm_out_dir_restrict, "cropT2tocropT1.mat")
+    run_FSL_sh_script(
+        j_args, "flirt",
+        "-ref", xfm_vars_restrict[reg_in_var(1)],
+        "-in",  xfm_vars_restrict[reg_in_var(2)],
+        "-omat", mat_restrict,
+        "-out",  xfm_vars_restrict["output_T2w_img"],
+        "-cost", "mutualinfo",
+        "-searchrx", "-15", "15",
+        "-searchry", "-15", "15",
+        "-searchrz", "-15", "15",
+        "-dof", "6"
+    )
+    xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
+    xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
+
+    # Calculate ETA2 and SSIM for each workflows
+    eta = {
+        "free":       calculate_eta(xfm_vars_free), 
+        "restricted": calculate_eta(xfm_vars_restrict)
+    }
+    # ssim = {
+    #     "free":       calculate_ssim(xfm_vars_free),
+    #     "restricted": calculate_ssim(xfm_vars_restrict)
+    # }
+    LOGGER.verbose(f"Eta-Squared Values: {eta}")
+    # LOGGER.verbose(f"SSIM Values: {ssim}")
+
+    # Save results to text file
+    try:
+        output_path = os.path.join(output_dir, "registration_metrics_xfms.txt")
+        with open(output_path, "w") as f:
+            f.write("Eta-Squared Values:\n")
+            for k, v in eta.items():
+                f.write(f"  {k}: {v:.4f}\n")
+            # f.write("\nSSIM Values:\n")
+            # for k, v in ssim.items():
+            #     f.write(f"  {k}: {v:.4f}\n")
+    except Exception as e:
+        LOGGER.warning(f"Could not write registration metrics to file: {e}")
+
+    # Choose best registration
+    if eta["free"] > eta["restricted"]:
+        chosen = xfm_vars_free
+        mode = "free"
+        LOGGER.info("Using free-space search T2w-to-T1w registration.")
+    else:
+        chosen = xfm_vars_restrict
+        mode = "restricted"
+        LOGGER.info("Using restricted search T2w-to-T1w registration.")
+
+    # Create BIBS outputs and *_crop2BIBS_mat
+    registration_outputs = {
+        "cropT1tocropT1": ident_mx,
+        "cropT2tocropT1": chosen["cropT2tocropT1"],
+        "T1w": chosen["T1w"],
+        "T2w": chosen["T2w"],
+        "chosen_T2_mode": mode,
+        "eta_free": eta["free"],
+        "eta_restricted": eta["restricted"],
+    }
+
+    # Loop through T1, T2 to apply transformations
+    for t in (1, 2):
+        t_key = f"T{t}w"
+        registration_outputs[f"{t_key}_crop2BIBS_mat"] = os.path.join(
+            chosen["out_dir"], f"crop_{t_key}_to_BIBS_template.mat"
+        )
+        registration_outputs[f"{t_key}_to_BIBS"] = os.path.join(
+            chosen["out_dir"], f"{t_key}_to_BIBS.nii.gz"
         )
 
-    # Make output directory for transformed images
-    os.makedirs(xfm_non_ACPC_vars["out_dir"], exist_ok=True)
+        input_img = chosen[reg_in_var(t)] if t == 1 else registration_outputs["T2w"]
+        transform_image_T(t, input_img, chosen, registration_outputs, j_args)
 
-    xfm_imgs_non_ACPC = registration_T2w_to_T1w(
-        j_args, xfm_non_ACPC_vars, reg_in_var, acpc=False
-    )
+        run_FSL_sh_script(
+            j_args, "flirt",
+            "-in", input_img,
+            "-ref", chosen["ref_img"][t],
+            "-applyisoxfm", chosen["resolution"],
+            "-init", chosen["ident_mx"],
+            "-o", registration_outputs[f"{t_key}_to_BIBS"],
+            "-omat", registration_outputs[f"{t_key}_crop2BIBS_mat"]
+        )
 
-    # pdb.set_trace()  # TODO Add "debug" flag?
-
-    return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
-
+    return {"vars": chosen, "img_paths": registration_outputs}
 
 def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     """
@@ -872,7 +1049,7 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     :return: Dictionary mapping "T1w" and "T2w" to their respective newly
              registered image file paths
     """
-    # String naming the key in xfm_vars mapped to the path
+    # String for naming the key in xfm_vars mapped to the path
     # to the image to use as an input for registration
     inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
                             for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
@@ -886,11 +1063,6 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     ACPC Order:
     1. T1w Save cropped and aligned T1w image 
     2. T2w Make T2w-to-T1w matrix
-
-    NonACPC Order:
-    1. T1w Make transformed
-    2. T2w Make T2w-to-T1w matrix
-    3. T2w Make transformed
     """   
     for t in (1, 2):
         # Define paths to registration output files
@@ -916,23 +1088,6 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
             shutil.copy2(xfm_vars[reg_input_var.format(1)],
                          registration_outputs["T1w"])
 
-        # Make transformed T1ws and T2ws
-        if not acpc:  # TODO Should this go in its own function?
-            transform_image_T(
-                t, (xfm_vars[reg_input_var.format(t)] if t == 1 else
-                    registration_outputs["T2w"]),
-                xfm_vars, registration_outputs, j_args
-            )
-            run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
-                j_args, "flirt",
-                "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
-                "-ref", xfm_vars["ref_img"].format(t),
-                "-applyisoxfm", xfm_vars["resolution"],
-                "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
-                "-o", registration_outputs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
-                "-omat", registration_outputs[f"T{t}w_crop2BIBS_mat"]
-            )
-    # pdb.set_trace()  # TODO Add "debug" flag?
     return registration_outputs
 
 
@@ -954,4 +1109,3 @@ def transform_image_T(t, cropped_in_img, xfm_vars, regn_outs, j_args):
         "-o", regn_outs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
         "-omat", regn_outs[f"T{t}w_crop2BIBS_mat"]
     )
-
