@@ -405,7 +405,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
 
     # pearson calculations
     pearson["ACPC"] = calculate_pearson(xfm_imgs_ACPC_and_reg["T1w"], xfm_imgs_ACPC_and_reg["T2w"])
-    pearson["ACPC"] = calculate_pearson(xfm_imgs_non_ACPC["T1w"], xfm_imgs_non_ACPC["T2w"])
+    pearson["non-ACPC"] = calculate_pearson(xfm_imgs_non_ACPC["T1w"], xfm_imgs_non_ACPC["T2w"])
 
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
     LOGGER.verbose(f"Pearson Values: {pearson}")
