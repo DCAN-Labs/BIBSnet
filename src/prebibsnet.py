@@ -9,7 +9,6 @@ from nipype.interfaces.ants import N4BiasFieldCorrection
 from niworkflows.interfaces.nibabel import IntensityClip
 import numpy as np
 from glob import glob
-from skimage.metrics import structural_similarity as ssim
 
 from src.logger import LOGGER
 
@@ -398,18 +397,18 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     """
     msg = "Using {} T2w-to-T1w registration for resizing."
     eta = dict()
-    # ssim = dict()
+    pearson = dict()
 
     # eta squared calculations
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
 
-    # ssim calculations
-    # ssim["ACPC"] = calculate_ssim(xfm_imgs_ACPC_and_reg)
-    # ssim["non-ACPC"] = calculate_ssim(xfm_imgs_non_ACPC)
+    # pearson calculations
+    pearson["ACPC"] = calc_pearson(xfm_imgs_ACPC_and_reg)
+    pearson["non-ACPC"] = calc_pearson(xfm_imgs_non_ACPC)
 
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    # LOGGER.verbose(f"SSIM Values: {ssim}")
+    LOGGER.verbose(f"Pearson Values: {pearson}")
 
     # Save results to a text file in parent directory of xfm_imgs_ACPC_and_reg
     try:
@@ -421,9 +420,9 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
-            # f.write("\nSSIM Values:\n")
-            # for k, v in ssim.items():
-            #     f.write(f"  {k}: {v:.4f}\n")
+            f.write("\nPearson Values:\n")
+            for k, v in pearson.items():
+                f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
@@ -459,26 +458,6 @@ def calculate_eta(img_paths):
     LOGGER.verbose(f"\nVectors: {vectors}\nMean Within: {m_within}\nMean Total: {m_grand}\nSumSq Within: {sswithin}\nSumSq Total: {sstot}")
 
     return 1 - sswithin / sstot
-
-def calculate_ssim(img_paths):
-    """
-    Computes the Structural Similarity Index (SSIM) between two MRI images.
-    SSIM ranges from -1 to 1, where 1 indicates perfect similarity.
-    :param img_paths: Dictionary mapping "T1w" and "T2w" to strings that are
-                      valid paths to the existing respective image files
-    :return: SSIM value (Float)
-    """  
-    # Load niftis as arrays and normalize intensity values to [0,1] for SSIM
-    vectors = dict()
-    for t in (1, 2): 
-        anat = f"T{t}w"
-        vectors[anat]=nib.load(img_paths[anat]).get_fdata()
-        vectors[anat] = (vectors[anat] - np.min(vectors[anat])) / (np.max(vectors[anat]) - np.min(vectors[anat])) # normalize
-
-    # Compute SSIM
-    ssim_value = ssim(vectors["T1w"], vectors["T2w"], data_range=1.0)
-
-    return ssim_value
 
 def reshape_volume_to_array(array_img):
     """ 
@@ -850,7 +829,7 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
     # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
 
-def compute_eta2_between_images(img_path_a, img_path_b, mask=None):
+def calc_pearson(img_path_a, img_path_b, mask=None):
     """
     Compute eta^2-like metric between two images.
     Here we compute Pearson r between nonzero voxels and return r**2.
@@ -893,7 +872,7 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     """
     Registers T2w to T1w using non-ACPC method, both with and without
     restricted search space parameters, then chooses the better result
-    based on eta-squared (and optionally SSIM). Finally, applies chosen 
+    based on eta-squared (and optionally Pearson). Finally, applies chosen 
     result to make *_to_BIBS and *_crop2BIBS_mat transform matrices.
     :param cropped_imgs: Cropped T1 and T2 image filepaths (dictionary)
     :param output_dir: Output folder filepath
@@ -968,17 +947,17 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
     xfm_vars_restrict["T2w"] = xfm_vars_restrict["output_T2w_img"]
     xfm_vars_restrict["cropT2tocropT1"] = mat_restrict
 
-    # Calculate ETA2 and SSIM for each workflows
+    # Calculate ETA2 and Pearson for each workflows
     eta = {
         "free":       calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
     }
-    # ssim = {
-    #     "free":       calculate_ssim(xfm_vars_free),
-    #     "restricted": calculate_ssim(xfm_vars_restrict)
-    # }
+    pearson = {
+        "free":       calc_pearson(xfm_vars_free),
+        "restricted": calc_pearson(xfm_vars_restrict)
+    }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    # LOGGER.verbose(f"SSIM Values: {ssim}")
+    LOGGER.verbose(f"Pearson Values: {pearson}")
 
     # Save results to text file
     try:
@@ -987,9 +966,9 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
             f.write("Eta-Squared Values:\n")
             for k, v in eta.items():
                 f.write(f"  {k}: {v:.4f}\n")
-            # f.write("\nSSIM Values:\n")
-            # for k, v in ssim.items():
-            #     f.write(f"  {k}: {v:.4f}\n")
+            f.write("\nPearson Values:\n")
+            for k, v in pearson.items():
+                f.write(f"  {k}: {v:.4f}\n")
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
