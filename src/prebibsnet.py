@@ -404,8 +404,8 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
 
     # pearson calculations
-    pearson["ACPC"] = calc_pearson(xfm_imgs_ACPC_and_reg)
-    pearson["non-ACPC"] = calc_pearson(xfm_imgs_non_ACPC)
+    pearson["ACPC"] = calculate_pearson(xfm_imgs_ACPC_and_reg["T1w"], xfm_imgs_ACPC_and_reg["T2w"])
+    pearson["ACPC"] = calculate_pearson(xfm_imgs_non_ACPC["T1w"], xfm_imgs_non_ACPC["T2w"])
 
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
     LOGGER.verbose(f"Pearson Values: {pearson}")
@@ -480,6 +480,43 @@ def sum_of_2_sums_of_squares_of(np_vector1, np_vector2, a_mean):
         total_sum += sum(np.square(each_vec - a_mean))
     return total_sum
 
+def calculate_pearson(img_path_a, img_path_b, mask=None):
+    """
+    Compute eta^2-like metric between two images.
+    Here we compute Pearson r between nonzero voxels and return r**2.
+    Returns float in [0,1]. Higher -> more similar.
+    """
+    a = nib.load(img_path_a).get_fdata(dtype=np.float64)
+    b = nib.load(img_path_b).get_fdata(dtype=np.float64)
+    if a.shape != b.shape:
+        raise ValueError(f"Image shapes differ: {a.shape} vs {b.shape}")
+
+    # Build mask: nonzero in both images (and user-supplied mask)
+    mask_data = (np.isfinite(a) & np.isfinite(b) & (a != 0) & (b != 0))
+    if mask is not None:
+        mask_img = nib.load(mask).get_fdata(dtype=bool)
+        if mask_img.shape == mask_data.shape:
+            mask_data &= mask_img.astype(bool)
+    vals_a = a[mask_data].ravel()
+    vals_b = b[mask_data].ravel()
+
+    if vals_a.size < 10:
+        # Too few voxels to get a reliable estimate; fallback to whole-image finite vals
+        mask_data = (np.isfinite(a) & np.isfinite(b))
+        vals_a = a[mask_data].ravel()
+        vals_b = b[mask_data].ravel()
+
+    if vals_a.size == 0:
+        return 0.0
+
+    # Remove constant signals
+    if np.nanstd(vals_a) == 0 or np.nanstd(vals_b) == 0:
+        return 0.0
+
+    r = np.corrcoef(vals_a, vals_b)[0, 1]
+    if np.isnan(r):
+        return 0.0
+    return float(r**2)
 
 def create_anatomical_averages(avg_params):
     """
@@ -829,44 +866,6 @@ def align_ACPC_1_img(j_args, xfm_ACPC_vars, crop2full, output_var, t,
     # pdb.set_trace()  # TODO Add "debug" flag?
     return mats
 
-def calc_pearson(img_path_a, img_path_b, mask=None):
-    """
-    Compute eta^2-like metric between two images.
-    Here we compute Pearson r between nonzero voxels and return r**2.
-    Returns float in [0,1]. Higher -> more similar.
-    """
-    a = nib.load(img_path_a).get_fdata(dtype=np.float64)
-    b = nib.load(img_path_b).get_fdata(dtype=np.float64)
-    if a.shape != b.shape:
-        raise ValueError(f"Image shapes differ: {a.shape} vs {b.shape}")
-
-    # Build mask: nonzero in both images (and user-supplied mask)
-    mask_data = (np.isfinite(a) & np.isfinite(b) & (a != 0) & (b != 0))
-    if mask is not None:
-        mask_img = nib.load(mask).get_fdata(dtype=bool)
-        if mask_img.shape == mask_data.shape:
-            mask_data &= mask_img.astype(bool)
-    vals_a = a[mask_data].ravel()
-    vals_b = b[mask_data].ravel()
-
-    if vals_a.size < 10:
-        # Too few voxels to get a reliable estimate; fallback to whole-image finite vals
-        mask_data = (np.isfinite(a) & np.isfinite(b))
-        vals_a = a[mask_data].ravel()
-        vals_b = b[mask_data].ravel()
-
-    if vals_a.size == 0:
-        return 0.0
-
-    # Remove constant signals
-    if np.nanstd(vals_a) == 0 or np.nanstd(vals_b) == 0:
-        return 0.0
-
-    r = np.corrcoef(vals_a, vals_b)[0, 1]
-    if np.isnan(r):
-        return 0.0
-    return float(r**2)
-
 def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image, 
                                       ident_mx, resolution, j_args):
     """
@@ -949,12 +948,12 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
 
     # Calculate ETA2 and Pearson for each workflows
     eta = {
-        "free":       calculate_eta(xfm_vars_free), 
+        "free": calculate_eta(xfm_vars_free), 
         "restricted": calculate_eta(xfm_vars_restrict)
     }
     pearson = {
-        "free":       calc_pearson(xfm_vars_free),
-        "restricted": calc_pearson(xfm_vars_restrict)
+        "free": calculate_pearson(xfm_vars_free["T1w"], xfm_vars_free["T2w"]),
+        "restricted": calculate_pearson(xfm_vars_restrict["T1w"], xfm_vars_restrict["T2w"])
     }
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
     LOGGER.verbose(f"Pearson Values: {pearson}")
