@@ -426,7 +426,8 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
     LOGGER.verbose(f"Pearsons Values: {eta}")
 
     # Save metrics
-    output_dir = xfm_imgs_non_ACPC["T1w"].parent.parent # to save to resized directory
+    output_dir = os.path.dirname(os.path.dirname(xfm_imgs_non_ACPC["T1w"])) # to save to resized directory
+
     try:
         output_path = os.path.join(output_dir, "registration_metrics.txt")
         with open(output_path, "w") as f:
