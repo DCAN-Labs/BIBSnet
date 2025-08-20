@@ -269,7 +269,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_non_ACPC_free, regn_ACPC, av
         ))
         # Non-ACPC, free search space params
         out_non_ACPC_free.update(apply_final_non_ACPC_xfm(
-            regn_non_ACPC["vars"], regn_non_ACPC["img_paths"],
+            regn_non_ACPC_free["vars"], regn_non_ACPC_free["img_paths"],
             averaged_imgs, out_non_ACPC, t, full2crop_ACPC, j_args
         ))
 
@@ -417,11 +417,8 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
 
     # Calculate Pearson's correlation 
     pearsons = dict()
-    LOGGER.verbose("ACPC:")
     pearsons["ACPC"] = calculate_pearsons(xfm_imgs_ACPC_and_reg)
-    LOGGER.verbose("Non-ACPC:")
     pearsons["non-ACPC"] = calculate_pearsons(xfm_imgs_non_ACPC)
-    LOGGER.verbose("Non-ACPC-free:")
     pearsons["non-ACPC-free"] = calculate_pearsons(xfm_imgs_non_ACPC_free)
     LOGGER.verbose(f"Pearsons Values: {pearsons}")
 
