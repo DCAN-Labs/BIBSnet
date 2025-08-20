@@ -396,7 +396,7 @@ def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                       "-o", outputs[f"T{t}w"])
     return outputs
 
-## UPDATE THIS FUNCTION TO INCORPORATE xfm_imgs_non_ACPC_free and also run pearsons for comparison
+## LM 8/2025: Updated this function to incorporate xfm_imgs_non_ACPC_free registration workflow (non-ACPC/XFMS registration workflow without parameter space restructions) and also run Pearsons for comparison along with eta2 (except Pearsons not used to determine best registration workflow at this time)
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_ACPC_and_reg, j_args):
     """
     Check whether the cost function shows that only the registration-T2-to-T1
