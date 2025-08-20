@@ -67,15 +67,24 @@ def run_preBIBSnet(j_args):
     id_mx = os.path.join(SCRIPT_DIR, "data", "identity_matrix.mat")
     # TODO Resolution is hardcoded; infer it or get it from the command-line
     resolution = "1"
+
+    # Perform T2w-to-T1w registration via multiple workflows if both T1w and T2w are present (including non-ACPC/xfms and ACPC)
     if j_args["ID"]["has_T1w"] and j_args["ID"]["has_T2w"]:
         msg_xfm = "Arguments for {}ACPC image transformation:\n{}"
 
-        # Non-ACPC
+        # Non-ACPC with restricted search space parameters
         regn_non_ACPC = register_preBIBSnet_imgs_non_ACPC(
             cropped, preBIBSnet_paths["resized"], reference_img, 
             id_mx, resolution, j_args
         )
         LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC["vars"]))
+
+        # Non-ACPC WITHOUT restricted search space parameters ("free") and cost function set to default instead of mutual info
+        regn_non_ACPC_free = register_preBIBSnet_imgs_non_ACPC_free(
+            cropped, preBIBSnet_paths["resized"], reference_img, 
+            id_mx, resolution, j_args
+        )
+        LOGGER.verbose(msg_xfm.format("non-", regn_non_ACPC_free["vars"]))
 
         # ACPC
         regn_ACPC = register_preBIBSnet_imgs_ACPC(
@@ -84,8 +93,9 @@ def run_preBIBSnet(j_args):
         )
         LOGGER.verbose(msg_xfm.format("", regn_ACPC["vars"]))
 
+        # Create final transformed images for all workflows and then choose workflow based on optimal T2-to-T1 registration
         transformed_images = apply_final_prebibsnet_xfms(
-            regn_non_ACPC, regn_ACPC, preBIBSnet_paths["avg"], j_args
+            regn_non_ACPC, regn_non_ACPC_free, regn_ACPC, preBIBSnet_paths["avg"], j_args
         )
         LOGGER.info(completion_msg.format("resized"))
 
@@ -217,7 +227,7 @@ def denoise_and_n4(tmod, input_avg_img):
     dest=input_avg_img
     shutil.copy(src, dest)
 
-def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
+def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_non_ACPC_free, regn_ACPC, averaged_imgs,
                                 j_args):
     """
     Resize the images to match the dimensions of images trained in the model,
@@ -226,6 +236,8 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
     of both images, and return whichever one is better (higher eta squared)
     :param regn_non_ACPC: Dict mapping "img_paths" to a dict of paths to image
                           files and "vars" to a dict of other variables.
+                          {"vars": {...}, "imgs": {...}}
+    :param regn_non_ACPC_free: Dict mapping "img_paths" to a dict of paths to image files and "vars" to a dict of other variables.
                           {"vars": {...}, "imgs": {...}}
     :param regn_ACPC: Dict mapping "img_paths" to a dict of paths to image
                       files and "vars" to a dict of other variables.
@@ -237,6 +249,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
     """
     out_ACPC = dict()
     out_non_ACPC = dict()
+    out_non_ACPC_free = dict()
 
     for t in (1, 2):
         # Apply ACPC-then-registration transforms for this subject session & T
@@ -249,7 +262,13 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
         full2crop_ACPC = regn_ACPC["vars"][f"mats_T{t}w"]["full2crop"]
 
         # Apply registration-only transforms for this subject session (and T)
+        # Non-ACPC
         out_non_ACPC.update(apply_final_non_ACPC_xfm(
+            regn_non_ACPC["vars"], regn_non_ACPC["img_paths"],
+            averaged_imgs, out_non_ACPC, t, full2crop_ACPC, j_args
+        ))
+        # Non-ACPC, free search space params
+        out_non_ACPC_free.update(apply_final_non_ACPC_xfm(
             regn_non_ACPC["vars"], regn_non_ACPC["img_paths"],
             averaged_imgs, out_non_ACPC, t, full2crop_ACPC, j_args
         ))
@@ -257,8 +276,8 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_ACPC, averaged_imgs,
     # Outputs: 1 .mat file for ACPC and 1 for non-ACPC (only retain the -to-T1w .mat file after this point)
 
     # Return the best of the 2 resized images
-    return optimal_realigned_imgs(out_non_ACPC,  # TODO Add 'if' statement to skip eta-squared functionality if T1-/T2-only, b/c only one T means we'll only register to ACPC space
-                                  out_ACPC, j_args)
+    # TODO Add 'if' statement to skip eta-squared functionality if T1-/T2-only, b/c only one T means we'll only register to ACPC space
+    return optimal_realigned_imgs(out_non_ACPC, out_non_ACPC_free, out_ACPC, j_args)
 
 
 def apply_final_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs, outputs,
@@ -377,8 +396,8 @@ def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                       "-o", outputs[f"T{t}w"])
     return outputs
 
-
-def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
+## UPDATE THIS FUNCTION TO INCORPORATE xfm_imgs_non_ACPC_free and also run pearsons for comparison
+def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_ACPC_and_reg, j_args):
     """
     Check whether the cost function shows that only the registration-T2-to-T1
     or the ACPC-alignment-and-T2-to-T1-registration is better (check whether
@@ -386,21 +405,69 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_ACPC_and_reg, j_args):
     with and without first doing the ACPC registration)
     :param j_args: Dictionary containing all args
     """
-    msg = "Using {} T2w-to-T1w registration for resizing."
+    # Calculate eta square
     eta = dict()
     LOGGER.verbose("ACPC:")
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
     LOGGER.verbose("Non-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
+    LOGGER.verbose("Non-ACPC-free:")
+    eta["non-ACPC-free"] = calculate_eta(xfm_imgs_non_ACPC_free)
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
-    if eta["non-ACPC"] > eta["ACPC"]:
-        optimal_resize = xfm_imgs_non_ACPC
-        LOGGER.info(msg.format("only"))
-        LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
-    else:
-        optimal_resize = xfm_imgs_ACPC_and_reg
-        LOGGER.info(msg.format("ACPC and"))
-        LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
+
+    # Calculate Pearson's correlation 
+    pearsons = dict()
+    LOGGER.verbose("ACPC:")
+    pearsons["ACPC"] = calculate_pearsons(xfm_imgs_ACPC_and_reg)
+    LOGGER.verbose("Non-ACPC:")
+    pearsons["non-ACPC"] = calculate_pearsons(xfm_imgs_non_ACPC)
+    LOGGER.verbose("Non-ACPC-free:")
+    pearsons["non-ACPC-free"] = calculate_pearsons(xfm_imgs_non_ACPC_free)
+    LOGGER.verbose(f"Pearsons Values: {eta}")
+
+    # Save metrics
+    output_dir = xfm_imgs_non_ACPC["T1w"].parent.parent # to save to resized directory
+    try:
+        output_path = os.path.join(output_dir, "registration_metrics.txt")
+        with open(output_path, "w") as f:
+            f.write("Eta:\n")
+            f.write(f"  ACPC:       {eta['ACPC']:.4f}\n")
+            f.write(f"  Non-ACPC:       {eta['non-ACPC']:.4f}\n")
+            f.write(f"  Non-ACPC-free:       {eta['non-ACPC-free']:.4f}\n")
+
+            if pearsons is not None:
+                f.write("Pearson:\n")
+                f.write(f"  ACPC:       {pearsons['ACPC']:.4f}\n")
+                f.write(f"  Non-ACPC:       {pearsons['non-ACPC']:.4f}\n")
+                f.write(f"  Non-ACPC-free:       {pearsons['non-ACPC-free']:.4f}\n")
+
+    except Exception as e:
+        LOGGER.warning(f"Could not write registration metrics to file: {e}")
+
+    # Choose highest eta square workflow (compare all three)
+    # Prefer ACPC > non-ACPC > non-ACPC-free when there's a tie
+    preference = {"ACPC": 2, "non-ACPC": 1, "non-ACPC-free": 0}
+    workflows = {
+        "ACPC": xfm_imgs_ACPC_and_reg,
+        "non-ACPC": xfm_imgs_non_ACPC,
+        "non-ACPC-free": xfm_imgs_non_ACPC_free,
+    }
+
+    # Guard against None etas
+    safe_eta = {k: (v if v is not None else float("-inf")) for k, v in eta.items()}
+    best_key = max(safe_eta.items(), key=lambda kv: (kv[1], preference[kv[0]]))[0]
+    optimal_resize = workflows[best_key]
+
+    # Log selection
+    label_for_msg = {
+        "ACPC": "ACPC and",
+        "non-ACPC": "only",
+        "non-ACPC-free": "non-ACPC-free",
+    }[best_key]
+    msg = "Using {} T2w-to-T1w registration for resizing."
+    LOGGER.info(msg.format(label_for_msg))
+    LOGGER.verbose(f"Selected workflow: {best_key} (eta²={eta[best_key]:.6f})")
+    LOGGER.verbose(f"\nT1w: {optimal_resize['T1w']}\nT2w: {optimal_resize['T2w']}")
 
     return optimal_resize
 
@@ -441,6 +508,43 @@ def calculate_eta(img_paths):
 
     return 1 - sswithin / sstot
 
+def calculate_pearsons(img_paths):
+    """
+    Compute eta^2-like metric between two images.
+    Here we compute Pearson r between nonzero voxels and return r**2.
+    Returns float in [0,1]. Higher -> more similar.
+    :param img_paths: Dictionary mapping "T1w" and "T2w" to strings that are
+                      valid paths to the existing respective image files
+    :return: Float, the Pearson value
+    """  
+    # Load data
+    a = nib.load(img_paths["T1w"]).get_fdata(dtype=np.float64)
+    b = nib.load(img_paths["T2w"]).get_fdata(dtype=np.float64)
+    if a.shape != b.shape:
+        raise ValueError(f"Image shapes differ: {a.shape} vs {b.shape}")
+    
+    # Build mask: nonzero in both images (and user-supplied mask)
+    mask_data = (np.isfinite(a) & np.isfinite(b) & (a != 0) & (b != 0))
+    vals_a = a[mask_data].ravel()
+    vals_b = b[mask_data].ravel()
+
+    if vals_a.size < 10:
+        # Too few voxels to get a reliable estimate; fallback to whole-image finite vals
+        mask_data = (np.isfinite(a) & np.isfinite(b))
+        vals_a = a[mask_data].ravel()
+        vals_b = b[mask_data].ravel()
+
+    if vals_a.size == 0:
+        return 0.0
+
+    # Remove constant signals
+    if np.nanstd(vals_a) == 0 or np.nanstd(vals_b) == 0:
+        return 0.0
+
+    r = np.corrcoef(vals_a, vals_b)[0, 1]
+    if np.isnan(r):
+        return 0.0
+    return float(r**2)
 
 def reshape_volume_to_array(array_img):
     """ 
@@ -861,7 +965,6 @@ def register_preBIBSnet_imgs_non_ACPC(cropped_imgs, output_dir, ref_image,
 
     return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
 
-
 def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
     """
     T2w to T1w registration for use in preBIBSnet
@@ -933,6 +1036,115 @@ def registration_T2w_to_T1w(j_args, xfm_vars, reg_input_var, acpc):
                 "-omat", registration_outputs[f"T{t}w_crop2BIBS_mat"]
             )
     # pdb.set_trace()  # TODO Add "debug" flag?
+    return registration_outputs
+
+
+def register_preBIBSnet_imgs_non_ACPC_free(cropped_imgs, output_dir, ref_image, 
+                                      ident_mx, resolution, j_args):
+    """
+    :param cropped_imgs: Dictionary mapping ints, (T) 1 or 2, to strings (valid
+                         paths to existing image files to resize)
+    :param output_dir: String, valid path to a dir to save resized images into
+    :param ref_images: Dictionary mapping string keys to valid paths to real
+                       image file strings for "ACPC" (alignment) and (T2-to-T1)
+                       "reg"(istration) for flirt to use as a reference image.
+                       The ACPC string has a "{}" in it to represent (T) 1 or 2
+    :param ident_mx: String, valid path to existing identity matrix .mat file
+    :param resolution:
+    :param j_args: Dictionary containing all args
+    """
+    # TODO Add 'if' to skip most of the functionality here for T1-only or T2-only
+
+    # Build dictionaries of variables used for image transformations with and
+    # without ACPC alignment
+    xfm_non_ACPC_vars = {"out_dir": os.path.join(output_dir, "xfms-freespace"),
+                         "resolution": resolution, "ident_mx": ident_mx,
+                         "ref_img": ref_image}
+    out_var = "output_T{}w_img"
+    reg_in_var = "reg_input_T{}w_img"
+
+    for t, crop_img_path in cropped_imgs.items():
+        img_ext = split_2_exts(crop_img_path)[-1]
+
+        # Non-ACPC input to registration
+        # for keyname in ("crop_", "reg_input_"):
+        xfm_non_ACPC_vars[reg_in_var.format(t)] = crop_img_path
+
+        # Non-ACPC outputs to registration
+        outfname = f"T{t}w_registered_to_T1w" + img_ext
+        xfm_non_ACPC_vars[out_var.format(t)] = os.path.join(
+            xfm_non_ACPC_vars["out_dir"], outfname
+        )
+
+    # Make output directory for transformed images
+    os.makedirs(xfm_non_ACPC_vars["out_dir"], exist_ok=True)
+
+    xfm_imgs_non_ACPC = registration_T2w_to_T1w_free(
+        j_args, xfm_non_ACPC_vars, reg_in_var
+    )
+
+    return {"vars": xfm_non_ACPC_vars, "img_paths": xfm_imgs_non_ACPC}
+
+
+def registration_T2w_to_T1w_free(j_args, xfm_vars, reg_input_var):
+    """
+    T2w to T1w registration for use in preBIBSnet
+    :param j_args: Dictionary containing all args
+    :param xfm_vars: Dictionary containing paths to files used in registration
+    :param reg_input_var: String naming the key in xfm_vars mapped to the path
+                          to the image to use as an input for registration
+    :return: Dictionary mapping "T1w" and "T2w" to their respective newly
+             registered image file paths
+    """
+    # String naming the key in xfm_vars mapped to the path
+    # to the image to use as an input for registration
+    inputs_msg = "\n".join(["T{}w: {}".format(t, xfm_vars[reg_input_var.format(t)])
+                            for t in only_Ts_needed_for_bibsnet_model(j_args["ID"])])
+    LOGGER.verbose("Input images for T1w registration:\n" + inputs_msg)
+
+    # Define paths to registration output matrices and images
+    registration_outputs = {"cropT1tocropT1": xfm_vars["ident_mx"],
+                            "cropT2tocropT1": os.path.join(xfm_vars["out_dir"],
+                                                           "cropT2tocropT1.mat")}
+    """
+    NonACPC Order:
+    1. T1w Make transformed
+    2. T2w Make T2w-to-T1w matrix
+    3. T2w Make transformed
+    """   
+    for t in (1, 2):
+        # Define paths to registration output files
+        registration_outputs[f"T{t}w_crop2BIBS_mat"] = os.path.join(
+            xfm_vars["out_dir"], f"crop_T{t}w_to_BIBS_template.mat"
+        )
+        registration_outputs[f"T{t}w"] = xfm_vars[f"output_T{t}w_img"]
+        registration_outputs[f"T{t}w_to_BIBS"] = os.path.join(
+            xfm_vars["out_dir"], f"T{t}w_to_BIBS.nii.gz"
+        )
+
+        if t == 2:  # Make T2w-to-T1w matrix
+            run_FSL_sh_script(j_args, "flirt",
+                            "-ref", xfm_vars[reg_input_var.format(1)],
+                            "-in", xfm_vars[reg_input_var.format(2)],
+                            "-omat", registration_outputs["cropT2tocropT1"],
+                            "-out", registration_outputs["T2w"],
+                            '-dof', '6')
+
+        # Make transformed T1ws and T2ws
+        transform_image_T(
+            t, (xfm_vars[reg_input_var.format(t)] if t == 1 else
+                registration_outputs["T2w"]),
+            xfm_vars, registration_outputs, j_args
+        )
+        run_FSL_sh_script(  # TODO Should the output image even be created here, or during applywarp?
+            j_args, "flirt",
+            "-in", xfm_vars[reg_input_var.format(t)] if t == 1 else registration_outputs["T2w"],  # Input: Cropped image
+            "-ref", xfm_vars["ref_img"].format(t),
+            "-applyisoxfm", xfm_vars["resolution"],
+            "-init", xfm_vars["ident_mx"], # registration_outputs["cropT{}tocropT1".format(t)],
+            "-o", registration_outputs[f"T{t}w_to_BIBS"], # registration_outputs["T{}w".format(t)],  # TODO Should we eventually exclude the (unneeded?) -o flags?
+            "-omat", registration_outputs[f"T{t}w_crop2BIBS_mat"]
+        )
     return registration_outputs
 
 
