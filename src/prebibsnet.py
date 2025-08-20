@@ -423,7 +423,7 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
     pearsons["non-ACPC"] = calculate_pearsons(xfm_imgs_non_ACPC)
     LOGGER.verbose("Non-ACPC-free:")
     pearsons["non-ACPC-free"] = calculate_pearsons(xfm_imgs_non_ACPC_free)
-    LOGGER.verbose(f"Pearsons Values: {eta}")
+    LOGGER.verbose(f"Pearsons Values: {pearsons}")
 
     # Save metrics
     output_dir = os.path.dirname(os.path.dirname(xfm_imgs_non_ACPC["T1w"])) # to save to resized directory
@@ -432,15 +432,15 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
         output_path = os.path.join(output_dir, "registration_metrics.txt")
         with open(output_path, "w") as f:
             f.write("Eta:\n")
-            f.write(f"  ACPC:       {eta['ACPC']:.4f}\n")
-            f.write(f"  Non-ACPC:       {eta['non-ACPC']:.4f}\n")
-            f.write(f"  Non-ACPC-free:       {eta['non-ACPC-free']:.4f}\n")
+            f.write(f"  ACPC:       {eta['ACPC']:.6f}\n")
+            f.write(f"  Non-ACPC:       {eta['non-ACPC']:.6f}\n")
+            f.write(f"  Non-ACPC-free:       {eta['non-ACPC-free']:.6f}\n")
 
             if pearsons is not None:
                 f.write("Pearson:\n")
-                f.write(f"  ACPC:       {pearsons['ACPC']:.4f}\n")
-                f.write(f"  Non-ACPC:       {pearsons['non-ACPC']:.4f}\n")
-                f.write(f"  Non-ACPC-free:       {pearsons['non-ACPC-free']:.4f}\n")
+                f.write(f"  ACPC:       {pearsons['ACPC']:.6f}\n")
+                f.write(f"  Non-ACPC:       {pearsons['non-ACPC']:.6}\n")
+                f.write(f"  Non-ACPC-free:       {pearsons['non-ACPC-free']:.6f}\n")
 
     except Exception as e:
         LOGGER.warning(f"Could not write registration metrics to file: {e}")
