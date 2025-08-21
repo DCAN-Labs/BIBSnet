@@ -396,7 +396,7 @@ def apply_final_non_ACPC_xfm(xfm_vars, xfm_imgs, avg_imgs,
                       "-o", outputs[f"T{t}w"])
     return outputs
 
-## LM 8/2025: Updated this function to incorporate xfm_imgs_non_ACPC_free registration workflow (non-ACPC/XFMS registration workflow without parameter space restructions) and also run Pearsons for comparison along with eta2 (except Pearsons not used to determine best registration workflow at this time)
+## LM 8/2025: Updated this function to incorporate xfm_imgs_non_ACPC_free registration workflow (non-ACPC/XFMS registration workflow without parameter space restructions) and also run Pearsons for comparison along with eta2
 def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_ACPC_and_reg, j_args):
     """
     Check whether the cost function shows that only the registration-T2-to-T1
@@ -413,31 +413,31 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
 
     # Calculate Pearson's correlation 
-    pearsons = dict()
-    pearsons["ACPC"] = calculate_pearsons(xfm_imgs_ACPC_and_reg)
-    pearsons["non-ACPC"] = calculate_pearsons(xfm_imgs_non_ACPC)
-    pearsons["non-ACPC-free"] = calculate_pearsons(xfm_imgs_non_ACPC_free)
-    LOGGER.verbose(f"Pearsons Values: {pearsons}")
+    # pearsons = dict()
+    # pearsons["ACPC"] = calculate_pearsons(xfm_imgs_ACPC_and_reg)
+    # pearsons["non-ACPC"] = calculate_pearsons(xfm_imgs_non_ACPC)
+    # pearsons["non-ACPC-free"] = calculate_pearsons(xfm_imgs_non_ACPC_free)
+    # LOGGER.verbose(f"Pearsons Values: {pearsons}")
 
     # Save metrics
-    output_dir = os.path.dirname(os.path.dirname(xfm_imgs_non_ACPC["T1w"])) # to save to resized directory
+    # output_dir = os.path.dirname(os.path.dirname(xfm_imgs_non_ACPC["T1w"])) # to save to resized directory
 
-    try:
-        output_path = os.path.join(output_dir, "registration_metrics.txt")
-        with open(output_path, "w") as f:
-            f.write("Eta:\n")
-            f.write(f"  ACPC:       {eta['ACPC']:.6f}\n")
-            f.write(f"  Non-ACPC:       {eta['non-ACPC']:.6f}\n")
-            f.write(f"  Non-ACPC-free:       {eta['non-ACPC-free']:.6f}\n")
+    # try:
+    #     output_path = os.path.join(output_dir, "registration_metrics.txt")
+    #     with open(output_path, "w") as f:
+    #         f.write("Eta:\n")
+    #         f.write(f"  ACPC:       {eta['ACPC']:.6f}\n")
+    #         f.write(f"  Non-ACPC:       {eta['non-ACPC']:.6f}\n")
+    #         f.write(f"  Non-ACPC-free:       {eta['non-ACPC-free']:.6f}\n")
 
-            if pearsons is not None:
-                f.write("Pearson:\n")
-                f.write(f"  ACPC:       {pearsons['ACPC']:.6f}\n")
-                f.write(f"  Non-ACPC:       {pearsons['non-ACPC']:.6}\n")
-                f.write(f"  Non-ACPC-free:       {pearsons['non-ACPC-free']:.6f}\n")
+    #         if pearsons is not None:
+    #             f.write("Pearson:\n")
+    #             f.write(f"  ACPC:       {pearsons['ACPC']:.6f}\n")
+    #             f.write(f"  Non-ACPC:       {pearsons['non-ACPC']:.6}\n")
+    #             f.write(f"  Non-ACPC-free:       {pearsons['non-ACPC-free']:.6f}\n")
 
-    except Exception as e:
-        LOGGER.warning(f"Could not write registration metrics to file: {e}")
+    # except Exception as e:
+    #     LOGGER.warning(f"Could not write registration metrics to file: {e}")
 
     # Choose highest eta square workflow (compare all three)
     # Prefer ACPC > non-ACPC > non-ACPC-free when there's a tie
@@ -503,6 +503,7 @@ def calculate_eta(img_paths):
 
     return 1 - sswithin / sstot
 
+# this function is currently not used
 def calculate_pearsons(img_paths):
     """
     Compute eta^2-like metric between two images.
