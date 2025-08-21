@@ -270,7 +270,7 @@ def apply_final_prebibsnet_xfms(regn_non_ACPC, regn_non_ACPC_free, regn_ACPC, av
         # Non-ACPC, free search space params
         out_non_ACPC_free.update(apply_final_non_ACPC_xfm(
             regn_non_ACPC_free["vars"], regn_non_ACPC_free["img_paths"],
-            averaged_imgs, out_non_ACPC, t, full2crop_ACPC, j_args
+            averaged_imgs, out_non_ACPC_free, t, full2crop_ACPC, j_args
         ))
 
     # Outputs: 1 .mat file for ACPC and 1 for non-ACPC (only retain the -to-T1w .mat file after this point)
@@ -407,11 +407,8 @@ def optimal_realigned_imgs(xfm_imgs_non_ACPC, xfm_imgs_non_ACPC_free, xfm_imgs_A
     """
     # Calculate eta square
     eta = dict()
-    LOGGER.verbose("ACPC:")
     eta["ACPC"] = calculate_eta(xfm_imgs_ACPC_and_reg)
-    LOGGER.verbose("Non-ACPC:")
     eta["non-ACPC"] = calculate_eta(xfm_imgs_non_ACPC)
-    LOGGER.verbose("Non-ACPC-free:")
     eta["non-ACPC-free"] = calculate_eta(xfm_imgs_non_ACPC_free)
     LOGGER.verbose(f"Eta-Squared Values: {eta}")
 
