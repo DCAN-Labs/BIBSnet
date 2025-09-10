@@ -132,12 +132,12 @@ RUN wget -O bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz "ht
     tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task543_BIBSnet_Production_T1T2_model.tar.gz && \
     tar -xzf Task543_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
     rm Task543_BIBSnet_Production_T1T2_model.tar.gz && \
-	tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task544_BIBSnet_Production_T1only_model.tar.gz && \
-    tar -xzf Task544_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm Task544_BIBSnet_Production_T1only_model.tar.gz && \
-	tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T2only_model.tar.gz && \
-    tar -xzf Task545_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T2only_model.tar.gz
+	tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task544_BIBSnet_Production_T2only_model.tar.gz && \
+    tar -xzf Task544_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm Task544_BIBSnet_Production_T2only_model.tar.gz && \
+	tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T1only_model.tar.gz && \
+    tar -xzf Task545_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+    rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T1only_model.tar.gz
 
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
