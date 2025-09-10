@@ -131,7 +131,7 @@ RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/
 RUN wget -O bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz" && \
     tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task543_BIBSnet_Production_T1T2_model.tar.gz && \
     tar -xzf Task543_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm Task540_BIBSnet_Production_T1T2_model.tar.gz && \
+    rm Task543_BIBSnet_Production_T1T2_model.tar.gz && \
 	tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task544_BIBSnet_Production_T1only_model.tar.gz && \
     tar -xzf Task544_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
     rm Task544_BIBSnet_Production_T1only_model.tar.gz && \
