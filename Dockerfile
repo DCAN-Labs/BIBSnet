@@ -5,8 +5,8 @@ FROM build_pytorch
 
 
 ENV BIBSNET_VERSION_MAJOR="3"
-ENV BIBSNET_VERSION_MINOR="5"
-ENV BIBSNET_VERSION_PATCH="1"
+ENV BIBSNET_VERSION_MINOR="6"
+ENV BIBSNET_VERSION_PATCH="0"
 ENV BIBSNET_VERSION="${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.${BIBSNET_VERSION_PATCH}"
 
 
@@ -129,20 +129,15 @@ ENV nnUNet_preprocessed="/opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed" \
 RUN mkdir -p /opt/nnUNet/nnUNet_raw_data_base/ /opt/nnUNet/nnUNet_raw_data_base/nnUNet_preprocessed /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet /home/bibsnet/data
 
 RUN wget -O bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz" && \
-    tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz && \
-    tar -xzf Task540_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task540_BIBSnet_Production_T1T2_model.tar.gz
-
-RUN wget -O bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz" && \
-    tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz && \
-    tar -xzf Task541_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task541_BIBSnet_Production_T1only_model.tar.gz
-
-RUN wget -O bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz "https://s3.msi.umn.edu/bibsnet-data/bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz" && \
-    tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz && \
-    tar -xzf Task542_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
-    rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task542_BIBSnet_Production_T2only_model.tar.gz
-
+tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task543_BIBSnet_Production_T1T2_model.tar.gz && \
+tar -xzf Task543_BIBSnet_Production_T1T2_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+rm Task543_BIBSnet_Production_T1T2_model.tar.gz && \
+tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task544_BIBSnet_Production_T2only_model.tar.gz && \
+tar -xzf Task544_BIBSnet_Production_T2only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+rm Task544_BIBSnet_Production_T2only_model.tar.gz && \
+tar -xzf bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T1only_model.tar.gz && \
+tar -xzf Task545_BIBSnet_Production_T1only_model.tar.gz -C /opt/nnUNet/nnUNet_raw_data_base/nnUNet_trained_models/nnUNet --strip-components 1 && \
+rm bibsnet-${BIBSNET_VERSION_MAJOR}.${BIBSNET_VERSION_MINOR}.tar.gz Task545_BIBSnet_Production_T1only_model.tar.gz    
 COPY run.py /home/bibsnet/run.py
 COPY src /home/bibsnet/src
 COPY data /home/bibsnet/data
