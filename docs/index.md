@@ -28,6 +28,20 @@ From [Hendrickson et al. 2023](https://doi.org/10.1101/2023.03.22.533696):
 
 -------------------
 
+## BIBSNet Model Training
+
+The BIBSNet model was trained using the nnU-Net framework ([Isensee et al., 2021](https://doi.org/10.1038/s41592-020-01008-z)), incorporating a large dataset of manually annotated infant MRI scans. To enhance robustness across scanners and acquisition parameters, data augmentation was applied using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg).  
+
+Full methodological details of the training procedure are described in [Hendrickson et al., 2023](https://doi.org/10.1101/2023.03.22.533696).
+
+BIBSNet models are periodically retrained to include new data spanning a wider range of ages and datasets. The information below pertains to the training dataset used for the most recent model release (**v3.6.0**).
+
+### BIBSNet Model v3.6.0
+
+🚧 **COMING SOON** 🚧: *description of datasets used for training (sample sizes, age ranges, etc.).*
+
+-------------------
+
 ## Pipeline Workflow
 ![BIBSnet - Stages for MRI Processing](BIBSNetWorkflowDiagram.drawio.png)
 
