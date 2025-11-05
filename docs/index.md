@@ -47,7 +47,6 @@ BIBSNet contains three separate models trained specifically for a given modality
 | Segmentation count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
 | Augmentation count (images/segs) | 9000/9000 | 9000/9000 | 18000/9000 |
 | Age range | 0-8mo | 0-8mo | 0-8mo |
-| | | | |
 
 
 ## Pipeline Workflow
