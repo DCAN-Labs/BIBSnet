@@ -38,6 +38,18 @@ BIBSNet models are periodically retrained to include new data spanning a wider r
 
 ### BIBSNet Model v3.6.0
 
+BIBSNet contains three separate models trained specifically for a given modality. There is a T1-only, T2-only, and T1+T2 model that are leveraged for nnUNet_predict automatically depending upon a users input data. The most up to date models in v3.6.0 use a more robust training dataset than in previous versions, using a combination of anatomical T1w/T2w images and gold standard segmentations from both the HBCD study and the BOBS repository ([Feczko et al., 2024](https://doi.org/10.1101/2024.10.02.616147)). 1000 image/segmentation pairs for a given age in months are then augmented with SynthSeg to further enhance the training datasets. nnUNet then uses a 5-fold training approach, and the best model from the five folds gets ingested into BIBSNet for each modality, and leveraged for nnUNet_predict. Below is a table outlining the training datasets for each model:
+
+|      | T1-only model | T2-only model | T1+T2 model |
+| :--- | :-----------: | :-----------: | :---------: |
+| T1 count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
+| T2 count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
+| Segmentation count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
+| Augmentation count (images/segs) | 9000/9000 | 9000/9000 | 18000/9000 |
+| Age range | 0-8mo | 0-8mo | 0-8mo |
+
+
+
 🚧 **COMING SOON** 🚧: *description of datasets used for training (sample sizes, age ranges, etc.).*
 
 -------------------
