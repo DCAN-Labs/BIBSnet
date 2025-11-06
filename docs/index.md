@@ -42,11 +42,11 @@ BIBSNet contains three separate models trained specifically for a given modality
 
 |      | T1-only model | T2-only model | T1+T2 model |
 | :--- | :-----------: | :-----------: | :---------: |
-| T1 count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
-| T2 count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
-| Segmentation count (BOBS/HBCD/Total) | X/X/X | X/X/X | X/X/X |
-| Augmentation count (images/segs) | 9000/9000 | 9000/9000 | 18000/9000 |
-| Age range | 0-8mo | 0-8mo | 0-8mo |
+| T1 count (BOBS/HBCD/Total) | 102/961/1063 | 0/0/0 | 102/318/420 |
+| T2 count (BOBS/HBCD/Total) | 0/0/0 | 176/338/514 | 102/318/420 |
+| Segmentation count (BOBS/HBCD/Total) | 102/961/1063 | 176/338/514 | 102/318/420 |
+| Augmentation count (images/segs) | 12000/12000 | 9000/9000 | 18000/9000 |
+| Age range | 0-10, 13mo | 0-8mo | 0-8mo |
 
 
 ## Pipeline Workflow
