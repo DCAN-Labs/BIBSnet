@@ -15,7 +15,7 @@ We introduce BIBSNet (Baby and Infant Brain Segmentation Neural Network), an ope
 
 ## Background & Significance
 
-From [Hendrickson et al. 2023](https://doi.org/10.1101/2023.03.22.533696):
+From [Hendrickson et al. 2025](https://www.biorxiv.org/content/10.1101/2023.03.22.533696v4):
 
 
 >***Objectives:*** *Brain segmentation of infant magnetic resonance (MR) images is vitally important in studying developmental mental health and disease. The infant brain undergoes many changes throughout the first years of postnatal life, making tissue segmentation difficult for most existing algorithms. Here, we introduce a deep neural network BIBSNet (Baby and Infant Brain Segmentation Neural Network), an open-source, community-driven model that relies on data augmentation and a large sample size of manually annotated images to facilitate the production of robust and generalizable brain segmentations.*
@@ -30,15 +30,19 @@ From [Hendrickson et al. 2023](https://doi.org/10.1101/2023.03.22.533696):
 
 ## BIBSNet Model Training
 
-The BIBSNet model was trained using the nnU-Net framework ([Isensee et al., 2021](https://doi.org/10.1038/s41592-020-01008-z)), incorporating a large dataset of manually annotated infant MRI scans. To enhance robustness across scanners and acquisition parameters, data augmentation was applied using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg).  
+The BIBSNet model was trained using the [nnU-Net](https://www.nature.com/articles/s41592-020-01008-z) framework (Isensee et al., 2021) with a large dataset of manually corrected infant MRI brain tissue segmentations. To improve generalizability across scanners and acquisition protocols, data augmentation was performed using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg), generating approximately 1,000 synthetic images per month/age bin.
 
-Full methodological details of the training procedure are described in [Hendrickson et al., 2023](https://doi.org/10.1101/2023.03.22.533696).
+Full methodological details, based on paired T1w and T2w inputs, are described in [Hendrickson et al., 2025](https://doi.org/10.1101/2023.03.22.533696). **In addition to the multimodal (T1w+T2w) model described in this publication, single-modality T1w-only and T2w-only models are also available.** The appropriate model is automatically selected at runtime, depending on which modalities are present in the input data.
 
-BIBSNet models are periodically retrained to include new data spanning a wider range of ages and datasets. The information below pertains to the training dataset used for the most recent model release (**v3.6.0**).
+BIBSNet models are periodically retrained to incorporate new data spanning a wider range of ages and datasets.
+The details below describe the dataset composition used for the most recent model release (**v3.6.0**).
 
 ### BIBSNet Model v3.6.0
+Training data for v3.6.0 include:
 
-BIBSNet contains three separate models trained specifically for a given modality. There is a T1-only, T2-only, and T1+T2 model that are leveraged for nnUNet_predict automatically depending upon a users input data. The most up to date models in v3.6.0 use a more robust training dataset than in previous versions, using a combination of anatomical T1w/T2w images and gold standard segmentations from both the HBCD study and the BOBS repository ([Feczko et al., 2024](https://doi.org/10.1101/2024.10.02.616147)). 1000 image/segmentation pairs for a given age in months are then augmented with SynthSeg to further enhance the training datasets. nnUNet then uses a 5-fold training approach, and the best model from the five folds gets ingested into BIBSNet for each modality, and leveraged for nnUNet_predict. Below is a table outlining the training datasets for each model:
+ - Neonatal ALBERT data ([Gousias et. al 2012](https://doi.org/10.1016/j.neuroimage.2012.05.083)) (as described in Hendrickson et al., 2025)
+ - BCP data (1–8 months old), manually curated as part of the publicly available [BOBs Repository](https://bobsrepository.readthedocs.io/) (as described in Hendrickson et al., 2025, except with an expanded number of participants)
+ - [HBCD Study](https://hbcdstudy.org/) data (0–13 months old)
 
 |      | T1-only model | T2-only model | T1+T2 model |
 | :--- | :-----------: | :-----------: | :---------: |
@@ -74,4 +78,4 @@ Please acknowledge this work using the citation listed on the [Zenodo page](http
 
 Please also acknowledge the associated publication for this tool:
 
->Hendrickson TJ, Reiners P, Moore LA, Perrone AJ, Alexopoulos D, Lee E, Styner M, Kardan O, Chamberlain TA, Mummaneni A, Caldas HA, Bower B, Stoyell S, Martin T, Sung S, Fair E, Uriarte-Lopez J, Rueter AR, Rosenberg MD, Smyser CD, Elison JT, Graham A, Fair DA, Feczko E. (2023). BIBSNet: A Deep Learning Baby Image Brain Segmentation Network for MRI Scans. BioRxiv, 2023.03.22.533696. [https://doi.org/10.1101/2023.03.22.533696](https://doi.org/10.1101/2023.03.22.533696)
+>Hendrickson TJ, Reiners P, Moore LA, Perrone AJ, Alexopoulos D, Lee E, Styner M, Kardan O, Chamberlain TA, Mummaneni A, Caldas HA, Bower B, Stoyell S, Martin T, Sung S, Fair E, Uriarte-Lopez J, Rueter AR, Rosenberg MD, Smyser CD, Elison JT, Graham A, Fair DA, Feczko E. (2025). BIBSNet: A Deep Learning Baby Image Brain Segmentation Network for MRI Scans. BioRxiv, 2023.03.22.533696. [https://doi.org/10.1101/2023.03.22.533696](https://doi.org/10.1101/2023.03.22.533696)
