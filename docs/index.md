@@ -30,7 +30,7 @@ From [Hendrickson et al. 2025](https://www.biorxiv.org/content/10.1101/2023.03.2
 
 ## BIBSNet Model Training
 
-The BIBSNet model was trained using the [nnU-Net](https://www.nature.com/articles/s41592-020-01008-z) framework (Isensee et al., 2021) with a large dataset of manually corrected infant MRI brain tissue segmentations. To improve generalizability across scanners and acquisition protocols, data augmentation was performed using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg), generating approximately 1,000 synthetic images per month/age bin.
+The BIBSNet model was trained using the [nnU-Net](https://www.nature.com/articles/s41592-020-01008-z) framework (Isensee et al., 2021) with a large dataset of manually corrected infant MRI brain tissue segmentations. To improve generalizability across scanners and acquisition protocols, data augmentation was performed using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg), generating 1,000 synthetic images per month age bin per modality (T1w/T2w).
 
 Full methodological details, based on paired T1w and T2w inputs, are described in [Hendrickson et al., 2025](https://doi.org/10.1101/2023.03.22.533696). **In addition to the multimodal (T1w+T2w) model described in this publication, single-modality T1w-only and T2w-only models are also available.** The appropriate model is automatically selected at runtime, depending on which modalities are present in the input data.
 
@@ -40,18 +40,11 @@ The details below describe the dataset composition used for the most recent mode
 ### BIBSNet Model v3.6.0
 Training data for v3.6.0 include:
 
- - Neonatal ALBERT data ([Gousias et. al 2012](https://doi.org/10.1016/j.neuroimage.2012.05.083)) (as described in Hendrickson et al., 2025)
- - BCP data (1–8 months old), manually curated as part of the publicly available [BOBs Repository](https://bobsrepository.readthedocs.io/) (as described in Hendrickson et al., 2025, except with an expanded number of participants)
+ - BCP data (0–8 months old), manually curated as part of the publicly available [BOBs Repository](https://bobsrepository.readthedocs.io/) (as described in Hendrickson et al., 2025, except with an expanded number of participants)
  - [HBCD Study](https://hbcdstudy.org/) data (0–13 months old)
-
-|      | T1-only model | T2-only model | T1+T2 model |
-| :--- | :-----------: | :-----------: | :---------: |
-| T1 count (BOBS/HBCD/Total) | 102/961/1063 | 0/0/0 | 102/318/420 |
-| T2 count (BOBS/HBCD/Total) | 0/0/0 | 176/338/514 | 102/318/420 |
-| Segmentation count (BOBS/HBCD/Total) | 102/961/1063 | 176/338/514 | 102/318/420 |
-| Augmentation count (images/segs) | 12000/12000 | 9000/9000 | 18000/9000 |
-| Age range | 0-10, 13mo | 0-8mo | 0-8mo |
-
+ - SynthSeg images for augmentation: 1,000 per month age bin per modality (N=9000 T1w/T2w for T1w+T2w & T2w-only models; N=12000 T1w for T1w-only model)
+ 
+![](stats.png)
 
 ## Pipeline Workflow
 ![BIBSnet - Stages for MRI Processing](BIBSNetWorkflowDiagram.drawio.png)
