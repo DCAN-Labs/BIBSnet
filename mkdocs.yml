@@ -13,6 +13,9 @@ theme:
 markdown_extensions:
   - toc:
       permalink: '🔗'
+  - admonition
+  - pymdownx.details    
+  - pymdownx.superfences  
 
 plugins:
   - search
