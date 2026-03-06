@@ -14,10 +14,10 @@ docker pull dcanumn/bibsnet:latest
 
 To pull a specific version, replace `latest` (which is connected to the most recent version) with the version number, e.g: 
 ```
-# Singularity command:
+# example Singularity command:
 singularity pull bibsnet.sif docker://dcanumn/bibsnet:release-3.4.2
 
-# Docker command:
+# example Docker command:
 docker pull dcanumn/bibsnet:release-3.4.2
 ```
 
