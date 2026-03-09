@@ -31,7 +31,7 @@ From [Hendrickson et al. 2025](https://www.biorxiv.org/content/10.1101/2023.03.2
 ## BIBSNet Model Training
 
 !!! warning "Known Issue with v3.6.0 T1- and T2-only models"
-    The training and test data used for T1-only model training included a mix of T1- and T2- based data. In addition, the T2-only model, while trained on T2-only data, was trained on a smaller portion of the available data. **Please use the latest version of BIBSNet (v3.7.0) for which the models have been corrected.** Any single modality output segmentations from v3.6.0 will still be comparable to those from v3.7.0, although single modality outputs using the T2-only model in particular show marginal improvements upon internal testing. 
+    The training and test data used for T1-only model training included a mix of T1- and T2- based data. In addition, the T2-only model, while trained on T2-only data, was trained on a smaller portion of the available data. **Please use the latest version of BIBSNet (v3.7.0) for which the models have been corrected.** 
 
 The BIBSNet model was trained using the [nnU-Net](https://www.nature.com/articles/s41592-020-01008-z) framework (Isensee et al., 2021) with a large dataset of manually corrected infant MRI brain tissue segmentations. To improve generalizability across scanners and acquisition protocols, data augmentation was performed using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg), generating 1,000 synthetic images per month age bin per modality (T1w/T2w).
 
