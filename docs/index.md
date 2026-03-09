@@ -30,19 +30,22 @@ From [Hendrickson et al. 2025](https://www.biorxiv.org/content/10.1101/2023.03.2
 
 ## BIBSNet Model Training
 
+!!! warning "Known Issue with v3.6.0 T1- and T2-only models"
+    The training and test data used for T1-only model training included a mix of T1- and T2- based data. In addition, the T2-only model, while trained on T2-only data, was trained on a smaller portion of the available data. **Please use the latest version of BIBSNet (v3.7.0) for which the models have been corrected.** 
+
 The BIBSNet model was trained using the [nnU-Net](https://www.nature.com/articles/s41592-020-01008-z) framework (Isensee et al., 2021) with a large dataset of manually corrected infant MRI brain tissue segmentations. To improve generalizability across scanners and acquisition protocols, data augmentation was performed using [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg), generating 1,000 synthetic images per month age bin per modality (T1w/T2w).
 
 Full methodological details, based on paired T1w and T2w inputs, are described in [Hendrickson et al., 2025](https://doi.org/10.1101/2023.03.22.533696). **In addition to the multimodal (T1w+T2w) model described in this publication, single-modality T1w-only and T2w-only models are also available.** The appropriate model is automatically selected at runtime, depending on which modalities are present in the input data.
 
 BIBSNet models are periodically retrained to incorporate new data spanning a wider range of ages and datasets.
-The details below describe the dataset composition used for the most recent model release (**v3.6.0**).
+The details below describe the dataset composition used for the most recent model release (**v3.7.0**).
 
-### BIBSNet Model v3.6.0
-Training data for v3.6.0 include:
+### BIBSNet Model v3.7.0
+Training data for v3.7.0 include:
 
  - BCP data (0–8 months old), manually curated as part of the publicly available [BOBs Repository](https://bobsrepository.readthedocs.io/) (as described in Hendrickson et al., 2025, except with an expanded number of participants)
- - [HBCD Study](https://hbcdstudy.org/) data (0–13 months old)
- - SynthSeg images for augmentation: 1,000 per month age bin per modality (N=9000 T1w/T2w for T1w+T2w & T2w-only models; N=12000 T1w for T1w-only model)
+ - [HBCD Study](https://hbcdstudy.org/) data (0–14 months old)
+ - SynthSeg images for augmentation: 1,000 per month age bin per modality (N=9000 per modality for T1w+T2w model; N=13000 for T1w-only and T2w-only models)
  
 ![](stats.png)
 
