@@ -1,4 +1,9 @@
 # BIBSnet
+> [!NOTE]
+> **Project status: Stable, with periodic model updates and limited maintenance**
+>
+> BIBSNet remains in active use, but is not under active feature development. Updates generally include new deep learning models retrained with additional data, as well as critical bug fixes, compatibility updates, and security fixes. Feature requests and other issues may receive limited or delayed attention.
+
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7019701.svg)](https://doi.org/10.5281/zenodo.7019701)
 
