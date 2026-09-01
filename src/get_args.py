@@ -30,9 +30,9 @@ def get_params(stage_names):
     :return: Dictionary containing all parameters
     """
     default_end_stage = stage_names[-1]
-    default_fsl_bin_path = "/opt/fsl-6.0.5.1/bin/"
+    default_fsl_bin_path = "/opt/conda/envs/fsl/bin/"
     default_nnUNet_configuration = "3d_fullres"
-    default_nnUNet_predict_path = "/opt/conda/bin/nnUNet_predict"
+    default_nnUNet_predict_path = "/opt/venv/bin/nnUNet_predict"
 
     msg_stage = ("Name of the stage to run {}. By default, this will be "
                  "the {} stage. Valid choices: {}")
